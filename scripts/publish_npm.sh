@@ -220,6 +220,14 @@ process.stdout.write(`${sanitized}-${version}.tgz`);
 NODE
 }
 
+registry_package_path() {
+  local package_name="$1"
+  node - "${package_name}" <<'NODE'
+const packageName = process.argv[2];
+process.stdout.write(encodeURIComponent(packageName));
+NODE
+}
+
 run_with_auto_browser_auth() {
   local auto_open="${AUTO_OPEN_NPM_BROWSER_AUTH:-1}"
   validate_flag_01 "AUTO_OPEN_NPM_BROWSER_AUTH" "${auto_open}"
@@ -381,31 +389,32 @@ publish_package() {
 }
 
 verify_published_version() {
-  local expected_version view_json published_version latest_tag
+  local expected_version package_path dist_tags_json version_json latest_tag resolved_version
   local max_attempts="${CLAWPOOL_NPM_VERIFY_MAX_ATTEMPTS:-20}"
   local sleep_seconds="${CLAWPOOL_NPM_VERIFY_INTERVAL_SECONDS:-3}"
   local attempt
   expected_version="$(read_package_field version)"
+  package_path="$(registry_package_path "${PACKAGE_NAME}")"
 
   for ((attempt = 1; attempt <= max_attempts; attempt++)); do
-    view_json="$(npm view "${PACKAGE_NAME}" version dist-tags --json --registry="${REGISTRY}")" || \
-      fail "failed to query npm registry after publish"
+    dist_tags_json="$(curl -fsS "${REGISTRY}/-/package/${package_path}/dist-tags" 2>/dev/null || true)"
+    version_json="$(curl -fsS "${REGISTRY}/${package_path}/${expected_version}" 2>/dev/null || true)"
 
-    published_version="$(printf '%s' "${view_json}" | node -e 'const data = JSON.parse(require("node:fs").readFileSync(0, "utf8")); process.stdout.write(data.version || "");')"
-    latest_tag="$(printf '%s' "${view_json}" | node -e 'const data = JSON.parse(require("node:fs").readFileSync(0, "utf8")); process.stdout.write(data["dist-tags"]?.latest || "");')"
+    latest_tag="$(printf '%s' "${dist_tags_json}" | node -e 'const input = require("node:fs").readFileSync(0, "utf8").trim(); if (!input) process.exit(0); const data = JSON.parse(input); process.stdout.write(data.latest || "");')"
+    resolved_version="$(printf '%s' "${version_json}" | node -e 'const input = require("node:fs").readFileSync(0, "utf8").trim(); if (!input) process.exit(0); const data = JSON.parse(input); process.stdout.write(data.version || "");')"
 
-    if [[ "${published_version}" == "${expected_version}" && "${latest_tag}" == "${expected_version}" ]]; then
+    if [[ "${resolved_version}" == "${expected_version}" && "${latest_tag}" == "${expected_version}" ]]; then
       log "publish verified after ${attempt} check(s): ${PACKAGE_NAME}@${expected_version} (latest)"
       return
     fi
 
     if (( attempt < max_attempts )); then
-      log "registry not consistent yet (check ${attempt}/${max_attempts}): version=${published_version:-<empty>} latest=${latest_tag:-<empty>}; retry in ${sleep_seconds}s"
+      log "registry not consistent yet (check ${attempt}/${max_attempts}): version=${resolved_version:-<empty>} latest=${latest_tag:-<empty>}; retry in ${sleep_seconds}s"
       sleep "${sleep_seconds}"
     fi
   done
 
-  fail "published version mismatch after ${max_attempts} checks: expected ${expected_version}, got version=${published_version:-<empty>} latest=${latest_tag:-<empty>}"
+  fail "published version mismatch after ${max_attempts} checks: expected ${expected_version}, got version=${resolved_version:-<empty>} latest=${latest_tag:-<empty>}"
 }
 
 main() {
@@ -414,6 +423,7 @@ main() {
   require_cmd git
   require_cmd node
   require_cmd npm
+  require_cmd curl
   parse_args "$@"
 
   assert_git_repo
