@@ -5,7 +5,7 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PUBLISH_SCRIPT="${REPO_DIR}/scripts/publish_npm.sh"
 
 echo "=> Checking working tree status..."
-if [[ -n "$(git -C "${REPO_DIR}" status --short)" ]]; then
+if [[ -n "$(git -C "${REPO_DIR}" status --porcelain=v1 --untracked-files=normal)" ]]; then
   echo "Error: Working tree is not clean. Please commit your changes before publishing."
   exit 1
 fi
