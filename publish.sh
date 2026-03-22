@@ -10,7 +10,7 @@ if [[ -n "$(git -C "${REPO_DIR}" status --porcelain=v1 --untracked-files=normal)
   exit 1
 fi
 
-if [[ ! -x "${PUBLISH_SCRIPT}" ]]; then
+if [[ ! -f "${PUBLISH_SCRIPT}" ]]; then
   echo "Error: Missing publish helper: ${PUBLISH_SCRIPT}"
   exit 1
 fi
