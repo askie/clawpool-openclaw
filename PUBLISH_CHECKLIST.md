@@ -284,18 +284,19 @@
 ## 3. 阶段 B：发布到 npm
 
 - [ ] 统一入口：
-  - 命令：`./scripts/release.sh plugin-clawpool-npm`
-  - 默认行为：自动执行 `npm ci`、`npm test`、`npm run pack:dry-run`
-  - 默认行为：自动执行 patch 升版；可用 `CLAWPOOL_NPM_VERSION_BUMP_LEVEL=minor|major` 覆盖
-  - 可选关闭：`AUTO_BUMP_CLAWPOOL_NPM_VERSION=0 ./scripts/release.sh plugin-clawpool-npm`
+  - 命令：`npm run publish:npm:preview`
+  - 默认行为：自动执行 `npm ci --legacy-peer-deps`、`npm test`、`npm run build`、`npm pack --dry-run --json --ignore-scripts`
+  - 默认行为：默认仅预演，不正式发布；会输出待发布包名、tarball 名和打包文件清单，等待人工确认
+  - 版本策略：默认按 patch 预估待发版本；可用 `CLAWPOOL_NPM_VERSION_BUMP_LEVEL=minor|major` 覆盖，或用 `--version <x.y.z>` 指定精确版本
+  - 正式发布：`npm run publish:npm:release -- --confirm-package <name@version> --confirm-tarball <filename.tgz>`
   - 浏览器授权：当 `npm login` 或 `npm publish` 触发 web auth 时，脚本会自动回车并拉起浏览器；看到授权页面后由人工完成确认
 - [ ] 确认账号具备 `@dhfpub` scope 发布权限
 - [ ] 登录校验：
   - 命令：`npm login --auth-type=web --registry=https://registry.npmjs.org`
   - 命令：`npm whoami --registry=https://registry.npmjs.org`
-- [ ] 更新 `package.json` 版本号
+- [ ] 根据预演结果确认最终发布包名与 tarball 名
 - [ ] 正式发布：
-  - 命令：`npm publish --access public --registry=https://registry.npmjs.org`
+  - 命令：`npm run publish:npm:release -- --confirm-package <name@version> --confirm-tarball <filename.tgz>`
 - [ ] 发布后查询：
   - 命令：`npm view @dhfpub/clawpool-openclaw version dist-tags --registry=https://registry.npmjs.org`
 

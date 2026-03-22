@@ -46,7 +46,9 @@
     "build": "npm run clean && esbuild index.ts --bundle --platform=node --format=esm --target=node20 --outfile=dist/index.js --external:openclaw --external:openclaw/*",
     "pack:dry-run": "npm run build && npm pack --dry-run --ignore-scripts",
     "prepack": "npm run build",
-    "publish:npm": "bash ./scripts/publish_npm.sh",
+    "publish:npm": "npm run publish:npm:preview",
+    "publish:npm:preview": "bash ./scripts/publish_npm.sh",
+    "publish:npm:release": "bash ./scripts/publish_npm.sh --publish",
     "test": "node --test src/*.test.ts"
   },
   "devDependencies": {
