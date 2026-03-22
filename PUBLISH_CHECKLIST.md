@@ -211,7 +211,7 @@
 
 ## 0. 基本信息（每次后续发布必须填写）
 
-- [ ] 插件目录：`openclaw_plugins/clawpool`
+- [ ] 插件目录：`openclaw_plugins/clawpool-openclaw`
 - [ ] npm 包名：`@dhfpub/clawpool-openclaw`
 - [ ] 目标版本（SemVer）：`______`
 - [ ] 发布执行人：`______`
@@ -253,8 +253,8 @@
   - 验收：tarball 文件列表与预期一致，包含 `dist/index.js`、插件清单、README、LICENSE、`skills/**`，无 `src/*.ts`、sourcemap、测试与发布清单
 - [ ] 本地链接安装：
   - 当前 OpenClaw `2026.3.13` 下，优先使用本地 tarball 安装回归而不是目录安装
-  - 命令：`cd openclaw_plugins/clawpool && npm pack --ignore-scripts`
-  - 命令：`openclaw --profile <name> plugins install <repo-root>/openclaw_plugins/clawpool/*.tgz`
+  - 命令：`cd openclaw_plugins/clawpool-openclaw && npm pack --ignore-scripts`
+  - 命令：`openclaw --profile <name> plugins install <repo-root>/openclaw_plugins/clawpool-openclaw/*.tgz`
 - [ ] 启用并体检：
   - 命令：`openclaw --profile <name> plugins enable clawpool`
   - 命令：`openclaw --profile <name> plugins list`

@@ -4,7 +4,7 @@ import { aibotPlugin } from "./src/channel.js";
 import { setAibotRuntime } from "./src/runtime.js";
 
 const plugin = {
-  id: "clawpool-openclaw",
+  id: "clawpool",
   name: "Clawpool OpenClaw",
   description: "Clawpool channel plugin backed by Aibot Agent API",
   configSchema: emptyPluginConfigSchema(),

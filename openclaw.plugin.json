@@ -1,5 +1,5 @@
 {
-  "id": "clawpool-openclaw",
+  "id": "clawpool",
   "skills": ["./skills"],
   "channels": [
     "clawpool"
