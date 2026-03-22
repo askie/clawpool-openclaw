@@ -1,0 +1,4 @@
+interface:
+  display_name: "ClawPool Auth Access"
+  short_description: "Inspect, explain, or bootstrap ClawPool for OpenClaw."
+  default_prompt: "Use $clawpool-auth-access to explain what ClawPool is, inspect whether the local OpenClaw main agent already has a healthy clawpool channel plus the required clawpool-admin and tools setup, reuse the returned user_reply_templates when replying to the user, stop if everything is already configured and tell the user to log in to https://clawpool.dhf.pub/ directly, or otherwise log in, reuse-or-create a provider_type=3 API agent, install or enable @dhfpub/clawpool-openclaw-admin, and return the minimal main-agent setup path including tools.alsoAllow for message, clawpool_group, and clawpool_agent_admin."

@@ -1,0 +1,503 @@
+import type {
+  ChannelAccountSnapshot,
+  ChannelPlugin,
+  OpenClawConfig,
+} from "openclaw/plugin-sdk/core";
+import {
+  applyAccountNameToChannelSection,
+  deleteAccountFromConfigSection,
+  formatPairingApproveHint,
+  setAccountEnabledInConfigSection,
+} from "openclaw/plugin-sdk/core";
+import { waitUntilAbort } from "openclaw/plugin-sdk/channel-lifecycle";
+import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "./account-id.ts";
+import { aibotMessageActions } from "./actions.js";
+import { resolveAibotAccount, listAibotAccountIds, resolveDefaultAibotAccountId, normalizeAibotSessionTarget, redactAibotWsUrl } from "./accounts.js";
+import { clawpoolExecApprovalAdapter } from "./channel-exec-approvals.js";
+import { getActiveAibotClient, requireActiveAibotClient } from "./client.js";
+import { monitorAibotProvider } from "./monitor.js";
+import { buildAibotOutboundEnvelope } from "./outbound-envelope.ts";
+import { DEFAULT_OUTBOUND_TEXT_CHUNK_LIMIT } from "./protocol-text.js";
+import { applySetupAccountConfig, resolveSetupValues } from "./setup-config.js";
+import { resolveAibotOutboundTarget } from "./target-resolver.js";
+import { deliverAibotPayload } from "./aibot-payload-delivery.ts";
+import type { AibotConfig, ResolvedAibotAccount } from "./types.js";
+
+const meta = {
+  id: "clawpool",
+  label: "Clawpool",
+  selectionLabel: "Clawpool",
+  docsPath: "/channels/clawpool",
+  blurb: "Bridge OpenClaw to Clawpool over the ClawPool Agent API WebSocket.",
+  aliases: ["cp", "clowpool"],
+  order: 90,
+};
+
+function normalizeQuotedMessageId(rawInput?: string | null): string | undefined {
+  const raw = String(rawInput ?? "").trim();
+  if (!raw) {
+    return undefined;
+  }
+  if (/^\d+$/.test(raw)) {
+    return raw;
+  }
+  const parsed = raw.split(":").at(-1)?.trim() ?? "";
+  if (/^\d+$/.test(parsed)) {
+    return parsed;
+  }
+  return undefined;
+}
+
+function logAibotOutboundAdapter(message: string): void {
+  console.info(`[clawpool:outbound] ${message}`);
+}
+
+function asAibotChannelConfig(cfg: OpenClawConfig): AibotConfig {
+  return (cfg.channels?.clawpool as AibotConfig | undefined) ?? {};
+}
+
+function buildAccountSnapshot(params: {
+  account: ResolvedAibotAccount;
+  runtime?: ChannelAccountSnapshot;
+}): ChannelAccountSnapshot {
+  const { account, runtime } = params;
+  return {
+    accountId: account.accountId,
+    name: account.name,
+    enabled: account.enabled,
+    configured: account.configured,
+    running: runtime?.running ?? false,
+    connected: runtime?.connected ?? false,
+    lastError: runtime?.lastError ?? null,
+    lastStartAt: runtime?.lastStartAt ?? null,
+    lastStopAt: runtime?.lastStopAt ?? null,
+    lastInboundAt: runtime?.lastInboundAt ?? null,
+    lastOutboundAt: runtime?.lastOutboundAt ?? null,
+    dmPolicy: account.config.dmPolicy ?? "open",
+    tokenSource: account.apiKey ? "config" : "none",
+  };
+}
+
+const AibotConfigSchema = {
+  type: "object",
+  additionalProperties: true,
+  properties: {},
+} as const;
+
+function chunkTextForOutbound(text: string, limit: number): string[] {
+  if (!text) return [];
+  if (limit <= 0 || text.length <= limit) return [text];
+  const chunks: string[] = [];
+  let remaining = text;
+  while (remaining.length > limit) {
+    const window = remaining.slice(0, limit);
+    const lastNewline = window.lastIndexOf("\n");
+    const lastSpace = window.lastIndexOf(" ");
+    const candidateBreak = lastNewline > 0 ? lastNewline : lastSpace;
+    const breakIdx =
+      Number.isFinite(candidateBreak) && candidateBreak > 0 && candidateBreak <= limit
+        ? candidateBreak
+        : limit;
+    const chunk = remaining.slice(0, breakIdx).trimEnd();
+    if (chunk.length > 0) chunks.push(chunk);
+    const brokeOnSeparator = breakIdx < remaining.length && /\s/.test(remaining[breakIdx] ?? "");
+    const nextStart = Math.min(remaining.length, breakIdx + (brokeOnSeparator ? 1 : 0));
+    remaining = remaining.slice(nextStart).trimStart();
+  }
+  if (remaining.length) chunks.push(remaining);
+  return chunks;
+}
+
+export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unknown>> = {
+  id: "clawpool",
+  meta,
+  capabilities: {
+    chatTypes: ["direct", "group"],
+    media: true,
+    reactions: true,
+    unsend: true,
+    threads: false,
+    polls: false,
+    nativeCommands: false,
+    blockStreaming: true,
+  },
+  actions: aibotMessageActions,
+  reload: {
+    configPrefixes: ["channels.clawpool"],
+  },
+  configSchema: {
+    schema: AibotConfigSchema as unknown as Record<string, unknown>,
+  },
+  config: {
+    listAccountIds: (cfg) => listAibotAccountIds(cfg),
+    resolveAccount: (cfg, accountId) => resolveAibotAccount({ cfg, accountId }),
+    defaultAccountId: (cfg) => resolveDefaultAibotAccountId(cfg),
+    setAccountEnabled: ({ cfg, accountId, enabled }) =>
+      setAccountEnabledInConfigSection({
+        cfg,
+        sectionKey: "clawpool",
+        accountId,
+        enabled,
+        allowTopLevel: true,
+      }),
+    deleteAccount: ({ cfg, accountId }) =>
+      deleteAccountFromConfigSection({
+        cfg,
+        sectionKey: "clawpool",
+        accountId,
+        clearBaseFields: [
+          "name",
+          "wsUrl",
+          "agentId",
+          "apiKey",
+          "reconnectMs",
+          "reconnectMaxMs",
+          "reconnectStableMs",
+          "connectTimeoutMs",
+          "keepalivePingMs",
+          "keepaliveTimeoutMs",
+          "upstreamRetryMaxAttempts",
+          "upstreamRetryBaseDelayMs",
+          "upstreamRetryMaxDelayMs",
+          "maxChunkChars",
+          "execApprovals",
+          "dmPolicy",
+          "allowFrom",
+          "defaultTo",
+        ],
+      }),
+    isConfigured: (account) => account.configured,
+    describeAccount: (account, cfg) => {
+      const root = asAibotChannelConfig(cfg);
+      return {
+        accountId: account.accountId,
+        name: account.name,
+        enabled: account.enabled,
+        configured: account.configured,
+        running: false,
+        connected: false,
+        lastError: account.configured
+          ? null
+          : "missing wsUrl/agentId/apiKey (or CLAWPOOL_WS_URL/CLAWPOOL_AGENT_ID/CLAWPOOL_API_KEY)",
+        dmPolicy: account.config.dmPolicy ?? "open",
+        tokenSource: account.apiKey ? "config" : "none",
+        mode: "block_streaming",
+        baseUrl: redactAibotWsUrl(account.wsUrl),
+        allowFrom:
+          account.config.allowFrom?.map((entry) => String(entry).trim()).filter(Boolean) ?? [],
+        nameSource: root.accounts?.[account.accountId]?.name ? "account" : "base",
+      };
+    },
+    resolveAllowFrom: ({ cfg, accountId }) =>
+      resolveAibotAccount({ cfg, accountId }).config.allowFrom?.map((entry) => String(entry)) ??
+      [],
+    formatAllowFrom: ({ allowFrom }) =>
+      allowFrom.map((entry) => String(entry).trim()).filter(Boolean),
+    resolveDefaultTo: ({ cfg, accountId }) =>
+      resolveAibotAccount({ cfg, accountId }).config.defaultTo?.trim() || undefined,
+  },
+  setup: {
+    resolveAccountId: ({ accountId }) => normalizeAccountId(accountId),
+    applyAccountName: ({ cfg, accountId, name }) =>
+      applyAccountNameToChannelSection({
+        cfg,
+        channelKey: "clawpool",
+        accountId,
+        name,
+      }),
+    validateInput: ({ input }) => {
+      const values = resolveSetupValues(input);
+      const hasAny = Boolean(values.apiKey || values.wsUrl || values.agentId);
+      if (!hasAny) {
+        return "clawpool setup requires at least one of: --token(api key), --http-url(ws url), --user-id(agent id)";
+      }
+      return null;
+    },
+    applyAccountConfig: ({ cfg, accountId, input }) => {
+      const values = resolveSetupValues(input);
+      return applySetupAccountConfig({
+        cfg,
+        accountId,
+        name: input.name,
+        values,
+      });
+    },
+  },
+  security: {
+    resolveDmPolicy: ({ cfg, accountId, account }) => {
+      const resolvedAccountId = accountId ?? account.accountId ?? DEFAULT_ACCOUNT_ID;
+      const isAccountScoped = Boolean((cfg.channels?.clawpool as AibotConfig | undefined)?.accounts?.[resolvedAccountId]);
+      const basePath = isAccountScoped
+        ? `channels.clawpool.accounts.${resolvedAccountId}.`
+        : "channels.clawpool.";
+      return {
+        policy: account.config.dmPolicy ?? "open",
+        allowFrom: account.config.allowFrom ?? [],
+        policyPath: `${basePath}dmPolicy`,
+        allowFromPath: basePath,
+        approveHint: formatPairingApproveHint("clawpool"),
+      };
+    },
+  },
+  messaging: {
+    normalizeTarget: (raw) => normalizeAibotSessionTarget(raw),
+    targetResolver: {
+      looksLikeId: (raw) => Boolean(normalizeAibotSessionTarget(raw)),
+      hint: "<session_id|route.sessionKey>",
+    },
+  },
+  execApprovals: clawpoolExecApprovalAdapter,
+  threading: {
+    buildToolContext: ({ context, hasRepliedRef }) => ({
+      currentChannelId: context.To?.trim() || undefined,
+      currentMessageId:
+        context.CurrentMessageId != null ? String(context.CurrentMessageId) : undefined,
+      hasRepliedRef,
+    }),
+  },
+  agentPrompt: {
+    messageToolHints: () => [
+      "- Clawpool `action=unsend` is a silent cleanup action: unsend the target `messageId`, unsend the recall command message when applicable, then end with `NO_REPLY` and do not send any confirmation text. Omit `sessionId`/`to` only when targeting the current Clawpool chat.",
+    ],
+  },
+  outbound: {
+    deliveryMode: "direct",
+    chunker: chunkTextForOutbound,
+    chunkerMode: "markdown",
+    textChunkLimit: DEFAULT_OUTBOUND_TEXT_CHUNK_LIMIT,
+    sendText: async ({ cfg, to, text, accountId, replyToId }) => {
+      const account = resolveAibotAccount({ cfg, accountId });
+      const client = requireActiveAibotClient(account.accountId);
+      const rawTarget = String(to ?? "").trim() || "-";
+      logAibotOutboundAdapter(
+        `sendText target resolve begin accountId=${account.accountId} rawTarget=${rawTarget}`,
+      );
+      let resolvedTarget;
+      try {
+        resolvedTarget = await resolveAibotOutboundTarget({
+          client,
+          accountId: account.accountId,
+          to,
+        });
+      } catch (err) {
+        logAibotOutboundAdapter(
+          `sendText target resolve failed accountId=${account.accountId} rawTarget=${rawTarget} error=${String(err)}`,
+        );
+        throw err;
+      }
+      const sessionId = resolvedTarget.sessionId;
+      const quotedMessageId = normalizeQuotedMessageId(replyToId);
+      logAibotOutboundAdapter(
+        `sendText accountId=${account.accountId} rawTarget=${rawTarget} normalizedTarget=${resolvedTarget.normalizedTarget} resolvedSessionId=${sessionId} resolveSource=${resolvedTarget.resolveSource} textLen=${text.length} quotedMessageId=${quotedMessageId ?? "-"}`,
+      );
+      const ack = await client.sendText(sessionId, text, {
+        quotedMessageId,
+      });
+      logAibotOutboundAdapter(
+        `sendText ack accountId=${account.accountId} resolvedSessionId=${sessionId} messageId=${String(ack.msg_id ?? ack.client_msg_id ?? "-")}`,
+      );
+      return {
+        channel: "clawpool",
+        messageId: String(ack.msg_id ?? ack.client_msg_id ?? Date.now()),
+      };
+    },
+    sendMedia: async ({ cfg, to, text, mediaUrl, accountId, replyToId }) => {
+      const account = resolveAibotAccount({ cfg, accountId });
+      const client = requireActiveAibotClient(account.accountId);
+      const rawTarget = String(to ?? "").trim() || "-";
+      logAibotOutboundAdapter(
+        `sendMedia target resolve begin accountId=${account.accountId} rawTarget=${rawTarget}`,
+      );
+      let resolvedTarget;
+      try {
+        resolvedTarget = await resolveAibotOutboundTarget({
+          client,
+          accountId: account.accountId,
+          to,
+        });
+      } catch (err) {
+        logAibotOutboundAdapter(
+          `sendMedia target resolve failed accountId=${account.accountId} rawTarget=${rawTarget} error=${String(err)}`,
+        );
+        throw err;
+      }
+      const sessionId = resolvedTarget.sessionId;
+      if (!mediaUrl) {
+        throw new Error("clawpool sendMedia requires mediaUrl");
+      }
+      const quotedMessageId = normalizeQuotedMessageId(replyToId);
+      logAibotOutboundAdapter(
+        `sendMedia accountId=${account.accountId} rawTarget=${rawTarget} normalizedTarget=${resolvedTarget.normalizedTarget} resolvedSessionId=${sessionId} resolveSource=${resolvedTarget.resolveSource} textLen=${(text ?? "").length} quotedMessageId=${quotedMessageId ?? "-"} mediaUrl=${mediaUrl}`,
+      );
+      const ack = await client.sendMedia(sessionId, mediaUrl, text ?? "", {
+        quotedMessageId,
+      });
+      logAibotOutboundAdapter(
+        `sendMedia ack accountId=${account.accountId} resolvedSessionId=${sessionId} messageId=${String(ack.msg_id ?? ack.client_msg_id ?? "-")}`,
+      );
+      return {
+        channel: "clawpool",
+        messageId: String(ack.msg_id ?? ack.client_msg_id ?? Date.now()),
+      };
+    },
+    sendPayload: async ({ cfg, to, payload, accountId, replyToId }) => {
+      const account = resolveAibotAccount({ cfg, accountId });
+      const client = requireActiveAibotClient(account.accountId);
+      const rawTarget = String(to ?? "").trim() || "-";
+      logAibotOutboundAdapter(
+        `sendPayload target resolve begin accountId=${account.accountId} rawTarget=${rawTarget}`,
+      );
+      let resolvedTarget;
+      try {
+        resolvedTarget = await resolveAibotOutboundTarget({
+          client,
+          accountId: account.accountId,
+          to,
+        });
+      } catch (err) {
+        logAibotOutboundAdapter(
+          `sendPayload target resolve failed accountId=${account.accountId} rawTarget=${rawTarget} error=${String(err)}`,
+        );
+        throw err;
+      }
+      const sessionId = resolvedTarget.sessionId;
+      const quotedMessageId = normalizeQuotedMessageId(replyToId);
+      const envelope = buildAibotOutboundEnvelope(payload);
+      logAibotOutboundAdapter(
+        `sendPayload accountId=${account.accountId} rawTarget=${rawTarget} normalizedTarget=${resolvedTarget.normalizedTarget} resolvedSessionId=${sessionId} resolveSource=${resolvedTarget.resolveSource} textLen=${envelope.text.length} quotedMessageId=${quotedMessageId ?? "-"} cardKind=${envelope.cardKind ?? "none"}`,
+      );
+      const delivery = await deliverAibotPayload({
+        payload,
+        text: envelope.text,
+        extra: envelope.extra,
+        client,
+        account,
+        sessionId,
+        quotedMessageId,
+      });
+      if (!delivery.sent) {
+        throw new Error("clawpool sendPayload produced no visible delivery");
+      }
+      const messageId = delivery.firstMessageId ?? `clawpool_payload_${Date.now()}`;
+      logAibotOutboundAdapter(
+        `sendPayload ack accountId=${account.accountId} resolvedSessionId=${sessionId} messageId=${messageId} cardKind=${envelope.cardKind ?? "none"}`,
+      );
+      return {
+        channel: "clawpool",
+        messageId,
+      };
+    },
+  },
+  status: {
+    defaultRuntime: {
+      accountId: DEFAULT_ACCOUNT_ID,
+      running: false,
+      connected: false,
+      lastError: null,
+      lastStartAt: null,
+      lastStopAt: null,
+      lastInboundAt: null,
+      lastOutboundAt: null,
+    },
+    buildChannelSummary: ({ snapshot }) => ({
+      configured: snapshot.configured ?? false,
+      running: snapshot.running ?? false,
+      connected: snapshot.connected ?? false,
+      lastError: snapshot.lastError ?? null,
+      lastInboundAt: snapshot.lastInboundAt ?? null,
+      lastOutboundAt: snapshot.lastOutboundAt ?? null,
+    }),
+    buildAccountSnapshot: ({ account, runtime }) => buildAccountSnapshot({ account, runtime }),
+    collectStatusIssues: (accounts) =>
+      accounts.flatMap((account) => {
+        if (!account.enabled) {
+          return [];
+        }
+        if (!account.configured) {
+          return [
+            {
+              channel: "clawpool",
+              accountId: account.accountId,
+              kind: "config",
+              message:
+                "Clawpool account is not configured. Set wsUrl/agentId/apiKey (or CLAWPOOL_WS_URL/CLAWPOOL_AGENT_ID/CLAWPOOL_API_KEY).",
+            },
+          ];
+        }
+        if (account.running && !account.connected) {
+          return [
+            {
+              channel: "clawpool",
+              accountId: account.accountId,
+              kind: "runtime",
+              message: "Clawpool channel is running but not connected.",
+            },
+          ];
+        }
+        if (typeof account.lastError === "string" && account.lastError.trim()) {
+          return [
+            {
+              channel: "clawpool",
+              accountId: account.accountId,
+              kind: "runtime",
+              message: account.lastError,
+            },
+          ];
+        }
+        return [];
+      }),
+  },
+  gateway: {
+    startAccount: async (ctx) => {
+      const account = ctx.account;
+      if (!account.configured) {
+        throw new Error(
+          `clawpool account "${account.accountId}" not configured: require wsUrl + agentId + apiKey`,
+        );
+      }
+      ctx.log?.info?.(
+        `[${account.accountId}] starting clawpool monitor (${redactAibotWsUrl(account.wsUrl)})`,
+      );
+      ctx.setStatus({
+        ...ctx.getStatus(),
+        running: true,
+        connected: false,
+        lastError: null,
+        lastStartAt: Date.now(),
+      });
+      const monitor = await monitorAibotProvider({
+        account,
+        config: ctx.cfg,
+        runtime: ctx.runtime,
+        abortSignal: ctx.abortSignal,
+        statusSink: (patch) => {
+          ctx.setStatus({
+            ...ctx.getStatus(),
+            ...patch,
+          });
+        },
+      });
+      try {
+        await waitUntilAbort(ctx.abortSignal);
+      } finally {
+        monitor.stop();
+        ctx.setStatus({
+          ...ctx.getStatus(),
+          running: false,
+          connected: false,
+          lastStopAt: Date.now(),
+        });
+      }
+    },
+    stopAccount: async (ctx) => {
+      const client = getActiveAibotClient(ctx.accountId);
+      client?.stop();
+      ctx.setStatus({
+        ...ctx.getStatus(),
+        running: false,
+        connected: false,
+        lastStopAt: Date.now(),
+      });
+    },
+  },
+};

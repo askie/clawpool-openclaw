@@ -1,0 +1,31 @@
+#!/usr/bin/expect -f
+
+set timeout -1
+
+if {$argc < 1} {
+  puts stderr "usage: npm_auto_browser_auth.expect <command> [args...]"
+  exit 64
+}
+
+set cmd [lindex $argv 0]
+set args [lrange $argv 1 end]
+
+spawn $cmd {*}$args
+
+expect {
+  -re {Press ENTER to open in the browser\.\.\.} {
+    send -- "\r"
+    exp_continue
+  }
+  eof
+}
+
+set wait_status [wait]
+set os_error [lindex $wait_status 2]
+set exit_code [lindex $wait_status 3]
+
+if {$os_error != 0} {
+  exit 1
+}
+
+exit $exit_code

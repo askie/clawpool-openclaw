@@ -1,0 +1,12 @@
+{
+  "id": "clawpool-openclaw",
+  "skills": ["./skills"],
+  "channels": [
+    "clawpool"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
