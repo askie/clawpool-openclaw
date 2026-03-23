@@ -6,7 +6,6 @@ import type {
 import {
   applyAccountNameToChannelSection,
   deleteAccountFromConfigSection,
-  formatPairingApproveHint,
   setAccountEnabledInConfigSection,
 } from "openclaw/plugin-sdk/core";
 import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "./account-id.ts";
@@ -243,7 +242,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
         allowFrom: account.config.allowFrom ?? [],
         policyPath: `${basePath}dmPolicy`,
         allowFromPath: basePath,
-        approveHint: formatPairingApproveHint("clawpool"),
+        approveHint: "openclaw pairing approve clawpool <code>",
       };
     },
   },
