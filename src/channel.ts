@@ -9,7 +9,6 @@ import {
   formatPairingApproveHint,
   setAccountEnabledInConfigSection,
 } from "openclaw/plugin-sdk/core";
-import { waitUntilAbort } from "openclaw/plugin-sdk";
 import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "./account-id.ts";
 import { aibotMessageActions } from "./actions.js";
 import { resolveAibotAccount, listAibotAccountIds, resolveDefaultAibotAccountId, normalizeAibotSessionTarget, redactAibotWsUrl } from "./accounts.js";
@@ -83,6 +82,15 @@ const AibotConfigSchema = {
   additionalProperties: true,
   properties: {},
 } as const;
+
+function waitForAbort(signal: AbortSignal): Promise<void> {
+  if (signal.aborted) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    signal.addEventListener("abort", () => resolve(), { once: true });
+  });
+}
 
 function chunkTextForOutbound(text: string, limit: number): string[] {
   if (!text) return [];
@@ -478,7 +486,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
         },
       });
       try {
-        await waitUntilAbort(ctx.abortSignal);
+        await waitForAbort(ctx.abortSignal);
       } finally {
         monitor.stop();
         ctx.setStatus({

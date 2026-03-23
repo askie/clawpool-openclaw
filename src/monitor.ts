@@ -1,8 +1,5 @@
 import type { OpenClawConfig, PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { OutboundReplyPayload, RuntimeEnv } from "openclaw/plugin-sdk";
-import {
-  createReplyPrefixOptions,
-} from "openclaw/plugin-sdk";
 import type { ResolvedAibotAccount, AibotEventMsgPayload, AibotEventStopPayload } from "./types.js";
 import { AibotWsClient, clearActiveAibotClient, setActiveAibotClient } from "./client.js";
 import type { GuardedReplyText } from "./reply-text-guard.js";
@@ -655,12 +652,7 @@ async function processEvent(params: {
 
     // Outbound replies should anchor to the trigger message itself.
     const outboundQuotedMessageId = normalizeNumericMessageId(event.msg_id);
-    const { onModelSelected, ...prefixOptions } = createReplyPrefixOptions({
-      cfg: config,
-      agentId: route.agentId,
-      channel: "clawpool",
-      accountId: account.accountId,
-    });
+    const prefixOptions = {};
 
     const tableMode = core.channel.text.resolveMarkdownTableMode({
       cfg: config,
@@ -961,7 +953,6 @@ async function processEvent(params: {
         },
         replyOptions: {
           abortSignal: runAbortController.signal,
-          onModelSelected,
         },
       });
       runtime.log(
