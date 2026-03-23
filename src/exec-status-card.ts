@@ -1,4 +1,4 @@
-import type { OutboundReplyPayload } from "openclaw/plugin-sdk/reply-payload";
+import type { OutboundReplyPayload } from "openclaw/plugin-sdk";
 
 const BIZ_CARD_EXTRA_KEY = "biz_card";
 const BIZ_CARD_VERSION = 1;

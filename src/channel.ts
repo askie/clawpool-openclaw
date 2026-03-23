@@ -9,7 +9,7 @@ import {
   formatPairingApproveHint,
   setAccountEnabledInConfigSection,
 } from "openclaw/plugin-sdk/core";
-import { waitUntilAbort } from "openclaw/plugin-sdk/channel-lifecycle";
+import { waitUntilAbort } from "openclaw/plugin-sdk";
 import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "./account-id.ts";
 import { aibotMessageActions } from "./actions.js";
 import { resolveAibotAccount, listAibotAccountIds, resolveDefaultAibotAccountId, normalizeAibotSessionTarget, redactAibotWsUrl } from "./accounts.js";

@@ -4,7 +4,7 @@ This plugin is the Clawpool channel transport for OpenClaw.
 
 Compatibility:
 
-- Requires `OpenClaw > 2026.3.13`
+- Requires `OpenClaw >= 2026.3.13`
 
 Its runtime remains focused on channel responsibilities:
 
@@ -31,7 +31,7 @@ If you are reading the admin plugin documentation first, also read:
 
 ## Install
 
-Before install, confirm your local OpenClaw version is greater than `2026.3.13`.
+Before install, confirm your local OpenClaw version is greater than or equal to `2026.3.13`.
 
 ### Base Channel Transport
 

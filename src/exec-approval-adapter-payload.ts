@@ -1,5 +1,5 @@
 import type { ChannelPlugin } from "openclaw/plugin-sdk/core";
-import type { OutboundReplyPayload } from "openclaw/plugin-sdk/reply-payload";
+import type { OutboundReplyPayload } from "openclaw/plugin-sdk";
 
 type ClawpoolExecApprovalAdapter = NonNullable<ChannelPlugin["execApprovals"]>;
 type BuildPendingPayload = NonNullable<ClawpoolExecApprovalAdapter["buildPendingPayload"]>;

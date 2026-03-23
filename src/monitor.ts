@@ -1,9 +1,8 @@
 import type { OpenClawConfig, PluginRuntime } from "openclaw/plugin-sdk/core";
-import type { OutboundReplyPayload } from "openclaw/plugin-sdk/reply-payload";
-import type { RuntimeEnv } from "openclaw/plugin-sdk/runtime-env";
+import type { OutboundReplyPayload, RuntimeEnv } from "openclaw/plugin-sdk";
 import {
   createReplyPrefixOptions,
-} from "openclaw/plugin-sdk/channel-runtime";
+} from "openclaw/plugin-sdk";
 import type { ResolvedAibotAccount, AibotEventMsgPayload, AibotEventStopPayload } from "./types.js";
 import { AibotWsClient, clearActiveAibotClient, setActiveAibotClient } from "./client.js";
 import type { GuardedReplyText } from "./reply-text-guard.js";

@@ -2,7 +2,7 @@ import {
   jsonResult,
   readStringParam,
   type ChannelMessageActionAdapter,
-} from "openclaw/plugin-sdk/channel-runtime";
+} from "openclaw/plugin-sdk";
 import { listAibotAccountIds, resolveAibotAccount } from "./accounts.js";
 import { requireActiveAibotClient } from "./client.js";
 import { markSilentUnsendCompleted } from "./silent-unsend-completion.js";

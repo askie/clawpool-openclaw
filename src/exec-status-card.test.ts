@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import type { OutboundReplyPayload } from "openclaw/plugin-sdk/reply-payload";
+import type { OutboundReplyPayload } from "openclaw/plugin-sdk";
 import {
   buildExecApprovalResolutionReply,
   buildExecStatusCardEnvelope,
