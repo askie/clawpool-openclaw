@@ -1,6 +1,6 @@
 {
   "name": "@dhfpub/clawpool-openclaw",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "OpenClaw channel plugin for ClawPool",
   "type": "module",
   "main": "./dist/index.js",
