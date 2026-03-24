@@ -1,5 +1,5 @@
 import type { ChannelPlugin } from "openclaw/plugin-sdk/core";
-import type { OutboundReplyPayload } from "openclaw/plugin-sdk";
+import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
 
 type ClawpoolExecApprovalAdapter = NonNullable<ChannelPlugin["execApprovals"]>;
 type BuildPendingPayload = NonNullable<ClawpoolExecApprovalAdapter["buildPendingPayload"]>;
@@ -15,6 +15,7 @@ export type ClawpoolExecApprovalChannelData = {
   node_id?: string;
   cwd?: string;
   expires_in_seconds?: number;
+  expires_at_ms?: number;
   warning_text?: string;
 };
 
@@ -192,6 +193,7 @@ export function buildClawpoolPendingExecApprovalPayload(
           node_id: nodeId,
           cwd,
           expires_in_seconds: expiresInSeconds,
+          expires_at_ms: Math.floor(params.request.expiresAtMs),
         }),
       },
     },

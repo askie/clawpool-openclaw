@@ -1,4 +1,4 @@
-import type { OutboundReplyPayload } from "openclaw/plugin-sdk";
+import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
 
 const BIZ_CARD_EXTRA_KEY = "biz_card";
 const BIZ_CARD_VERSION = 1;
@@ -15,6 +15,7 @@ type ExecApprovalCardPayload = {
   node_id?: string;
   cwd?: string;
   expires_in_seconds?: number;
+  expires_at_ms?: number;
   warning_text?: string;
   allowed_decisions: ExecApprovalDecision[];
 };
@@ -32,6 +33,7 @@ type StructuredClawpoolExecApproval = {
   nodeId?: string;
   cwd?: string;
   expiresInSeconds?: number;
+  expiresAtMs?: number;
   warningText?: string;
 };
 
@@ -60,6 +62,7 @@ export type ExecApprovalCardDiagnostic = {
   nodeId?: string;
   cwd?: string;
   expiresInSeconds?: number;
+  expiresAtMs?: number;
   textPrefix: string;
 };
 
@@ -146,6 +149,7 @@ function getStructuredClawpoolExecApproval(
   }
 
   const expiresValue = Number(record.expires_in_seconds);
+  const expiresAtMsValue = Number(record.expires_at_ms);
   return {
     approvalCommandId,
     command,
@@ -154,6 +158,8 @@ function getStructuredClawpoolExecApproval(
     cwd: normalizeText(record.cwd) || undefined,
     expiresInSeconds:
       Number.isFinite(expiresValue) && expiresValue >= 0 ? Math.floor(expiresValue) : undefined,
+    expiresAtMs:
+      Number.isFinite(expiresAtMsValue) && expiresAtMsValue > 0 ? Math.floor(expiresAtMsValue) : undefined,
     warningText: normalizeText(record.warning_text) || undefined,
   };
 }
@@ -221,6 +227,7 @@ export function diagnoseExecApprovalPayload(payload: OutboundReplyPayload): Exec
       nodeId: structured?.nodeId,
       cwd: structured?.cwd,
       expiresInSeconds: structured?.expiresInSeconds,
+      expiresAtMs: structured?.expiresAtMs,
       textPrefix,
     };
   }
@@ -256,6 +263,7 @@ export function diagnoseExecApprovalPayload(payload: OutboundReplyPayload): Exec
       nodeId: structured.nodeId,
       cwd: structured.cwd,
       expiresInSeconds: structured.expiresInSeconds,
+      expiresAtMs: structured.expiresAtMs,
       textPrefix,
     };
   }
@@ -275,6 +283,7 @@ export function diagnoseExecApprovalPayload(payload: OutboundReplyPayload): Exec
       nodeId: structured.nodeId,
       cwd: structured.cwd,
       expiresInSeconds: structured.expiresInSeconds,
+      expiresAtMs: structured.expiresAtMs,
       textPrefix,
     };
   }
@@ -295,6 +304,7 @@ export function diagnoseExecApprovalPayload(payload: OutboundReplyPayload): Exec
       nodeId: structured.nodeId,
       cwd: structured.cwd,
       expiresInSeconds: structured.expiresInSeconds,
+      expiresAtMs: structured.expiresAtMs,
       textPrefix,
     };
   }
@@ -314,6 +324,7 @@ export function diagnoseExecApprovalPayload(payload: OutboundReplyPayload): Exec
       nodeId: structured.nodeId,
       cwd: structured.cwd,
       expiresInSeconds: structured.expiresInSeconds,
+      expiresAtMs: structured.expiresAtMs,
       textPrefix,
     };
   }
@@ -333,6 +344,7 @@ export function diagnoseExecApprovalPayload(payload: OutboundReplyPayload): Exec
     nodeId: structured.nodeId,
     cwd: structured.cwd,
     expiresInSeconds: structured.expiresInSeconds,
+    expiresAtMs: structured.expiresAtMs,
     textPrefix,
   };
 }
@@ -376,6 +388,9 @@ export function buildExecApprovalCardEnvelope(
   }
   if (structured.expiresInSeconds !== undefined) {
     cardPayload.expires_in_seconds = structured.expiresInSeconds;
+  }
+  if (structured.expiresAtMs !== undefined) {
+    cardPayload.expires_at_ms = structured.expiresAtMs;
   }
 
   return {

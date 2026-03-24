@@ -163,6 +163,7 @@ test("buildPendingPayload emits official execApproval metadata plus namespaced c
           host: "node",
           node_id: "node-9",
           cwd: "/srv/app",
+          expires_at_ms: 46000,
           expires_in_seconds: 45,
         },
       },
@@ -185,6 +186,7 @@ test("buildResolvedPayload emits namespaced clawpool status payload", () => {
       ts: 2_000,
       request: {
         host: "gateway",
+        command: "echo test",
       },
     },
   });

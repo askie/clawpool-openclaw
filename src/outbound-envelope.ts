@@ -1,4 +1,4 @@
-import type { OutboundReplyPayload } from "openclaw/plugin-sdk";
+import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
 import {
   buildExecApprovalCardEnvelope,
   diagnoseExecApprovalPayload,

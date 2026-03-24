@@ -1,5 +1,5 @@
 import type { OpenClawConfig, PluginRuntime } from "openclaw/plugin-sdk/core";
-import type { OutboundReplyPayload, RuntimeEnv } from "openclaw/plugin-sdk";
+import type { ReplyPayload as OutboundReplyPayload, RuntimeEnv } from "openclaw/plugin-sdk";
 import type { ResolvedAibotAccount, AibotEventMsgPayload, AibotEventStopPayload } from "./types.js";
 import { AibotWsClient, clearActiveAibotClient, setActiveAibotClient } from "./client.js";
 import type { GuardedReplyText } from "./reply-text-guard.js";
@@ -978,11 +978,12 @@ async function processEvent(params: {
         reportEventResult("responded");
       }
 
-      if (retryGuardedText && !attemptHasOutbound) {
+      const finalRetryGuardedText = retryGuardedText as GuardedReplyText | null;
+      if (finalRetryGuardedText && !attemptHasOutbound) {
         if (attempt < retryPolicy.maxAttempts) {
           const delayMs = resolveUpstreamRetryDelayMs(retryPolicy, attempt);
           runtime.error(
-            `[clawpool:${account.accountId}] upstream guarded reply retry ${baseLogContext} code=${retryGuardedText.code} attempt=${attemptLabel} next=${attempt + 1}/${retryPolicy.maxAttempts} delayMs=${delayMs}`,
+            `[clawpool:${account.accountId}] upstream guarded reply retry ${baseLogContext} code=${finalRetryGuardedText.code} attempt=${attemptLabel} next=${attempt + 1}/${retryPolicy.maxAttempts} delayMs=${delayMs}`,
           );
           if (delayMs > 0) {
             await sleep(delayMs);
@@ -993,11 +994,11 @@ async function processEvent(params: {
         outboundCounter++;
         const stableClientMsgId = `reply_${messageSid}_${outboundCounter}`;
         runtime.error(
-          `[clawpool:${account.accountId}] upstream guarded reply retry exhausted ${baseLogContext} code=${retryGuardedText.code} attempts=${retryPolicy.maxAttempts}`,
+          `[clawpool:${account.accountId}] upstream guarded reply retry exhausted ${baseLogContext} code=${finalRetryGuardedText.code} attempts=${retryPolicy.maxAttempts}`,
         );
         const didSendMessage = await deliverAibotMessage({
           payload: {
-            text: retryGuardedText.userText,
+            text: finalRetryGuardedText.userText,
           },
           client,
           account,

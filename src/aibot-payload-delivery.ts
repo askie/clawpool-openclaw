@@ -1,8 +1,8 @@
-import type { OutboundReplyPayload } from "openclaw/plugin-sdk";
+import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
 import {
   resolveOutboundMediaUrls,
   sendMediaWithLeadingCaption,
-} from "openclaw/plugin-sdk";
+} from "openclaw/plugin-sdk/reply-payload";
 import type { AibotWsClient } from "./client.js";
 import { buildAibotTextSendPlan } from "./outbound-text-delivery-plan.ts";
 import {
