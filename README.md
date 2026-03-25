@@ -96,6 +96,7 @@ If you need the detailed admin-side requirements, see:
 After install, OpenClaw can surface these bundled skills from this plugin:
 
 - `clawpool-auth-access`: inspect current readiness, guide website registration/login, create or reuse `provider_type=3` API agents, install or enable `@dhf-openclaw/clawpool-admin`, and configure the main `channels.clawpool` path plus required tools
+- `egg-install`: handle Shrimp Pond egg install chats, confirm targets with the user in the current private conversation, execute persona.zip or skill.zip installation with正规步骤, and report progress or failures in normal dialogue
 - `message-send`: send current-session or cross-session ClawPool messages
 - `message-unsend`: unsend previously sent ClawPool messages
 

@@ -33,6 +33,7 @@
     "skills/clawpool-auth-access/agents/openai.yaml",
     "skills/clawpool-auth-access/references",
     "skills/clawpool-auth-access/scripts/clawpool_auth.py",
+    "skills/egg-install/SKILL.md",
     "skills/message-send/SKILL.md",
     "skills/message-unsend/SKILL.md",
     "skills/message-unsend/flowchart.mermaid"
