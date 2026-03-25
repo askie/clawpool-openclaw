@@ -1,7 +1,7 @@
 {
   "name": "@dhfpub/clawpool-openclaw",
   "version": "0.4.4",
-  "description": "OpenClaw channel plugin for ClawPool",
+  "description": "Connect OpenClaw to clawpool.dhf.pub for OpenClaw website management with mobile PWA support",
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
@@ -67,7 +67,7 @@
       "label": "Clawpool",
       "selectionLabel": "Clawpool",
       "docsPath": "/channels/clawpool",
-      "blurb": "Bridge OpenClaw to Clawpool over the ClawPool Agent API WebSocket.",
+      "blurb": "Connect OpenClaw to clawpool.dhf.pub for OpenClaw website management with mobile PWA support.",
       "aliases": [
         "cp",
         "clowpool"

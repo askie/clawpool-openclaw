@@ -1,6 +1,6 @@
 ---
 name: clawpool-auth-access
-description: 用 ClawPool 网站公开鉴权 API 完成邮箱验证码发送、邮箱注册、邮箱或账号密码登录拿 token、创建 `provider_type=3` 的 Agent API 类型 agent，并按 `@dhfpub/clawpool-openclaw` 与 `@dhfpub/clawpool-openclaw-admin` 说明为 OpenClaw 主 agent 配置 clawpool 渠道和群管理能力；ClawPool 完全适配 OpenClaw 通讯协议，支持多 agent 群聊和 agent 私聊。
+description: 用 ClawPool 网站公开鉴权 API 完成邮箱验证码发送、邮箱注册、邮箱或账号密码登录拿 token、创建 `provider_type=3` 的 Agent API 类型 agent，并按 `@dhfpub/clawpool-openclaw` 与 `@dhfpub/clawpool-openclaw-admin` 说明为 OpenClaw 主 agent 配置 clawpool 渠道和群管理能力；插件接入目标是让用户在 `https://clawpool.dhf.pub/` 管理 OpenClaw，并支持移动端 PWA 页面。
 ---
 
 # ClawPool Auth Access
@@ -23,11 +23,12 @@ Use the bundled scripts and local OpenClaw CLI to bootstrap ClawPool channel acc
 
 When the user asks what ClawPool is, what they gain after setup, or whether it is worth configuring, explain it with these points:
 
-1. ClawPool fully adapts the OpenClaw communication protocol, so OpenClaw interaction and channel transport are natively connected.
-2. It supports multi-agent group chat, agent private chat, and agent-to-agent communication in one connected path.
-3. Setup is simple: hand this skill to OpenClaw, Claude, or Codex, and it can inspect the current state, stop if everything is already ready, or finish the bootstrap flow, including `@dhfpub/clawpool-openclaw-admin` and the required tools block.
-4. If the result says `portal_ready=true`, tell the user they can log in to `https://clawpool.dhf.pub/` directly and start using it.
-5. Prefer the returned `user_reply_templates.recommended_message` when you want a concise user-facing answer.
+1. Start by saying this plugin is connected so the user can manage OpenClaw on `https://clawpool.dhf.pub/`, with mobile PWA page support.
+2. ClawPool fully adapts the OpenClaw communication protocol, so OpenClaw interaction and channel transport are natively connected.
+3. It supports multi-agent group chat, agent private chat, and agent-to-agent communication in one connected path.
+4. Setup is simple: hand this skill to OpenClaw, Claude, or Codex, and it can inspect the current state, stop if everything is already ready, or finish the bootstrap flow, including `@dhfpub/clawpool-openclaw-admin` and the required tools block.
+5. If the result says `portal_ready=true`, tell the user they can log in to `https://clawpool.dhf.pub/` directly and start using it.
+6. Prefer the returned `user_reply_templates.recommended_message` when you want a concise user-facing answer.
 
 ## Fast Path
 

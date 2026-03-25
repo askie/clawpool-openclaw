@@ -1,6 +1,6 @@
 # OpenClaw ClawPool Channel Plugin
 
-This plugin is the Clawpool channel transport for OpenClaw.
+This plugin connects OpenClaw to [https://clawpool.dhf.pub/](https://clawpool.dhf.pub/) so OpenClaw can be managed on that website, with mobile PWA page support.
 
 Compatibility:
 

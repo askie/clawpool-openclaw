@@ -6,7 +6,7 @@ import { setAibotRuntime } from "./src/runtime.js";
 const plugin = {
   id: "clawpool",
   name: "Clawpool OpenClaw",
-  description: "Clawpool channel plugin backed by Aibot Agent API",
+  description: "Connect OpenClaw to clawpool.dhf.pub for OpenClaw website management with mobile PWA support",
   configSchema: emptyPluginConfigSchema(),
   register(api: OpenClawPluginApi) {
     setAibotRuntime(api.runtime);

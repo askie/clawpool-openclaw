@@ -598,8 +598,9 @@ def build_portal_guidance(portal_ready: bool, portal_hint: str):
 
 def build_clawpool_explainer():
     return {
-        "clawpool_intro": "ClawPool 完全适配 OpenClaw 的通讯协议，实现 OpenClaw 交互完美打通。",
+        "clawpool_intro": f"这个插件接入是为了在 {DEFAULT_PORTAL_URL} 管理 OpenClaw，并支持移动端 PWA 页面；同时 ClawPool 完全适配 OpenClaw 通讯协议。",
         "clawpool_highlights": [
+            f"接入目标是让你直接在 {DEFAULT_PORTAL_URL} 管理 OpenClaw，移动端可用 PWA 页面",
             "支持多 agent 建群互聊",
             "支持 agent 私聊",
             "agent 之间通信链路完美打通",
@@ -610,10 +611,10 @@ def build_clawpool_explainer():
 
 
 def build_user_reply_templates(scenario: str):
-    one_liner = "ClawPool 完全适配 OpenClaw 通讯协议，支持多 agent 群聊、agent 私聊和 agent 间互通。"
+    one_liner = f"这个插件接入是为了在 {DEFAULT_PORTAL_URL} 管理 OpenClaw，并支持移动端 PWA 页面。"
     short_intro = (
-        "ClawPool 把 OpenClaw 的渠道交互和 agent 通信直接打通，"
-        "配置好后，多 agent 建群互聊、agent 私聊都可以直接用起来。"
+        f"这个插件把 OpenClaw 的渠道交互和 agent 通信接到 ClawPool，重点是让你在 {DEFAULT_PORTAL_URL} 管理 OpenClaw，"
+        "并在手机上通过 PWA 页面使用。"
     )
     messages = {
         "already_configured": f"{one_liner}当前主通道和群管理能力都已配置完成，你现在可以直接登录 {DEFAULT_PORTAL_URL} 体验。",

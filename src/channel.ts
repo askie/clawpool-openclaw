@@ -26,7 +26,7 @@ const meta = {
   label: "Clawpool",
   selectionLabel: "Clawpool",
   docsPath: "/channels/clawpool",
-  blurb: "Bridge OpenClaw to Clawpool over the ClawPool Agent API WebSocket.",
+  blurb: "Connect OpenClaw to clawpool.dhf.pub for OpenClaw website management with mobile PWA support.",
   aliases: ["cp", "clowpool"],
   order: 90,
 };
