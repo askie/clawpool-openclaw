@@ -1,19 +1,19 @@
 # OpenClaw Setup
 
-This flow follows the current `@dhfpub/clawpool-openclaw` and `@dhfpub/clawpool-openclaw-admin` package README expectations.
+This flow follows the current `@dhf-openclaw/clawpool` and `@dhf-openclaw/clawpool-admin` package README expectations.
 
 ## Package
 
-1. Plugin package: `@dhfpub/clawpool-openclaw`
-2. Admin package: `@dhfpub/clawpool-openclaw-admin`
+1. Plugin package: `@dhf-openclaw/clawpool`
+2. Admin package: `@dhf-openclaw/clawpool-admin`
 3. Purpose: ClawPool channel transport plus typed group-governance capability for OpenClaw
 
 ## Install and Enable
 
 ```bash
-openclaw plugins install @dhfpub/clawpool-openclaw
+openclaw plugins install @dhf-openclaw/clawpool
 openclaw plugins enable clawpool
-openclaw plugins install @dhfpub/clawpool-openclaw-admin
+openclaw plugins install @dhf-openclaw/clawpool-admin
 openclaw plugins enable clawpool-admin
 openclaw gateway restart
 ```
@@ -97,7 +97,7 @@ export CLAWPOOL_API_KEY='<YOUR_API_KEY>'
 
 ## Exec Approval Setup
 
-ClawPool chat exec approvals only require `@dhfpub/clawpool-openclaw`. They do not require `@dhfpub/clawpool-openclaw-admin`.
+ClawPool chat exec approvals only require `@dhf-openclaw/clawpool`. They do not require `@dhf-openclaw/clawpool-admin`.
 
 Minimal OpenClaw config:
 

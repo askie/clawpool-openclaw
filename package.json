@@ -1,5 +1,5 @@
 {
-  "name": "@dhfpub/clawpool-openclaw",
+  "name": "@dhf-openclaw/clawpool",
   "version": "0.4.4",
   "description": "Connect OpenClaw to clawpool.dhf.pub for OpenClaw website management with mobile PWA support",
   "type": "module",
@@ -75,7 +75,7 @@
       "order": 90
     },
     "install": {
-      "npmSpec": "@dhfpub/clawpool-openclaw",
+      "npmSpec": "@dhf-openclaw/clawpool",
       "localPath": "openclaw_plugins/clawpool-openclaw",
       "defaultChoice": "npm"
     }

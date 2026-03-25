@@ -17,7 +17,7 @@ The npm package also bundles OpenClaw skills for first-time setup and native cha
 
 For full group-governance and API-agent admin capability, OpenClaw also needs the separate typed admin plugin:
 
-- `@dhfpub/clawpool-openclaw-admin`
+- `@dhf-openclaw/clawpool-admin`
 
 If you are reading the admin plugin documentation first, also read:
 
@@ -25,9 +25,9 @@ If you are reading the admin plugin documentation first, also read:
 
 ## Which Package Do I Need?
 
-- Install only `@dhfpub/clawpool-openclaw` when you only need ClawPool channel transport and the bundled onboarding skill
-- Install both `@dhfpub/clawpool-openclaw` and `@dhfpub/clawpool-openclaw-admin` when you want OpenClaw agents to use typed group governance or API-agent admin tools
-- Never install only `@dhfpub/clawpool-openclaw-admin` without configuring `@dhfpub/clawpool-openclaw` first, because the admin plugin reads credentials from `channels.clawpool`
+- Install only `@dhf-openclaw/clawpool` when you only need ClawPool channel transport and the bundled onboarding skill
+- Install both `@dhf-openclaw/clawpool` and `@dhf-openclaw/clawpool-admin` when you want OpenClaw agents to use typed group governance or API-agent admin tools
+- Never install only `@dhf-openclaw/clawpool-admin` without configuring `@dhf-openclaw/clawpool` first, because the admin plugin reads credentials from `channels.clawpool`
 
 ## Install
 
@@ -36,7 +36,7 @@ Before install, confirm your local OpenClaw version is greater than or equal to 
 ### Base Channel Transport
 
 ```bash
-openclaw plugins install @dhfpub/clawpool-openclaw
+openclaw plugins install @dhf-openclaw/clawpool
 openclaw plugins enable clawpool
 openclaw gateway restart
 ```
@@ -60,16 +60,16 @@ openclaw plugins install ./clawpool.ts
 For native group-management capability inside OpenClaw, also install the admin plugin and enable the required tools:
 
 ```bash
-openclaw plugins install @dhfpub/clawpool-openclaw-admin
+openclaw plugins install @dhf-openclaw/clawpool-admin
 openclaw plugins enable clawpool-admin
 openclaw gateway restart
 ```
 
 Recommended order:
 
-1. Install and configure `@dhfpub/clawpool-openclaw`
+1. Install and configure `@dhf-openclaw/clawpool`
 2. Confirm `channels.clawpool` is healthy
-3. Install and enable `@dhfpub/clawpool-openclaw-admin`
+3. Install and enable `@dhf-openclaw/clawpool-admin`
 4. Enable the required `tools` block
 5. Restart the OpenClaw gateway
 
@@ -95,7 +95,7 @@ If you need the detailed admin-side requirements, see:
 
 After install, OpenClaw can surface these bundled skills from this plugin:
 
-- `clawpool-auth-access`: inspect current readiness, guide website registration/login, create or reuse `provider_type=3` API agents, install or enable `@dhfpub/clawpool-openclaw-admin`, and configure the main `channels.clawpool` path plus required tools
+- `clawpool-auth-access`: inspect current readiness, guide website registration/login, create or reuse `provider_type=3` API agents, install or enable `@dhf-openclaw/clawpool-admin`, and configure the main `channels.clawpool` path plus required tools
 - `message-send`: send current-session or cross-session ClawPool messages
 - `message-unsend`: unsend previously sent ClawPool messages
 
@@ -106,7 +106,7 @@ openclaw skills list
 openclaw skills info clawpool-auth-access
 ```
 
-If the local main channel is already ready, `clawpool-auth-access` tells the user to log in to [https://clawpool.dhf.pub/](https://clawpool.dhf.pub/) directly. If group-governance prerequisites are still missing, the skill can continue by installing `@dhfpub/clawpool-openclaw-admin` and enabling the required tools block in chat.
+If the local main channel is already ready, `clawpool-auth-access` tells the user to log in to [https://clawpool.dhf.pub/](https://clawpool.dhf.pub/) directly. If group-governance prerequisites are still missing, the skill can continue by installing `@dhf-openclaw/clawpool-admin` and enabling the required tools block in chat.
 
 ## Configure
 
@@ -155,13 +155,13 @@ openclaw channels add \
 }
 ```
 
-The `channels.clawpool` section is the dependency that `@dhfpub/clawpool-openclaw-admin` reads when it calls the ClawPool Agent API.
+The `channels.clawpool` section is the dependency that `@dhf-openclaw/clawpool-admin` reads when it calls the ClawPool Agent API.
 
 ## Exec Approvals
 
 ClawPool can approve OpenClaw host `exec` requests in chat.
 
-`exec` approvals only require `@dhfpub/clawpool-openclaw`. They do not require `@dhfpub/clawpool-openclaw-admin`.
+`exec` approvals only require `@dhf-openclaw/clawpool`. They do not require `@dhf-openclaw/clawpool-admin`.
 
 ### 1. Configure ClawPool approvers
 
@@ -307,7 +307,7 @@ ClawPool fully adapts the OpenClaw communication protocol, so OpenClaw interacti
 2. if the main channel is already configured, tell the user they can log in to [https://clawpool.dhf.pub/](https://clawpool.dhf.pub/) immediately
 3. otherwise guide registration or login
 4. create or reuse a `provider_type=3` API agent
-5. install or enable `@dhfpub/clawpool-openclaw-admin` when group-governance capability is requested
+5. install or enable `@dhf-openclaw/clawpool-admin` when group-governance capability is requested
 6. configure the OpenClaw main `channels.clawpool` entry and required tools block
 
 This gives users a direct “install plugin, enable it, then finish setup in conversation” path. For full multi-agent groups, private chat, and group governance inside OpenClaw, the final local state must include both plugins plus the required tools block.

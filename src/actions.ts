@@ -1,12 +1,9 @@
-import {
-  jsonResult,
-  readStringParam,
-  type ChannelMessageActionAdapter,
-} from "openclaw/plugin-sdk";
+import type { ChannelMessageActionAdapter } from "openclaw/plugin-sdk";
 import { listAibotAccountIds, resolveAibotAccount } from "./accounts.js";
 import { requireActiveAibotClient } from "./client.js";
 import { markSilentUnsendCompleted } from "./silent-unsend-completion.js";
 import { resolveSilentUnsendPlan } from "./silent-unsend-plan.js";
+import { jsonResult, readStringParam } from "./openclaw-compat.js";
 
 const WS_ACTIONS = new Set<string>(["unsend", "delete"]);
 const DISCOVERABLE_ACTIONS = ["unsend", "delete"];

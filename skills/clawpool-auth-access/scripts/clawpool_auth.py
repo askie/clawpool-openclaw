@@ -335,11 +335,11 @@ def build_reference_commands(args, agent_id: str, api_endpoint: str, api_key: st
     commands = []
     openclaw_cmd = build_openclaw_base_cmd(args)
     if not args.skip_plugin_install:
-        commands.append(openclaw_cmd + ["plugins", "install", "@dhfpub/clawpool-openclaw"])
+        commands.append(openclaw_cmd + ["plugins", "install", "@dhf-openclaw/clawpool"])
     if not args.skip_plugin_enable:
         commands.append(openclaw_cmd + ["plugins", "enable", "clawpool"])
     if not bool(getattr(args, "skip_admin_plugin_install", False)):
-        commands.append(openclaw_cmd + ["plugins", "install", "@dhfpub/clawpool-openclaw-admin"])
+        commands.append(openclaw_cmd + ["plugins", "install", "@dhf-openclaw/clawpool-admin"])
     if not bool(getattr(args, "skip_admin_plugin_enable", False)):
         commands.append(openclaw_cmd + ["plugins", "enable", "clawpool-admin"])
     commands.append(
@@ -452,13 +452,13 @@ def build_plugin_commands(args, plugin_status=None):
     openclaw_cmd = build_openclaw_base_cmd(args)
     if isinstance(plugin_status, dict):
         if bool(plugin_status.get("needs_install", False)):
-            commands.append(openclaw_cmd + ["plugins", "install", "@dhfpub/clawpool-openclaw"])
+            commands.append(openclaw_cmd + ["plugins", "install", "@dhf-openclaw/clawpool"])
         if bool(plugin_status.get("needs_enable", False)):
             commands.append(openclaw_cmd + ["plugins", "enable", "clawpool"])
         return commands
 
     if not args.skip_plugin_install:
-        commands.append(openclaw_cmd + ["plugins", "install", "@dhfpub/clawpool-openclaw"])
+        commands.append(openclaw_cmd + ["plugins", "install", "@dhf-openclaw/clawpool"])
     if not args.skip_plugin_enable:
         commands.append(openclaw_cmd + ["plugins", "enable", "clawpool"])
     return commands
@@ -469,13 +469,13 @@ def build_admin_plugin_commands(args, plugin_status=None):
     openclaw_cmd = build_openclaw_base_cmd(args)
     if isinstance(plugin_status, dict):
         if bool(plugin_status.get("needs_install", False)):
-            commands.append(openclaw_cmd + ["plugins", "install", "@dhfpub/clawpool-openclaw-admin"])
+            commands.append(openclaw_cmd + ["plugins", "install", "@dhf-openclaw/clawpool-admin"])
         if bool(plugin_status.get("needs_enable", False)):
             commands.append(openclaw_cmd + ["plugins", "enable", "clawpool-admin"])
         return commands
 
     if not bool(getattr(args, "skip_admin_plugin_install", False)):
-        commands.append(openclaw_cmd + ["plugins", "install", "@dhfpub/clawpool-openclaw-admin"])
+        commands.append(openclaw_cmd + ["plugins", "install", "@dhf-openclaw/clawpool-admin"])
     if not bool(getattr(args, "skip_admin_plugin_enable", False)):
         commands.append(openclaw_cmd + ["plugins", "enable", "clawpool-admin"])
     return commands
@@ -605,7 +605,7 @@ def build_clawpool_explainer():
             "支持 agent 私聊",
             "agent 之间通信链路完美打通",
             "配置简单易用，只需要将这个技能交给 OpenClaw、Claude、Codex，即可完成检查与配置",
-            "如需群管理能力，还需要安装启用 @dhfpub/clawpool-openclaw-admin，并在 tools 中允许 message、clawpool_group、clawpool_agent_admin",
+            "如需群管理能力，还需要安装启用 @dhf-openclaw/clawpool-admin，并在 tools 中允许 message、clawpool_group、clawpool_agent_admin",
         ],
     }
 
@@ -621,7 +621,7 @@ def build_user_reply_templates(scenario: str):
         "configured_now": f"{one_liner}现在已经配置完成，你可以直接登录 {DEFAULT_PORTAL_URL} 体验。",
         "main_ready_admin_pending": (
             f"{one_liner}当前主通道已经可用，你可以先直接登录 {DEFAULT_PORTAL_URL} 体验；"
-            "如果还要在 OpenClaw 里使用群管理能力，我可以继续安装启用 @dhfpub/clawpool-openclaw-admin，"
+            "如果还要在 OpenClaw 里使用群管理能力，我可以继续安装启用 @dhf-openclaw/clawpool-admin，"
             "并补齐 message、clawpool_group、clawpool_agent_admin 这三个工具权限。"
         ),
         "needs_setup": f"{one_liner}当前还没有完全配置好，我可以继续帮你完成检查和配置。",
@@ -1012,7 +1012,7 @@ def build_openclaw_inspection_result(args):
 
     payload = {
         "ok": True,
-        "action": "inspect-openclaw",
+        "action": "inspect@dhf-openclaw",
         "inspection_state": inspection_state,
         "ready_for_main_agent": main_ready,
         "ready_for_group_governance": governance_ready,
@@ -1040,7 +1040,7 @@ def build_openclaw_inspection_result(args):
                 True,
                 (
                     f"主通道已配置完成，可直接登录 {DEFAULT_PORTAL_URL} 体验；"
-                    "如需群管理能力，还需安装启用 @dhfpub/clawpool-openclaw-admin 并补齐 required tools 配置。"
+                    "如需群管理能力，还需安装启用 @dhf-openclaw/clawpool-admin 并补齐 required tools 配置。"
                 ),
             )
         )
@@ -1083,7 +1083,7 @@ def build_openclaw_setup_result(args, agent_id: str, api_endpoint: str, api_key:
     governance_ready = main_ready and is_ready(admin_plugin_status) and not needs_tools_update
     payload = {
         "ok": True,
-        "action": "configure-openclaw",
+        "action": "configure@dhf-openclaw",
         "apply": bool(args.apply),
         "apply_strategy": "direct_config_for_main_agent",
         "setup_state": classify_gap_state(setup_gaps),
@@ -1127,7 +1127,7 @@ def build_openclaw_setup_result(args, agent_id: str, api_endpoint: str, api_key:
                 True,
                 (
                     f"主通道已配置完成，可直接登录 {DEFAULT_PORTAL_URL} 体验；"
-                    "如需群管理能力，还需安装启用 @dhfpub/clawpool-openclaw-admin 并补齐 required tools 配置。"
+                    "如需群管理能力，还需安装启用 @dhf-openclaw/clawpool-admin 并补齐 required tools 配置。"
                 ),
             )
         )
@@ -1204,7 +1204,7 @@ def build_openclaw_setup_result(args, agent_id: str, api_endpoint: str, api_key:
                     True,
                     (
                         f"主通道已完成配置，可直接登录 {DEFAULT_PORTAL_URL} 体验；"
-                        "如需群管理能力，还需继续补齐 @dhfpub/clawpool-openclaw-admin 或 required tools 配置。"
+                        "如需群管理能力，还需继续补齐 @dhf-openclaw/clawpool-admin 或 required tools 配置。"
                     ),
                 )
             )
@@ -1339,9 +1339,9 @@ def handle_bootstrap_openclaw(args):
     if not access_token:
         account = (args.email or args.account or "").strip()
         if not account:
-            raise ClawpoolAuthError("bootstrap-openclaw requires --access-token or login identity")
+            raise ClawpoolAuthError("bootstrap@dhf-openclaw requires --access-token or login identity")
         if not (args.password or "").strip():
-            raise ClawpoolAuthError("bootstrap-openclaw requires --password when access token is not provided")
+            raise ClawpoolAuthError("bootstrap@dhf-openclaw requires --password when access token is not provided")
         platform = (args.platform or "").strip() or "web"
         device_id = (args.device_id or "").strip() or default_device_id(platform)
         login_result = login_with_credentials(
@@ -1372,7 +1372,7 @@ def handle_bootstrap_openclaw(args):
 
     payload = {
         "ok": True,
-        "action": "bootstrap-openclaw",
+        "action": "bootstrap@dhf-openclaw",
         "used_access_token_source": "provided" if (args.access_token or "").strip() else "login",
         "login": login_result,
         "created_agent": create_result,
@@ -1455,11 +1455,11 @@ def build_parser():
     create_api_agent_parser.set_defaults(handler=handle_create_api_agent)
 
     inspect_openclaw = subparsers.add_parser(
-        "inspect-openclaw",
+        "inspect@dhf-openclaw",
         help="Inspect local OpenClaw clawpool readiness without mutating local state",
     )
-    inspect_openclaw.add_argument("--openclaw-bin", default="openclaw")
-    inspect_openclaw.add_argument("--openclaw-profile", default="")
+    inspect_openclaw.add_argument("--openclaw-bin", dest="openclaw_bin", default="openclaw")
+    inspect_openclaw.add_argument("--openclaw-profile", dest="openclaw_profile", default="")
     inspect_openclaw.add_argument("--config-path", default=DEFAULT_OPENCLAW_CONFIG_PATH)
     inspect_openclaw.add_argument("--skip-plugin-install", action="store_true")
     inspect_openclaw.add_argument("--skip-plugin-enable", action="store_true")
@@ -1468,15 +1468,15 @@ def build_parser():
     inspect_openclaw.set_defaults(handler=handle_inspect_openclaw)
 
     configure_openclaw = subparsers.add_parser(
-        "configure-openclaw",
+        "configure@dhf-openclaw",
         help="Prepare or apply local OpenClaw clawpool channel setup",
     )
     configure_openclaw.add_argument("--agent-id", required=True)
     configure_openclaw.add_argument("--api-endpoint", required=True)
     configure_openclaw.add_argument("--api-key", required=True)
     configure_openclaw.add_argument("--channel-name", default="clawpool-main")
-    configure_openclaw.add_argument("--openclaw-bin", default="openclaw")
-    configure_openclaw.add_argument("--openclaw-profile", default="")
+    configure_openclaw.add_argument("--openclaw-bin", dest="openclaw_bin", default="openclaw")
+    configure_openclaw.add_argument("--openclaw-profile", dest="openclaw_profile", default="")
     configure_openclaw.add_argument("--config-path", default=DEFAULT_OPENCLAW_CONFIG_PATH)
     configure_openclaw.add_argument("--skip-plugin-install", action="store_true")
     configure_openclaw.add_argument("--skip-plugin-enable", action="store_true")
@@ -1487,7 +1487,7 @@ def build_parser():
     configure_openclaw.set_defaults(handler=handle_configure_openclaw)
 
     bootstrap_openclaw = subparsers.add_parser(
-        "bootstrap-openclaw",
+        "bootstrap@dhf-openclaw",
         help="Login if needed, create provider_type=3 agent, then prepare or apply OpenClaw setup",
     )
     bootstrap_openclaw.add_argument("--access-token", default="")
@@ -1500,8 +1500,8 @@ def build_parser():
     bootstrap_openclaw.add_argument("--agent-name", required=True)
     bootstrap_openclaw.add_argument("--avatar-url", default="")
     bootstrap_openclaw.add_argument("--channel-name", default="clawpool-main")
-    bootstrap_openclaw.add_argument("--openclaw-bin", default="openclaw")
-    bootstrap_openclaw.add_argument("--openclaw-profile", default="")
+    bootstrap_openclaw.add_argument("--openclaw-bin", dest="openclaw_bin", default="openclaw")
+    bootstrap_openclaw.add_argument("--openclaw-profile", dest="openclaw_profile", default="")
     bootstrap_openclaw.add_argument("--config-path", default=DEFAULT_OPENCLAW_CONFIG_PATH)
     bootstrap_openclaw.add_argument("--no-reuse-existing-agent", action="store_true")
     bootstrap_openclaw.add_argument("--no-rotate-key-on-reuse", action="store_true")
@@ -1510,7 +1510,7 @@ def build_parser():
     bootstrap_openclaw.add_argument("--skip-admin-plugin-install", action="store_true")
     bootstrap_openclaw.add_argument("--skip-admin-plugin-enable", action="store_true")
     bootstrap_openclaw.add_argument("--skip-gateway-restart", action="store_true")
-    bootstrap_openclaw.add_argument("--skip-openclaw-setup", action="store_true")
+    bootstrap_openclaw.add_argument("--skip-openclaw-setup", dest="skip_openclaw_setup", action="store_true")
     bootstrap_openclaw.add_argument("--apply", action="store_true")
     bootstrap_openclaw.set_defaults(handler=handle_bootstrap_openclaw)
 

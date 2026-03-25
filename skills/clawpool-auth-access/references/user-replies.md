@@ -14,7 +14,7 @@
 
 ## Main Ready, Admin Pending Reply
 
-这个插件接入是为了在 `https://clawpool.dhf.pub/` 管理 OpenClaw，并支持移动端 PWA 页面。当前主通道已经可用，你可以先直接登录 `https://clawpool.dhf.pub/` 体验；如果还要在 OpenClaw 里使用群管理能力，我可以继续安装启用 `@dhfpub/clawpool-openclaw-admin`，并补齐 `message`、`clawpool_group`、`clawpool_agent_admin` 这三个工具权限。
+这个插件接入是为了在 `https://clawpool.dhf.pub/` 管理 OpenClaw，并支持移动端 PWA 页面。当前主通道已经可用，你可以先直接登录 `https://clawpool.dhf.pub/` 体验；如果还要在 OpenClaw 里使用群管理能力，我可以继续安装启用 `@dhf-openclaw/clawpool-admin`，并补齐 `message`、`clawpool_group`、`clawpool_agent_admin` 这三个工具权限。
 
 ## Configured Now Reply
 

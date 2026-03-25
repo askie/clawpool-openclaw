@@ -1,8 +1,4 @@
 import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
-import {
-  resolveOutboundMediaUrls,
-  sendMediaWithLeadingCaption,
-} from "openclaw/plugin-sdk/reply-payload";
 import type { AibotWsClient } from "./client.js";
 import { buildAibotTextSendPlan } from "./outbound-text-delivery-plan.ts";
 import {
@@ -25,6 +21,46 @@ function resolveAckMessageId(
   const raw = ack.msg_id ?? ack.client_msg_id ?? fallback;
   const normalized = String(raw ?? "").trim();
   return normalized || undefined;
+}
+
+function resolveOutboundMediaUrls(payload: {
+  mediaUrls?: string[];
+  mediaUrl?: string;
+}): string[] {
+  if (payload.mediaUrls?.length) {
+    return payload.mediaUrls;
+  }
+  if (payload.mediaUrl) {
+    return [payload.mediaUrl];
+  }
+  return [];
+}
+
+async function sendMediaWithLeadingCaption(params: {
+  mediaUrls: string[];
+  caption: string;
+  send: (payload: { mediaUrl: string; caption?: string }) => Promise<void>;
+  onError?: (error: unknown, mediaUrl: string) => void;
+}): Promise<boolean> {
+  if (params.mediaUrls.length === 0) {
+    return false;
+  }
+
+  let first = true;
+  for (const mediaUrl of params.mediaUrls) {
+    const caption = first ? params.caption : undefined;
+    first = false;
+    try {
+      await params.send({ mediaUrl, caption });
+    } catch (error) {
+      if (params.onError) {
+        params.onError(error, mediaUrl);
+        continue;
+      }
+      throw error;
+    }
+  }
+  return true;
 }
 
 export async function deliverAibotPayload(params: {

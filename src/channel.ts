@@ -3,11 +3,6 @@ import type {
   ChannelPlugin,
   OpenClawConfig,
 } from "openclaw/plugin-sdk/core";
-import {
-  applyAccountNameToChannelSection,
-  deleteAccountFromConfigSection,
-  setAccountEnabledInConfigSection,
-} from "openclaw/plugin-sdk/core";
 import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "./account-id.ts";
 import { aibotMessageActions } from "./actions.js";
 import { resolveAibotAccount, listAibotAccountIds, resolveDefaultAibotAccountId, normalizeAibotSessionTarget, redactAibotWsUrl } from "./accounts.js";
@@ -17,6 +12,11 @@ import { monitorAibotProvider } from "./monitor.js";
 import { buildAibotOutboundEnvelope } from "./outbound-envelope.ts";
 import { DEFAULT_OUTBOUND_TEXT_CHUNK_LIMIT } from "./protocol-text.js";
 import { applySetupAccountConfig, resolveSetupValues } from "./setup-config.js";
+import {
+  applyAccountNameToChannelSection,
+  deleteAccountFromConfigSection,
+  setAccountEnabledInConfigSection,
+} from "./openclaw-compat.js";
 import { resolveAibotOutboundTarget } from "./target-resolver.js";
 import { deliverAibotPayload } from "./aibot-payload-delivery.ts";
 import type { AibotConfig, ResolvedAibotAccount } from "./types.js";

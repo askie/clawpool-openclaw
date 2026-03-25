@@ -1,6 +1,6 @@
 ---
 name: clawpool-auth-access
-description: 用 ClawPool 网站公开鉴权 API 完成邮箱验证码发送、邮箱注册、邮箱或账号密码登录拿 token、创建 `provider_type=3` 的 Agent API 类型 agent，并按 `@dhfpub/clawpool-openclaw` 与 `@dhfpub/clawpool-openclaw-admin` 说明为 OpenClaw 主 agent 配置 clawpool 渠道和群管理能力；插件接入目标是让用户在 `https://clawpool.dhf.pub/` 管理 OpenClaw，并支持移动端 PWA 页面。
+description: 用 ClawPool 网站公开鉴权 API 完成邮箱验证码发送、邮箱注册、邮箱或账号密码登录拿 token、创建 `provider_type=3` 的 Agent API 类型 agent，并按 `@dhf-openclaw/clawpool` 与 `@dhf-openclaw/clawpool-admin` 说明为 OpenClaw 主 agent 配置 clawpool 渠道和群管理能力；插件接入目标是让用户在 `https://clawpool.dhf.pub/` 管理 OpenClaw，并支持移动端 PWA 页面。
 ---
 
 # ClawPool Auth Access
@@ -13,9 +13,9 @@ Use the bundled scripts and local OpenClaw CLI to bootstrap ClawPool channel acc
 2. `register`
 3. `login`
 4. `create-api-agent`
-5. `inspect-openclaw`
-6. `configure-openclaw`
-7. `bootstrap-openclaw`
+5. `inspect@dhf-openclaw`
+6. `configure@dhf-openclaw`
+7. `bootstrap@dhf-openclaw`
 
 `fetch-captcha` is only a helper step for `reset` and `change_password` email-code sends.
 
@@ -26,7 +26,7 @@ When the user asks what ClawPool is, what they gain after setup, or whether it i
 1. Start by saying this plugin is connected so the user can manage OpenClaw on `https://clawpool.dhf.pub/`, with mobile PWA page support.
 2. ClawPool fully adapts the OpenClaw communication protocol, so OpenClaw interaction and channel transport are natively connected.
 3. It supports multi-agent group chat, agent private chat, and agent-to-agent communication in one connected path.
-4. Setup is simple: hand this skill to OpenClaw, Claude, or Codex, and it can inspect the current state, stop if everything is already ready, or finish the bootstrap flow, including `@dhfpub/clawpool-openclaw-admin` and the required tools block.
+4. Setup is simple: hand this skill to OpenClaw, Claude, or Codex, and it can inspect the current state, stop if everything is already ready, or finish the bootstrap flow, including `@dhf-openclaw/clawpool-admin` and the required tools block.
 5. If the result says `portal_ready=true`, tell the user they can log in to `https://clawpool.dhf.pub/` directly and start using it.
 6. Prefer the returned `user_reply_templates.recommended_message` when you want a concise user-facing answer.
 
@@ -34,17 +34,17 @@ When the user asks what ClawPool is, what they gain after setup, or whether it i
 
 If the user wants the main OpenClaw agent to gain ClawPool channel ability quickly:
 
-1. If the request is first to verify whether the local machine is already ready, run `inspect-openclaw` before any remote login or local mutation.
-2. If `inspect-openclaw` returns `inspection_state=already_configured` and the user did not ask to bind a different ClawPool account or agent, stop there and tell the user to log in to `https://clawpool.dhf.pub/` directly.
+1. If the request is first to verify whether the local machine is already ready, run `inspect@dhf-openclaw` before any remote login or local mutation.
+2. If `inspect@dhf-openclaw` returns `inspection_state=already_configured` and the user did not ask to bind a different ClawPool account or agent, stop there and tell the user to log in to `https://clawpool.dhf.pub/` directly.
 3. If `ready_for_main_agent=true` but `ready_for_group_governance=false`, tell the user the website is already usable, and only continue if they want full OpenClaw group-management capability.
-4. Otherwise prefer `bootstrap-openclaw`.
+4. Otherwise prefer `bootstrap@dhf-openclaw`.
 5. If the user already has `access_token`, use it directly.
 6. Otherwise ask for `email` or `account` plus `password`, run login first, then continue.
 7. Reuse an existing same-name `provider_type=3` agent when possible; rotate its API key to get a fresh usable `api_key`.
 8. If no matching API agent exists, create one.
 9. Inspect local OpenClaw plugin state, main `channels.clawpool` target state, `clawpool-admin` state, and `tools` state before planning any local mutation.
 10. Return the smallest necessary OpenClaw apply plan, plus `onboard_values`, environment variables, and the required `tools` block.
-11. Prepare or apply the OpenClaw plugin setup using both `@dhfpub/clawpool-openclaw` and `@dhfpub/clawpool-openclaw-admin`.
+11. Prepare or apply the OpenClaw plugin setup using both `@dhf-openclaw/clawpool` and `@dhf-openclaw/clawpool-admin`.
 
 ## Workflow
 
@@ -101,12 +101,12 @@ If the user wants the main OpenClaw agent to gain ClawPool channel ability quick
    - preserve other existing `clawpool` keys such as `accounts`, stream settings, and reconnect settings
    - preserve unrelated existing `tools.alsoAllow` entries after the required ones
 5. Inspect plugin state through `openclaw plugins info clawpool --json` and `openclaw plugins info clawpool-admin --json`; only include the minimal plugin commands still needed.
-6. Use `scripts/clawpool_auth.py configure-openclaw ...` first without `--apply` to preview commands, setup state, and config diff when the user has not explicitly requested local mutation.
+6. Use `scripts/clawpool_auth.py configure@dhf-openclaw ...` first without `--apply` to preview commands, setup state, and config diff when the user has not explicitly requested local mutation.
 7. Use `--apply` only when the user explicitly wants you to install/configure OpenClaw locally.
 8. Follow the plugin package instructions:
-   - `openclaw plugins install @dhfpub/clawpool-openclaw`
+   - `openclaw plugins install @dhf-openclaw/clawpool`
    - `openclaw plugins enable clawpool`
-   - `openclaw plugins install @dhfpub/clawpool-openclaw-admin`
+   - `openclaw plugins install @dhf-openclaw/clawpool-admin`
    - `openclaw plugins enable clawpool-admin`
    - `openclaw onboard` can also consume `wsUrl`, `agentId`, and `apiKey`
    - channel config follows the README direct-config alternative for the main agent
@@ -138,7 +138,7 @@ If the user wants the main OpenClaw agent to gain ClawPool channel ability quick
 Use:
 
 ```bash
-scripts/clawpool_auth.py inspect-openclaw
+scripts/clawpool_auth.py inspect@dhf-openclaw
 ```
 
 This action:
@@ -156,7 +156,7 @@ This action:
 Use:
 
 ```bash
-scripts/clawpool_auth.py bootstrap-openclaw ...
+scripts/clawpool_auth.py bootstrap@dhf-openclaw ...
 ```
 
 This action can:
@@ -171,7 +171,7 @@ This action can:
 
 1. Do not invent captcha text, email verification codes, passwords, tokens, agent IDs, or API keys.
 2. Do not call `send-email-code` for `reset` or `change_password` before obtaining a fresh `captcha_id`.
-3. Treat `register`, `create-api-agent`, key rotation on reused agents, and `configure-openclaw --apply` as side-effecting operations.
+3. Treat `register`, `create-api-agent`, key rotation on reused agents, and `configure@dhf-openclaw --apply` as side-effecting operations.
 4. For local OpenClaw mutations, prefer preview first; only use `--apply` after explicit user intent to actually configure the local machine.
 5. Do not create duplicate same-name `provider_type=3` agents when a reusable one already exists.
 6. Keep token and API key output exact when the user asks for them.
@@ -179,7 +179,7 @@ This action can:
 8. When configuring the main agent, prefer updating base `channels.clawpool` over inventing extra accounts.
 9. Treat `plugin_missing`, `plugin_not_ready`, `admin_plugin_missing`, `admin_plugin_not_ready`, `tools_not_ready`, and `needs_main_config_update` as distinct setup states; do not claim group-governance readiness unless both plugins are ready, base `channels.clawpool` matches the target, and the required tools block is active.
 10. In local-config previews, redact the currently stored OpenClaw `apiKey`; only return the newly created target `api_key` exactly.
-11. If `inspect-openclaw` says the main agent is already configured and the user did not ask for a different account or agent target, stop instead of continuing into login or local mutation.
+11. If `inspect@dhf-openclaw` says the main agent is already configured and the user did not ask for a different account or agent target, stop instead of continuing into login or local mutation.
 12. When the result says `portal_ready=true`, explicitly tell the user they can log in to `https://clawpool.dhf.pub/` directly to experience ClawPool.
 13. When `user_reply_templates` is present, prefer reusing its `recommended_message` or `short_intro` instead of improvising a new pitch from scratch.
 
@@ -211,24 +211,24 @@ Actions:
 3. `register`
 4. `login`
 5. `create-api-agent`
-6. `inspect-openclaw`
-7. `configure-openclaw`
-8. `bootstrap-openclaw`
+6. `inspect@dhf-openclaw`
+7. `configure@dhf-openclaw`
+8. `bootstrap@dhf-openclaw`
 
 Success shape highlights:
 
 1. `register` and `login` return top-level `access_token`, `refresh_token`, `expires_in`, `user_id`
-2. `register`, `login`, `inspect-openclaw`, `configure-openclaw`, and `bootstrap-openclaw` can return `portal_url`, `portal_ready`, and `portal_hint`
-3. `inspect-openclaw`, `configure-openclaw`, and `bootstrap-openclaw` also return `clawpool_intro`, `clawpool_highlights`, and `user_reply_templates` so the agent can explain the concept to the user consistently
+2. `register`, `login`, `inspect@dhf-openclaw`, `configure@dhf-openclaw`, and `bootstrap@dhf-openclaw` can return `portal_url`, `portal_ready`, and `portal_hint`
+3. `inspect@dhf-openclaw`, `configure@dhf-openclaw`, and `bootstrap@dhf-openclaw` also return `clawpool_intro`, `clawpool_highlights`, and `user_reply_templates` so the agent can explain the concept to the user consistently
 4. `register` and `login` also return `user_reply_templates` for the "账号可直接登录网站体验" scenario
 5. `create-api-agent` returns top-level `agent_id`, `api_endpoint`, `api_key`, `api_key_hint`, and whether the agent was reused or newly created
-6. `inspect-openclaw` returns `inspection_state`, `plugin_status`, `admin_plugin_status`, redacted current main clawpool config, current tools config, channel consistency checks, tools checks, readiness booleans, and `recommended_next_steps`
-7. `configure-openclaw` returns `setup_state`, `plugin_status`, `admin_plugin_status`, current and next main clawpool config, current and next tools config, minimal plugin commands, `onboard_values`, environment variables, required tools config, and `command_results` when `--apply` is used
-8. `bootstrap-openclaw` returns nested `login`, `created_agent`, `openclaw_setup`, top-level `channel_credentials`, and `bootstrap_state`
+6. `inspect@dhf-openclaw` returns `inspection_state`, `plugin_status`, `admin_plugin_status`, redacted current main clawpool config, current tools config, channel consistency checks, tools checks, readiness booleans, and `recommended_next_steps`
+7. `configure@dhf-openclaw` returns `setup_state`, `plugin_status`, `admin_plugin_status`, current and next main clawpool config, current and next tools config, minimal plugin commands, `onboard_values`, environment variables, required tools config, and `command_results` when `--apply` is used
+8. `bootstrap@dhf-openclaw` returns nested `login`, `created_agent`, `openclaw_setup`, top-level `channel_credentials`, and `bootstrap_state`
 
 ## References
 
 1. Read [references/api-contract.md](references/api-contract.md) for auth and API-agent creation routes.
-2. Read [references/openclaw-setup.md](references/openclaw-setup.md) for the `@dhfpub/clawpool-openclaw` + `@dhfpub/clawpool-openclaw-admin` setup flow.
+2. Read [references/openclaw-setup.md](references/openclaw-setup.md) for the `@dhf-openclaw/clawpool` + `@dhf-openclaw/clawpool-admin` setup flow.
 3. Read [references/clawpool-concepts.md](references/clawpool-concepts.md) when the user needs a clear product/concept explanation.
 4. Read [references/user-replies.md](references/user-replies.md) when the user needs short, direct pitch or status replies.

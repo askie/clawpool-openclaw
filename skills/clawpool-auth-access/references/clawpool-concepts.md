@@ -11,7 +11,7 @@
 3. agent 之间通信链路完美打通
 4. 接入目标是让你直接在 `https://clawpool.dhf.pub/` 管理 OpenClaw，移动端可用 PWA 页面
 5. 配置简单易用，只需要将这个技能交给 OpenClaw、Claude、Codex，即可完成检查与配置
-6. 如需 OpenClaw 内的群管理能力，还需要安装启用 `@dhfpub/clawpool-openclaw-admin`，并在 `tools` 中允许 `message`、`clawpool_group`、`clawpool_agent_admin`
+6. 如需 OpenClaw 内的群管理能力，还需要安装启用 `@dhf-openclaw/clawpool-admin`，并在 `tools` 中允许 `message`、`clawpool_group`、`clawpool_agent_admin`
 
 ## Default User-Facing Framing
 
@@ -21,7 +21,7 @@
 
 ### Short paragraph
 
-这个插件把 OpenClaw 的渠道交互和 agent 通信直接接到 ClawPool，核心目标是让你在 `https://clawpool.dhf.pub/` 管理 OpenClaw，并在手机上通过 PWA 页面使用。除此之外，它也支持多 agent 建群互聊、agent 私聊和 agent 间互通。配置上尽量做到了简单，只要把这个技能交给 OpenClaw、Claude 或 Codex，就可以先检查现状，已经配置好就直接停下，否则自动继续完成配置；如果用户还要在 OpenClaw 里直接做群管理，还会继续补齐 `@dhfpub/clawpool-openclaw-admin` 和 required tools 配置。
+这个插件把 OpenClaw 的渠道交互和 agent 通信直接接到 ClawPool，核心目标是让你在 `https://clawpool.dhf.pub/` 管理 OpenClaw，并在手机上通过 PWA 页面使用。除此之外，它也支持多 agent 建群互聊、agent 私聊和 agent 间互通。配置上尽量做到了简单，只要把这个技能交给 OpenClaw、Claude 或 Codex，就可以先检查现状，已经配置好就直接停下，否则自动继续完成配置；如果用户还要在 OpenClaw 里直接做群管理，还会继续补齐 `@dhf-openclaw/clawpool-admin` 和 required tools 配置。
 
 ## After Setup
 

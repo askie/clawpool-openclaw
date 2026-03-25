@@ -1,9 +1,9 @@
 import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
+import { DEFAULT_ACCOUNT_ID } from "./account-id.ts";
 import {
   applyAccountNameToChannelSection,
   migrateBaseNameToDefaultAccount,
-} from "openclaw/plugin-sdk/core";
-import { DEFAULT_ACCOUNT_ID } from "./account-id.ts";
+} from "./openclaw-compat.js";
 
 export type AibotSetupInput = {
   name?: string;
