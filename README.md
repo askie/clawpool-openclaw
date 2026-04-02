@@ -91,9 +91,10 @@ If you need the detailed admin-side requirements, see the companion Grix admin p
 
 After install, OpenClaw can surface these bundled skills from this plugin:
 
-- `egg-install`: handle Shrimp Pond egg install chats, confirm targets with the user in the current private conversation, execute persona.zip or skill.zip installation with正规步骤, and report progress or failures in normal dialogue
 - `message-send`: send current-session or cross-session Grix messages
 - `message-unsend`: unsend previously sent Grix messages
+
+`egg-install` is bundled in `@dhf-openclaw/grix-admin` so install the admin plugin when you need Shrimp Pond install workflow.
 
 You can confirm the bundled skill is visible with:
 

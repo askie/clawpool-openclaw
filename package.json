@@ -28,7 +28,6 @@
     "README.md",
     "openclaw.plugin.json",
     "dist/index.js",
-    "skills/egg-install/SKILL.md",
     "skills/message-send/SKILL.md",
     "skills/message-unsend/SKILL.md",
     "skills/message-unsend/flowchart.mermaid"
