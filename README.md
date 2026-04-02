@@ -13,7 +13,7 @@ Its runtime remains focused on channel responsibilities:
 - send replies, media, and streaming chunks
 - support native channel actions such as `unsend` / `delete`
 
-The npm package also bundles OpenClaw skills for first-time setup and native channel actions, so users can install the plugin and complete Grix onboarding directly in conversation.
+The npm package also bundles OpenClaw skills for channel helpers and native channel actions.
 
 For full group-governance and API-agent admin capability, OpenClaw also needs the separate typed admin plugin:
 
@@ -23,7 +23,7 @@ If you are reading the admin plugin documentation first, also read the companion
 
 ## Which Package Do I Need?
 
-- Install only `@dhf-openclaw/grix` when you only need Grix channel transport and the bundled onboarding skill
+- Install only `@dhf-openclaw/grix` when you only need Grix channel transport and bundled helper skills
 - Install both `@dhf-openclaw/grix` and `@dhf-openclaw/grix-admin` when you want OpenClaw agents to use typed group governance or API-agent admin tools
 - Never install only `@dhf-openclaw/grix-admin` without configuring `@dhf-openclaw/grix` first, because the admin plugin reads credentials from `channels.grix`
 
@@ -91,7 +91,6 @@ If you need the detailed admin-side requirements, see the companion Grix admin p
 
 After install, OpenClaw can surface these bundled skills from this plugin:
 
-- `grix-auth-access`: inspect current readiness, follow the protocol-based main-agent path, create or reuse `provider_type=3` API agents when an access token is already available, install or enable `@dhf-openclaw/grix-admin`, and configure the main `channels.grix` path plus required tools
 - `egg-install`: handle Shrimp Pond egg install chats, confirm targets with the user in the current private conversation, execute persona.zip or skill.zip installation with正规步骤, and report progress or failures in normal dialogue
 - `message-send`: send current-session or cross-session Grix messages
 - `message-unsend`: unsend previously sent Grix messages
@@ -100,10 +99,7 @@ You can confirm the bundled skill is visible with:
 
 ```bash
 openclaw skills list
-openclaw skills info grix-auth-access
 ```
-
-If the local main channel is already ready, `grix-auth-access` tells the user to log in to [https://grix.dhf.pub/](https://grix.dhf.pub/) directly. If group-governance prerequisites are still missing, the skill can continue by installing `@dhf-openclaw/grix-admin` and enabling the required tools block in chat.
 
 ## Configure
 
@@ -295,19 +291,6 @@ The channel plugin exposes only channel-native message actions:
 
 - `unsend`
 - `delete`
-
-## Bundled Onboarding Skill
-
-Grix fully adapts the OpenClaw communication protocol, so OpenClaw interaction and Grix agent communication are directly connected. The bundled `grix-auth-access` skill is intended to explain that model to the user and complete the onboarding path:
-
-1. inspect whether the local OpenClaw main agent is already configured
-2. if the main channel is already configured, tell the user they can log in to [https://grix.dhf.pub/](https://grix.dhf.pub/) immediately
-3. otherwise continue with the protocol-based agent setup path
-4. create or reuse a `provider_type=3` API agent
-5. install or enable `@dhf-openclaw/grix-admin` when group-governance capability is requested
-6. configure the OpenClaw main `channels.grix` entry and required tools block
-
-This gives users a direct “install plugin, enable it, then finish setup in conversation” path. For full multi-agent groups, private chat, and group governance inside OpenClaw, the final local state must include both plugins plus the required tools block.
 
 ## Environment Variables
 

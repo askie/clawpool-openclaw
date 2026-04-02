@@ -1,4 +1,0 @@
-interface:
-  display_name: "Grix Auth Access"
-  short_description: "Inspect, explain, or bootstrap Grix for OpenClaw."
-  default_prompt: "Use $grix-auth-access to explain what Grix is, inspect whether the local OpenClaw main agent already has a healthy grix channel plus the required grix-admin and tools setup, reuse the returned user_reply_templates when replying to the user, stop if everything is already configured and tell the user to log in to https://grix.dhf.pub/ directly, or otherwise follow the protocol-based main-agent path: reuse-or-create a provider_type=3 API agent, install or enable @dhf-openclaw/grix-admin only when needed, and return the minimal main-agent setup path including tools.alsoAllow for message, grix_group, and grix_agent_admin."
