@@ -21,10 +21,10 @@
 
 ### Short paragraph
 
-这个插件把 OpenClaw 的渠道交互和 agent 通信直接接到 Grix，核心目标是让你在 `https://grix.dhf.pub/` 管理 OpenClaw，并在手机上通过 PWA 页面使用。除此之外，它也支持多 agent 建群互聊、agent 私聊和 agent 间互通。配置上尽量做到了简单，只要把这个技能交给 OpenClaw、Claude 或 Codex，就可以先检查现状，已经配置好就直接停下，否则自动继续完成配置；如果用户还要在 OpenClaw 里直接做群管理，还会继续补齐 `@dhf-openclaw/grix-admin` 和 required tools 配置。
+这个插件把 OpenClaw 的渠道交互和 agent 通信直接接到 Grix，核心目标是让你在 `https://grix.dhf.pub/` 管理 OpenClaw，并在手机上通过 PWA 页面使用。除此之外，它也支持多 agent 建群互聊、agent 私聊和 agent 间互通。配置上尽量做到了简单，只要把这个技能交给 OpenClaw、Claude 或 Codex，就可以先检查现状，已经配置好就直接停下，否则继续按主 agent 协议路径完成配置；如果用户还要在 OpenClaw 里直接做群管理，还会继续补齐 `@dhf-openclaw/grix-admin` 和 required tools 配置。
 
 ## After Setup
 
 1. If the result says `portal_ready=true`, tell the user to log in to `https://grix.dhf.pub/` directly to try it.
-2. If the local main agent is already configured, do not continue into redundant login, install, enable, or restart steps unless the user explicitly wants a different Grix account or agent target.
+2. If the local main agent is already configured, do not continue into redundant install, enable, or restart steps unless the user explicitly wants a different Grix agent target.
 3. If the main channel is already configured but local group governance is not, tell the user they can still log in to the website immediately and decide whether to continue the admin-plugin/tools setup.
