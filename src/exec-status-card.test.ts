@@ -13,10 +13,10 @@ function buildPayload(channelData: Record<string, unknown>): OutboundReplyPayloa
   };
 }
 
-test("buildExecStatusCardEnvelope maps structured clawpool exec status payload to biz_card", () => {
+test("buildExecStatusCardEnvelope maps structured grix exec status payload to biz_card", () => {
   const envelope = buildExecStatusCardEnvelope(
     buildPayload({
-      clawpool: {
+      grix: {
         execStatus: {
           status: "resolved-deny",
           summary: "Exec approval denied.",
@@ -41,7 +41,7 @@ test("buildExecStatusCardEnvelope maps structured clawpool exec status payload t
     resolved_by_id: "operator-1",
     host: "gateway",
   });
-  assert.deepEqual((envelope?.extra.channel_data as { clawpool?: unknown }).clawpool, {
+  assert.deepEqual((envelope?.extra.channel_data as { grix?: unknown }).grix, {
     execStatus: {
       status: "resolved-deny",
       summary: "Exec approval denied.",
@@ -85,7 +85,7 @@ test("buildExecApprovalResolutionReply builds structured resolution card payload
     reason: "safe build command",
     resolved_by_id: "agent-1",
   });
-  assert.deepEqual((reply.extra.channel_data as { clawpool?: unknown }).clawpool, {
+  assert.deepEqual((reply.extra.channel_data as { grix?: unknown }).grix, {
     execStatus: {
       status: "resolved-allow-once",
       summary: "Allow once selected by agent-1.",

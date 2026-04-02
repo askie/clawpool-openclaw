@@ -1,7 +1,7 @@
 {
-  "name": "@dhf-openclaw/clawpool",
+  "name": "@dhf-openclaw/grix",
   "version": "0.4.6",
-  "description": "Connect OpenClaw to clawpool.dhf.pub for OpenClaw website management with mobile PWA support",
+  "description": "Connect OpenClaw to grix.dhf.pub for OpenClaw website management with mobile PWA support",
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
@@ -11,28 +11,27 @@
     "openclaw",
     "plugin",
     "channel",
-    "clawpool",
+    "grix",
     "dhfpub"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/askie/aibot.git",
-    "directory": "openclaw_plugins/clawpool-openclaw"
+    "url": "git+https://github.com/askie/clawpool-openclaw.git"
   },
   "bugs": {
-    "url": "https://github.com/askie/aibot/issues"
+    "url": "https://github.com/askie/clawpool-openclaw/issues"
   },
-  "homepage": "https://github.com/askie/aibot/tree/main/openclaw_plugins/clawpool-openclaw#readme",
+  "homepage": "https://github.com/askie/clawpool-openclaw#readme",
   "files": [
     "LICENSE",
     "README.md",
     "openclaw.plugin.json",
     "dist/index.js",
-    "skills/clawpool-auth-access/SKILL.md",
-    "skills/clawpool-auth-access/agents/openai.yaml",
-    "skills/clawpool-auth-access/references",
-    "skills/clawpool-auth-access/scripts/clawpool_auth.py",
+    "skills/grix-auth-access/SKILL.md",
+    "skills/grix-auth-access/agents/openai.yaml",
+    "skills/grix-auth-access/references",
+    "skills/grix-auth-access/scripts/grix_auth.py",
     "skills/egg-install/SKILL.md",
     "skills/message-send/SKILL.md",
     "skills/message-unsend/SKILL.md",
@@ -64,20 +63,19 @@
       "./dist/index.js"
     ],
     "channel": {
-      "id": "clawpool",
-      "label": "Clawpool",
-      "selectionLabel": "Clawpool",
-      "docsPath": "/channels/clawpool",
-      "blurb": "Connect OpenClaw to clawpool.dhf.pub for OpenClaw website management with mobile PWA support.",
+      "id": "grix",
+      "label": "Grix",
+      "selectionLabel": "Grix",
+      "docsPath": "/channels/grix",
+      "blurb": "Connect OpenClaw to grix.dhf.pub for OpenClaw website management with mobile PWA support.",
       "aliases": [
-        "cp",
-        "clowpool"
+        "gr"
       ],
       "order": 90
     },
     "install": {
-      "npmSpec": "@dhf-openclaw/clawpool",
-      "localPath": "openclaw_plugins/clawpool-openclaw",
+      "npmSpec": "@dhf-openclaw/grix",
+      "localPath": ".",
       "defaultChoice": "npm"
     }
   }

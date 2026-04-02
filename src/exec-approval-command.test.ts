@@ -43,7 +43,7 @@ test("parseExecApprovalCommand rejects missing decision", () => {
 });
 
 test("parseExecApprovalCommand accepts optional bot mention syntax", () => {
-  assert.deepEqual(parseExecApprovalCommand("/approve@clawpool_bot req_123 deny"), {
+  assert.deepEqual(parseExecApprovalCommand("/approve@grix_bot req_123 deny"), {
     matched: true,
     ok: true,
     id: "req_123",

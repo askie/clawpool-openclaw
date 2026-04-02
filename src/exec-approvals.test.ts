@@ -107,7 +107,7 @@ test("handleExecApprovalCommand rejects unauthorized approver", async () => {
   });
   assert.deepEqual(result, {
     handled: true,
-    replyText: "❌ You are not authorized to approve exec requests on ClawPool.",
+    replyText: "❌ You are not authorized to approve exec requests on Grix.",
   });
 });
 
@@ -154,7 +154,7 @@ test("handleExecApprovalCommand resolves approval for configured approver", asyn
         },
       },
       channel_data: {
-        clawpool: {
+        grix: {
           execStatus: {
             status: "resolved-allow-always",
             summary: "Allow always selected by u_1.",

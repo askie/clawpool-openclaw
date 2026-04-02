@@ -132,11 +132,11 @@ function isExecApprovalApprover(params: {
 }
 
 function disabledReplyText(accountId: string): string {
-  return `❌ ClawPool exec approvals are not enabled for account ${accountId}.`;
+  return `❌ Grix exec approvals are not enabled for account ${accountId}.`;
 }
 
 function unauthorizedReplyText(): string {
-  return "❌ You are not authorized to approve exec requests on ClawPool.";
+  return "❌ You are not authorized to approve exec requests on Grix.";
 }
 
 function successReplyText(command: Extract<ParsedExecApprovalCommand, { matched: true; ok: true }>): string {

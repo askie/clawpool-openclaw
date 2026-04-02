@@ -50,7 +50,7 @@ test("sendEventResult sends event_result packet", () => {
   client.sendEventResult({
     event_id: "evt-123",
     status: "failed",
-    code: "clawpool_dispatch_failed",
+    code: "grix_dispatch_failed",
     msg: "dispatch failed",
     updated_at: 1704067204999,
   });
@@ -60,7 +60,7 @@ test("sendEventResult sends event_result packet", () => {
   assert.deepEqual(sentPackets[0]?.payload, {
     event_id: "evt-123",
     status: "failed",
-    code: "clawpool_dispatch_failed",
+    code: "grix_dispatch_failed",
     msg: "dispatch failed",
     updated_at: 1704067204999,
   });

@@ -68,7 +68,7 @@ function buildExecStatusExtra(parsed: ParsedExecStatusCard): Record<string, unkn
       payload: stripUndefinedFields(parsed),
     },
     channel_data: {
-      clawpool: {
+      grix: {
         execStatus: stripUndefinedFields(parsed),
       },
     },
@@ -81,12 +81,12 @@ function parseStructuredExecStatus(payload: OutboundReplyPayload): ParsedExecSta
     return null;
   }
 
-  const clawpool = (channelData as Record<string, unknown>).clawpool;
-  if (!clawpool || typeof clawpool !== "object" || Array.isArray(clawpool)) {
+  const grix = (channelData as Record<string, unknown>).grix;
+  if (!grix || typeof grix !== "object" || Array.isArray(grix)) {
     return null;
   }
 
-  const execStatus = (clawpool as Record<string, unknown>).execStatus;
+  const execStatus = (grix as Record<string, unknown>).execStatus;
   if (!execStatus || typeof execStatus !== "object" || Array.isArray(execStatus)) {
     return null;
   }

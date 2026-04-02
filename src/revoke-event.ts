@@ -12,7 +12,7 @@ function resolveChatType(sessionType: number): "direct" | "group" {
   if (sessionType === 2) {
     return "group";
   }
-  throw new Error(`clawpool revoke event has unsupported session_type=${sessionType}`);
+  throw new Error(`grix revoke event has unsupported session_type=${sessionType}`);
 }
 
 export type RevokeSystemEventResult = {
@@ -42,7 +42,7 @@ export function enqueueRevokeSystemEvent(params: {
   const chatType = resolveChatType(sessionType);
   const route = params.core.channel.routing.resolveAgentRoute({
     cfg: params.config,
-    channel: "clawpool",
+    channel: "grix",
     accountId: params.account.accountId,
     peer: {
       kind: chatType,
@@ -53,11 +53,11 @@ export function enqueueRevokeSystemEvent(params: {
   if (senderId) {
     metadataParts.push(`sender_id=${senderId}`);
   }
-  const text = `Clawpool ${chatType} message deleted [${metadataParts.join(" ")}]`;
+  const text = `Grix ${chatType} message deleted [${metadataParts.join(" ")}]`;
 
   params.core.system.enqueueSystemEvent(text, {
     sessionKey: route.sessionKey,
-    contextKey: `clawpool:revoke:${sessionId}:${messageId}`,
+    contextKey: `grix:revoke:${sessionId}:${messageId}`,
   });
 
   return {

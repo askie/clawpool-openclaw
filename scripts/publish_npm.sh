@@ -5,11 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ROOT_DIR="$(git -C "${PLUGIN_DIR}" rev-parse --show-toplevel 2>/dev/null || true)"
 AUTO_BROWSER_EXPECT_SCRIPT="${PLUGIN_DIR}/scripts/npm_auto_browser_auth.expect"
-PACKAGE_NAME="@dhf-openclaw/clawpool"
+PACKAGE_NAME="@dhf-openclaw/grix"
 PACKAGE_SCOPE="@dhf-openclaw"
 REGISTRY="${NPM_PUBLISH_REGISTRY:-https://registry.npmjs.org/}"
 MODE="preview"
-REQUESTED_VERSION="${CLAWPOOL_NPM_TARGET_VERSION:-}"
+REQUESTED_VERSION="${GRIX_NPM_TARGET_VERSION:-}"
 CONFIRM_PACKAGE=""
 CONFIRM_TARBALL=""
 PACK_PREVIEW_FILE=""
@@ -23,11 +23,11 @@ cleanup() {
 trap cleanup EXIT
 
 log() {
-  echo "[clawpool-npm-release] $*"
+  echo "[grix-npm-release] $*"
 }
 
 fail() {
-  echo "[clawpool-npm-release] ERROR: $*" >&2
+  echo "[grix-npm-release] ERROR: $*" >&2
   exit 1
 }
 
@@ -67,7 +67,7 @@ validate_version_bump_level() {
     patch|minor|major)
       ;;
     *)
-      fail "CLAWPOOL_NPM_VERSION_BUMP_LEVEL must be one of: patch, minor, major; got: ${level}"
+      fail "GRIX_NPM_VERSION_BUMP_LEVEL must be one of: patch, minor, major; got: ${level}"
       ;;
   esac
 }
@@ -129,8 +129,8 @@ assert_git_worktree_clean() {
   local status_output
   status_output="$(git -C "${ROOT_DIR}" status --porcelain=v1 --untracked-files=normal)"
   if [[ -n "${status_output}" ]]; then
-    echo "[clawpool-npm-release] ERROR: git worktree is dirty; commit/stash/discard local changes before publish" >&2
-    echo "[clawpool-npm-release] pending changes:" >&2
+    echo "[grix-npm-release] ERROR: git worktree is dirty; commit/stash/discard local changes before publish" >&2
+    echo "[grix-npm-release] pending changes:" >&2
     echo "${status_output}" >&2
     exit 1
   fi
@@ -173,10 +173,10 @@ compute_target_version() {
     return
   fi
 
-  auto_bump="${AUTO_BUMP_CLAWPOOL_NPM_VERSION:-1}"
-  bump_level="${CLAWPOOL_NPM_VERSION_BUMP_LEVEL:-patch}"
+  auto_bump="${AUTO_BUMP_GRIX_NPM_VERSION:-1}"
+  bump_level="${GRIX_NPM_VERSION_BUMP_LEVEL:-patch}"
 
-  validate_flag_01 "AUTO_BUMP_CLAWPOOL_NPM_VERSION" "${auto_bump}"
+  validate_flag_01 "AUTO_BUMP_GRIX_NPM_VERSION" "${auto_bump}"
   validate_version_bump_level "${bump_level}"
 
   if [[ "${auto_bump}" != "1" ]]; then
@@ -322,13 +322,13 @@ const targetVersion = process.argv[3];
 const targetPackageRef = process.argv[4];
 const targetTarball = process.argv[5];
 const data = JSON.parse(fs.readFileSync(file, "utf8"))[0];
-console.log("[clawpool-npm-release] preview summary");
-console.log(`[clawpool-npm-release] current package.json version: ${data.version}`);
-console.log(`[clawpool-npm-release] target publish ref: ${targetPackageRef}`);
-console.log(`[clawpool-npm-release] target tarball: ${targetTarball}`);
-console.log(`[clawpool-npm-release] included files (${data.files.length}):`);
+console.log("[grix-npm-release] preview summary");
+console.log(`[grix-npm-release] current package.json version: ${data.version}`);
+console.log(`[grix-npm-release] target publish ref: ${targetPackageRef}`);
+console.log(`[grix-npm-release] target tarball: ${targetTarball}`);
+console.log(`[grix-npm-release] included files (${data.files.length}):`);
 for (const entry of data.files) {
-  console.log(`[clawpool-npm-release]   - ${entry.path}`);
+  console.log(`[grix-npm-release]   - ${entry.path}`);
 }
 NODE
 }
@@ -390,8 +390,8 @@ publish_package() {
 
 verify_published_version() {
   local expected_version package_path dist_tags_json version_json latest_tag resolved_version
-  local max_attempts="${CLAWPOOL_NPM_VERIFY_MAX_ATTEMPTS:-20}"
-  local sleep_seconds="${CLAWPOOL_NPM_VERIFY_INTERVAL_SECONDS:-3}"
+  local max_attempts="${GRIX_NPM_VERIFY_MAX_ATTEMPTS:-20}"
+  local sleep_seconds="${GRIX_NPM_VERIFY_INTERVAL_SECONDS:-3}"
   local attempt
   expected_version="$(read_package_field version)"
   package_path="$(registry_package_path "${PACKAGE_NAME}")"

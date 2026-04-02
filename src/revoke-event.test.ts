@@ -33,7 +33,7 @@ test("enqueueRevokeSystemEvent routes revoke to the matched OpenClaw session", (
         resolveAgentRoute: () => ({
           agentId: "main",
           accountId: "default",
-          sessionKey: "agent:main:clawpool:direct:u_1001_u_2001",
+          sessionKey: "agent:main:grix:direct:u_1001_u_2001",
         }),
       },
     },
@@ -61,14 +61,14 @@ test("enqueueRevokeSystemEvent routes revoke to the matched OpenClaw session", (
   assert.deepEqual(result, {
     messageId: "18889990099",
     sessionId: "u_1001_u_2001",
-    sessionKey: "agent:main:clawpool:direct:u_1001_u_2001",
-    text: "Clawpool direct message deleted [session_id=u_1001_u_2001 msg_id=18889990099 sender_id=9001]",
+    sessionKey: "agent:main:grix:direct:u_1001_u_2001",
+    text: "Grix direct message deleted [session_id=u_1001_u_2001 msg_id=18889990099 sender_id=9001]",
   });
   assert.deepEqual(received, {
-    text: "Clawpool direct message deleted [session_id=u_1001_u_2001 msg_id=18889990099 sender_id=9001]",
+    text: "Grix direct message deleted [session_id=u_1001_u_2001 msg_id=18889990099 sender_id=9001]",
     options: {
-      sessionKey: "agent:main:clawpool:direct:u_1001_u_2001",
-      contextKey: "clawpool:revoke:u_1001_u_2001:18889990099",
+      sessionKey: "agent:main:grix:direct:u_1001_u_2001",
+      contextKey: "grix:revoke:u_1001_u_2001:18889990099",
     },
   });
 });

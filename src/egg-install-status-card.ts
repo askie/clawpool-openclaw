@@ -90,7 +90,7 @@ function buildExtra(parsed: ParsedEggInstallStatusCard): Record<string, unknown>
       payload: stripUndefinedFields(parsed),
     },
     channel_data: {
-      clawpool: {
+      grix: {
         eggInstall: stripUndefinedFields(parsed),
       },
     },
@@ -133,12 +133,12 @@ function parseStructuredEggInstall(payload: OutboundReplyPayload): ParsedEggInst
     return null;
   }
 
-  const clawpool = (channelData as Record<string, unknown>).clawpool;
-  if (!clawpool || typeof clawpool !== "object" || Array.isArray(clawpool)) {
+  const grix = (channelData as Record<string, unknown>).grix;
+  if (!grix || typeof grix !== "object" || Array.isArray(grix)) {
     return null;
   }
 
-  const eggInstall = (clawpool as Record<string, unknown>).eggInstall;
+  const eggInstall = (grix as Record<string, unknown>).eggInstall;
   if (!eggInstall || typeof eggInstall !== "object" || Array.isArray(eggInstall)) {
     return null;
   }

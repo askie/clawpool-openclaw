@@ -12,7 +12,7 @@ function buildPayload(overrides: Partial<OutboundReplyPayload> = {}): OutboundRe
         approvalSlug: "req_123",
         allowedDecisions: ["allow-once", "allow-always", "deny"],
       },
-      clawpool: {
+      grix: {
         execApproval: {
           approval_command_id: "approval_full_123",
           command: "rm -rf /tmp/demo && echo done",
@@ -27,7 +27,7 @@ function buildPayload(overrides: Partial<OutboundReplyPayload> = {}): OutboundRe
   };
 }
 
-test("buildExecApprovalCardEnvelope maps structured clawpool approval payload to biz_card", () => {
+test("buildExecApprovalCardEnvelope maps structured grix approval payload to biz_card", () => {
   const envelope = buildExecApprovalCardEnvelope(buildPayload());
   assert.deepEqual(envelope, {
     extra: {
@@ -52,7 +52,7 @@ test("buildExecApprovalCardEnvelope maps structured clawpool approval payload to
           approvalSlug: "req_123",
           allowedDecisions: ["allow-once", "allow-always", "deny"],
         },
-        clawpool: {
+        grix: {
           execApproval: {
             approval_command_id: "approval_full_123",
             command: "rm -rf /tmp/demo && echo done",
@@ -78,7 +78,7 @@ test("buildExecApprovalCardEnvelope preserves warning text from structured chann
           approvalSlug: "req_123",
           allowedDecisions: ["allow-once", "allow-always", "deny"],
         },
-        clawpool: {
+        grix: {
           execApproval: {
             approval_command_id: "approval_full_123",
             command: "npm run release",
@@ -104,7 +104,7 @@ test("buildExecApprovalCardEnvelope defaults allowed decisions when metadata omi
           approvalId: "approval_full_123",
           approvalSlug: "req_123",
         },
-        clawpool: {
+        grix: {
           execApproval: {
             approval_command_id: "approval_full_123",
             command: "npm run deploy",
@@ -121,7 +121,7 @@ test("buildExecApprovalCardEnvelope defaults allowed decisions when metadata omi
   );
 });
 
-test("buildExecApprovalCardEnvelope returns undefined without namespaced clawpool approval data", () => {
+test("buildExecApprovalCardEnvelope returns undefined without namespaced grix approval data", () => {
   assert.equal(
     buildExecApprovalCardEnvelope(
       buildPayload({
@@ -137,7 +137,7 @@ test("buildExecApprovalCardEnvelope returns undefined without namespaced clawpoo
   );
 });
 
-test("diagnoseExecApprovalPayload reports missing namespaced clawpool approval data", () => {
+test("diagnoseExecApprovalPayload reports missing namespaced grix approval data", () => {
   const diagnostic = diagnoseExecApprovalPayload(
     buildPayload({
       channelData: {
@@ -156,17 +156,17 @@ test("diagnoseExecApprovalPayload reports missing namespaced clawpool approval d
       reason: diagnostic.reason,
       hasChannelData: diagnostic.hasChannelData,
       hasExecApprovalField: diagnostic.hasExecApprovalField,
-      hasClawpoolApprovalField: diagnostic.hasClawpoolApprovalField,
+      hasGrixApprovalField: diagnostic.hasGrixApprovalField,
       approvalId: diagnostic.approvalId,
       approvalSlug: diagnostic.approvalSlug,
     },
     {
       isCandidate: true,
       matched: false,
-      reason: "missing-clawpool-channel-data",
+      reason: "missing-grix-channel-data",
       hasChannelData: true,
       hasExecApprovalField: true,
-      hasClawpoolApprovalField: false,
+      hasGrixApprovalField: false,
       approvalId: "approval_full_123",
       approvalSlug: "req_123",
     },

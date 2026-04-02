@@ -1,11 +1,11 @@
 import type { ChannelPlugin, OpenClawConfig } from "openclaw/plugin-sdk/core";
 import { resolveAibotAccount } from "./accounts.ts";
 import {
-  buildClawpoolPendingExecApprovalPayload,
-  buildClawpoolResolvedExecApprovalPayload,
+  buildGrixPendingExecApprovalPayload,
+  buildGrixResolvedExecApprovalPayload,
 } from "./exec-approval-adapter-payload.ts";
 
-type ClawpoolExecApprovalAdapter = NonNullable<ChannelPlugin["execApprovals"]>;
+type GrixExecApprovalAdapter = NonNullable<ChannelPlugin["execApprovals"]>;
 
 function hasConfiguredApprovers(values: unknown[] | undefined): boolean {
   return (
@@ -16,7 +16,7 @@ function hasConfiguredApprovers(values: unknown[] | undefined): boolean {
   );
 }
 
-export function isClawpoolExecApprovalClientEnabled(params: {
+export function isGrixExecApprovalClientEnabled(params: {
   cfg: OpenClawConfig;
   accountId?: string | null;
 }): boolean {
@@ -27,13 +27,13 @@ export function isClawpoolExecApprovalClientEnabled(params: {
   );
 }
 
-export const clawpoolExecApprovalAdapter: ClawpoolExecApprovalAdapter = {
+export const grixExecApprovalAdapter: GrixExecApprovalAdapter = {
   getInitiatingSurfaceState: ({ cfg, accountId }) =>
-    isClawpoolExecApprovalClientEnabled({ cfg, accountId })
+    isGrixExecApprovalClientEnabled({ cfg, accountId })
       ? { kind: "enabled" }
       : { kind: "disabled" },
   shouldSuppressLocalPrompt: ({ cfg, accountId, payload }) => {
-    if (!isClawpoolExecApprovalClientEnabled({ cfg, accountId })) {
+    if (!isGrixExecApprovalClientEnabled({ cfg, accountId })) {
       return false;
     }
     const channelData = payload.channelData;
@@ -45,7 +45,7 @@ export const clawpoolExecApprovalAdapter: ClawpoolExecApprovalAdapter = {
   },
   hasConfiguredDmRoute: () => false,
   shouldSuppressForwardingFallback: () => false,
-  buildPendingPayload: (params) => buildClawpoolPendingExecApprovalPayload(params),
-  buildResolvedPayload: (params) => buildClawpoolResolvedExecApprovalPayload(params),
+  buildPendingPayload: (params) => buildGrixPendingExecApprovalPayload(params),
+  buildResolvedPayload: (params) => buildGrixResolvedExecApprovalPayload(params),
   beforeDeliverPending: () => undefined,
 };

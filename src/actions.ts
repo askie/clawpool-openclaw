@@ -48,22 +48,22 @@ export const aibotMessageActions: ChannelMessageActionAdapter = {
   handleAction: async ({ action, params, cfg, accountId, toolContext }) => {
     const normalizedAction = String(action ?? "").trim();
     if (!WS_ACTIONS.has(normalizedAction)) {
-      throw new Error(`Clawpool action ${normalizedAction} is not supported`);
+      throw new Error(`Grix action ${normalizedAction} is not supported`);
     }
 
     const account = resolveAibotAccount({ cfg, accountId });
     if (!account.enabled) {
-      throw new Error(`Clawpool account "${account.accountId}" is disabled.`);
+      throw new Error(`Grix account "${account.accountId}" is disabled.`);
     }
     if (!account.configured) {
-      throw new Error(`Clawpool account "${account.accountId}" is not configured.`);
+      throw new Error(`Grix account "${account.accountId}" is not configured.`);
     }
 
     const client = requireActiveAibotClient(account.accountId);
     const messageId =
       readStringishParam(params, "messageId") ?? readStringishParam(params, "msgId");
     if (!messageId) {
-      throw new Error("Clawpool unsend requires messageId.");
+      throw new Error("Grix unsend requires messageId.");
     }
 
     const plan = await resolveSilentUnsendPlan({

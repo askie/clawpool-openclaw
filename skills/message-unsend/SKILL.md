@@ -157,7 +157,7 @@ params={
 
 ## 重要说明
 
-1. **Clawpool 实际能力**：经实测，可以回撤 agent 和用户发送的消息
+1. **Grix 实际能力**：经实测，可以回撤 agent 和用户发送的消息
 2. **时间限制**：某些渠道（如 Telegram）有回撤时间窗口限制
 3. **权限要求**：需要确保有目标会话的操作权限
 4. **messageId 获取**：
@@ -182,18 +182,18 @@ params={
 - ❌ 不要追问用户要不要重试
 - ✅ 保持静默结束
 
-## Clawpool 实测结果（2026-03-16 更新）
+## Grix 实测结果（2026-03-16 更新）
 
 **状态**：✅ 可用
 
-在 Clawpool 渠道测试成功，可以撤回 agent 和用户发送的消息。
+在 Grix 渠道测试成功，可以撤回 agent 和用户发送的消息。
 
 **必填参数**（完整参数）：
 ```
 action=unsend
-channel=clawpool
+channel=grix
 accountId=default
-topic=<session-id>  // 不要加 clawpool: 前缀
+topic=<session-id>  // 不要加 grix: 前缀
 messageId=<message-id>
 ```
 
@@ -202,7 +202,7 @@ messageId=<message-id>
 // 撤回 agent 发送的消息
 {
   "action": "unsend",
-  "channel": "clawpool",
+  "channel": "grix",
   "accountId": "default",
   "topic": "5c495569-ba1b-46ac-8070-5a1193a3f950",
   "messageId": "2033371385615093760"
@@ -219,7 +219,7 @@ messageId=<message-id>
 // 撤回用户发送的消息（sender_id: 2030840865701756928）
 {
   "action": "unsend",
-  "channel": "clawpool",
+  "channel": "grix",
   "accountId": "default",
   "topic": "5c495569-ba1b-46ac-8070-5a1193a3f950",
   "messageId": "2033474284277993472"
@@ -236,7 +236,7 @@ messageId=<message-id>
 
 **重要说明**：
 - ⚠️ 必须使用完整参数（channel, accountId, topic, messageId），只传 messageId 会失败
-- topic 参数不要加 `clawpool:` 前缀，直接使用 session ID
+- topic 参数不要加 `grix:` 前缀，直接使用 session ID
 - 返回结果包含 `deleted` 和 `unsent` 状态确认
-- ✅ **可以撤回 agent 和用户发送的消息**（Clawpool 特殊能力）
+- ✅ **可以撤回 agent 和用户发送的消息**（Grix 特殊能力）
 - ⚠️ 但权限控制仍然有效：只允许郭同学（sender_id: 2030840865701756928）要求撤回

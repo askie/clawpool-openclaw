@@ -35,9 +35,9 @@ function emptyPluginConfigSchema(): OpenClawPluginConfigSchema {
 }
 
 const plugin = {
-  id: "clawpool",
-  name: "Clawpool OpenClaw",
-  description: "Connect OpenClaw to clawpool.dhf.pub for OpenClaw website management with mobile PWA support",
+  id: "grix",
+  name: "Grix OpenClaw",
+  description: "Connect OpenClaw to grix.dhf.pub for OpenClaw website management with mobile PWA support",
   configSchema: emptyPluginConfigSchema(),
   register(api: OpenClawPluginApi) {
     setAibotRuntime(api.runtime);

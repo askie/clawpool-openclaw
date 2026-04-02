@@ -6,7 +6,7 @@ import type {
 import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "./account-id.ts";
 import { aibotMessageActions } from "./actions.js";
 import { resolveAibotAccount, listAibotAccountIds, resolveDefaultAibotAccountId, normalizeAibotSessionTarget, redactAibotWsUrl } from "./accounts.js";
-import { clawpoolExecApprovalAdapter } from "./channel-exec-approvals.js";
+import { grixExecApprovalAdapter } from "./channel-exec-approvals.js";
 import { getActiveAibotClient, requireActiveAibotClient } from "./client.js";
 import { monitorAibotProvider } from "./monitor.js";
 import { buildAibotOutboundEnvelope } from "./outbound-envelope.ts";
@@ -22,12 +22,12 @@ import { deliverAibotPayload } from "./aibot-payload-delivery.ts";
 import type { AibotConfig, ResolvedAibotAccount } from "./types.js";
 
 const meta = {
-  id: "clawpool",
-  label: "Clawpool",
-  selectionLabel: "Clawpool",
-  docsPath: "/channels/clawpool",
-  blurb: "Connect OpenClaw to clawpool.dhf.pub for OpenClaw website management with mobile PWA support.",
-  aliases: ["cp", "clowpool"],
+  id: "grix",
+  label: "Grix",
+  selectionLabel: "Grix",
+  docsPath: "/channels/grix",
+  blurb: "Connect OpenClaw to grix.dhf.pub for OpenClaw website management with mobile PWA support.",
+  aliases: ["gr"],
   order: 90,
 };
 
@@ -47,11 +47,11 @@ function normalizeQuotedMessageId(rawInput?: string | null): string | undefined 
 }
 
 function logAibotOutboundAdapter(message: string): void {
-  console.info(`[clawpool:outbound] ${message}`);
+  console.info(`[grix:outbound] ${message}`);
 }
 
 function asAibotChannelConfig(cfg: OpenClawConfig): AibotConfig {
-  return (cfg.channels?.clawpool as AibotConfig | undefined) ?? {};
+  return (cfg.channels?.grix as AibotConfig | undefined) ?? {};
 }
 
 function buildAccountSnapshot(params: {
@@ -116,7 +116,7 @@ function chunkTextForOutbound(text: string, limit: number): string[] {
 }
 
 export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unknown>> = {
-  id: "clawpool",
+  id: "grix",
   meta,
   capabilities: {
     chatTypes: ["direct", "group"],
@@ -130,7 +130,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
   },
   actions: aibotMessageActions,
   reload: {
-    configPrefixes: ["channels.clawpool"],
+    configPrefixes: ["channels.grix"],
   },
   configSchema: {
     schema: AibotConfigSchema as unknown as Record<string, unknown>,
@@ -142,7 +142,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
     setAccountEnabled: ({ cfg, accountId, enabled }) =>
       setAccountEnabledInConfigSection({
         cfg,
-        sectionKey: "clawpool",
+        sectionKey: "grix",
         accountId,
         enabled,
         allowTopLevel: true,
@@ -150,7 +150,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
     deleteAccount: ({ cfg, accountId }) =>
       deleteAccountFromConfigSection({
         cfg,
-        sectionKey: "clawpool",
+        sectionKey: "grix",
         accountId,
         clearBaseFields: [
           "name",
@@ -185,7 +185,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
         connected: false,
         lastError: account.configured
           ? null
-          : "missing wsUrl/agentId/apiKey (or CLAWPOOL_WS_URL/CLAWPOOL_AGENT_ID/CLAWPOOL_API_KEY)",
+          : "missing wsUrl/agentId/apiKey (or GRIX_WS_URL/GRIX_AGENT_ID/GRIX_API_KEY)",
         dmPolicy: account.config.dmPolicy ?? "open",
         tokenSource: account.apiKey ? "config" : "none",
         mode: "block_streaming",
@@ -208,7 +208,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
     applyAccountName: ({ cfg, accountId, name }) =>
       applyAccountNameToChannelSection({
         cfg,
-        channelKey: "clawpool",
+        channelKey: "grix",
         accountId,
         name,
       }),
@@ -216,7 +216,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
       const values = resolveSetupValues(input);
       const hasAny = Boolean(values.apiKey || values.wsUrl || values.agentId);
       if (!hasAny) {
-        return "clawpool setup requires at least one of: --token(api key), --http-url(ws url), --user-id(agent id)";
+        return "grix setup requires at least one of: --token(api key), --http-url(ws url), --user-id(agent id)";
       }
       return null;
     },
@@ -233,16 +233,16 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
   security: {
     resolveDmPolicy: ({ cfg, accountId, account }) => {
       const resolvedAccountId = accountId ?? account.accountId ?? DEFAULT_ACCOUNT_ID;
-      const isAccountScoped = Boolean((cfg.channels?.clawpool as AibotConfig | undefined)?.accounts?.[resolvedAccountId]);
+      const isAccountScoped = Boolean((cfg.channels?.grix as AibotConfig | undefined)?.accounts?.[resolvedAccountId]);
       const basePath = isAccountScoped
-        ? `channels.clawpool.accounts.${resolvedAccountId}.`
-        : "channels.clawpool.";
+        ? `channels.grix.accounts.${resolvedAccountId}.`
+        : "channels.grix.";
       return {
         policy: account.config.dmPolicy ?? "open",
         allowFrom: account.config.allowFrom ?? [],
         policyPath: `${basePath}dmPolicy`,
         allowFromPath: basePath,
-        approveHint: "openclaw pairing approve clawpool <code>",
+        approveHint: "openclaw pairing approve grix <code>",
       };
     },
   },
@@ -253,7 +253,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
       hint: "<session_id|route.sessionKey>",
     },
   },
-  execApprovals: clawpoolExecApprovalAdapter,
+  execApprovals: grixExecApprovalAdapter,
   threading: {
     buildToolContext: ({ context, hasRepliedRef }) => ({
       currentChannelId: context.To?.trim() || undefined,
@@ -264,7 +264,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
   },
   agentPrompt: {
     messageToolHints: () => [
-      "- Clawpool `action=unsend` is a silent cleanup action: unsend the target `messageId`, unsend the recall command message when applicable, then end with `NO_REPLY` and do not send any confirmation text. Omit `sessionId`/`to` only when targeting the current Clawpool chat.",
+      "- Grix `action=unsend` is a silent cleanup action: unsend the target `messageId`, unsend the recall command message when applicable, then end with `NO_REPLY` and do not send any confirmation text. Omit `sessionId`/`to` only when targeting the current Grix chat.",
     ],
   },
   outbound: {
@@ -304,7 +304,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
         `sendText ack accountId=${account.accountId} resolvedSessionId=${sessionId} messageId=${String(ack.msg_id ?? ack.client_msg_id ?? "-")}`,
       );
       return {
-        channel: "clawpool",
+        channel: "grix",
         messageId: String(ack.msg_id ?? ack.client_msg_id ?? Date.now()),
       };
     },
@@ -330,7 +330,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
       }
       const sessionId = resolvedTarget.sessionId;
       if (!mediaUrl) {
-        throw new Error("clawpool sendMedia requires mediaUrl");
+        throw new Error("grix sendMedia requires mediaUrl");
       }
       const quotedMessageId = normalizeQuotedMessageId(replyToId);
       logAibotOutboundAdapter(
@@ -343,7 +343,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
         `sendMedia ack accountId=${account.accountId} resolvedSessionId=${sessionId} messageId=${String(ack.msg_id ?? ack.client_msg_id ?? "-")}`,
       );
       return {
-        channel: "clawpool",
+        channel: "grix",
         messageId: String(ack.msg_id ?? ack.client_msg_id ?? Date.now()),
       };
     },
@@ -383,14 +383,14 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
         quotedMessageId,
       });
       if (!delivery.sent) {
-        throw new Error("clawpool sendPayload produced no visible delivery");
+        throw new Error("grix sendPayload produced no visible delivery");
       }
-      const messageId = delivery.firstMessageId ?? `clawpool_payload_${Date.now()}`;
+      const messageId = delivery.firstMessageId ?? `grix_payload_${Date.now()}`;
       logAibotOutboundAdapter(
         `sendPayload ack accountId=${account.accountId} resolvedSessionId=${sessionId} messageId=${messageId} cardKind=${envelope.cardKind ?? "none"}`,
       );
       return {
-        channel: "clawpool",
+        channel: "grix",
         messageId,
       };
     },
@@ -423,28 +423,28 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
         if (!account.configured) {
           return [
             {
-              channel: "clawpool",
+              channel: "grix",
               accountId: account.accountId,
               kind: "config",
               message:
-                "Clawpool account is not configured. Set wsUrl/agentId/apiKey (or CLAWPOOL_WS_URL/CLAWPOOL_AGENT_ID/CLAWPOOL_API_KEY).",
+                "Grix account is not configured. Set wsUrl/agentId/apiKey (or GRIX_WS_URL/GRIX_AGENT_ID/GRIX_API_KEY).",
             },
           ];
         }
         if (account.running && !account.connected) {
           return [
             {
-              channel: "clawpool",
+              channel: "grix",
               accountId: account.accountId,
               kind: "runtime",
-              message: "Clawpool channel is running but not connected.",
+              message: "Grix channel is running but not connected.",
             },
           ];
         }
         if (typeof account.lastError === "string" && account.lastError.trim()) {
           return [
             {
-              channel: "clawpool",
+              channel: "grix",
               accountId: account.accountId,
               kind: "runtime",
               message: account.lastError,
@@ -459,11 +459,11 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
       const account = ctx.account;
       if (!account.configured) {
         throw new Error(
-          `clawpool account "${account.accountId}" not configured: require wsUrl + agentId + apiKey`,
+          `grix account "${account.accountId}" not configured: require wsUrl + agentId + apiKey`,
         );
       }
       ctx.log?.info?.(
-        `[${account.accountId}] starting clawpool monitor (${redactAibotWsUrl(account.wsUrl)})`,
+        `[${account.accountId}] starting grix monitor (${redactAibotWsUrl(account.wsUrl)})`,
       );
       ctx.setStatus({
         ...ctx.getStatus(),

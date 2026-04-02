@@ -3,14 +3,14 @@ import test from "node:test";
 
 import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 import {
-  clawpoolExecApprovalAdapter,
-  isClawpoolExecApprovalClientEnabled,
+  grixExecApprovalAdapter,
+  isGrixExecApprovalClientEnabled,
 } from "./channel-exec-approvals.ts";
 
 function buildConfig(overrides?: Record<string, unknown>): OpenClawConfig {
   return {
     channels: {
-      clawpool: {
+      grix: {
         wsUrl: "wss://example.invalid/ws",
         agentId: "agent-1",
         apiKey: "token",
@@ -24,12 +24,12 @@ function buildConfig(overrides?: Record<string, unknown>): OpenClawConfig {
   } as OpenClawConfig;
 }
 
-test("isClawpoolExecApprovalClientEnabled returns true when enabled with approvers", () => {
-  assert.equal(isClawpoolExecApprovalClientEnabled({ cfg: buildConfig() }), true);
+test("isGrixExecApprovalClientEnabled returns true when enabled with approvers", () => {
+  assert.equal(isGrixExecApprovalClientEnabled({ cfg: buildConfig() }), true);
 });
 
 test("getInitiatingSurfaceState returns disabled when approval approvers are not configured", () => {
-  const state = clawpoolExecApprovalAdapter.getInitiatingSurfaceState?.({
+  const state = grixExecApprovalAdapter.getInitiatingSurfaceState?.({
     cfg: buildConfig({
       execApprovals: {
         enabled: true,
@@ -41,11 +41,11 @@ test("getInitiatingSurfaceState returns disabled when approval approvers are not
   assert.deepEqual(state, { kind: "disabled" });
 });
 
-test("shouldSuppressForwardingFallback keeps same-session clawpool forwarding enabled", () => {
-  const suppressed = clawpoolExecApprovalAdapter.shouldSuppressForwardingFallback?.({
+test("shouldSuppressForwardingFallback keeps same-session grix forwarding enabled", () => {
+  const suppressed = grixExecApprovalAdapter.shouldSuppressForwardingFallback?.({
     cfg: buildConfig(),
     target: {
-      channel: "clawpool",
+      channel: "grix",
       to: "session-1",
       source: "session",
     },
@@ -55,7 +55,7 @@ test("shouldSuppressForwardingFallback keeps same-session clawpool forwarding en
       expiresAtMs: 2,
       request: {
         command: "echo hello",
-        turnSourceChannel: "clawpool",
+        turnSourceChannel: "grix",
         sessionKey: "agent:main:main",
       },
     },
@@ -65,7 +65,7 @@ test("shouldSuppressForwardingFallback keeps same-session clawpool forwarding en
 });
 
 test("shouldSuppressLocalPrompt suppresses local prompt only for structured exec approval payloads", () => {
-  const suppressed = clawpoolExecApprovalAdapter.shouldSuppressLocalPrompt?.({
+  const suppressed = grixExecApprovalAdapter.shouldSuppressLocalPrompt?.({
     cfg: buildConfig(),
     accountId: "default",
     payload: {
@@ -83,7 +83,7 @@ test("shouldSuppressLocalPrompt suppresses local prompt only for structured exec
 });
 
 test("shouldSuppressLocalPrompt keeps non-approval tool payloads visible", () => {
-  const suppressed = clawpoolExecApprovalAdapter.shouldSuppressLocalPrompt?.({
+  const suppressed = grixExecApprovalAdapter.shouldSuppressLocalPrompt?.({
     cfg: buildConfig(),
     accountId: "default",
     payload: {
@@ -95,16 +95,16 @@ test("shouldSuppressLocalPrompt keeps non-approval tool payloads visible", () =>
   assert.equal(suppressed, false);
 });
 
-test("hasConfiguredDmRoute reports false because clawpool does not expose approver DM routing", () => {
-  assert.equal(clawpoolExecApprovalAdapter.hasConfiguredDmRoute?.({ cfg: buildConfig() }), false);
+test("hasConfiguredDmRoute reports false because grix does not expose approver DM routing", () => {
+  assert.equal(grixExecApprovalAdapter.hasConfiguredDmRoute?.({ cfg: buildConfig() }), false);
 });
 
-test("buildPendingPayload emits official execApproval metadata plus namespaced clawpool payload", () => {
-  const payload = clawpoolExecApprovalAdapter.buildPendingPayload?.({
+test("buildPendingPayload emits official execApproval metadata plus namespaced grix payload", () => {
+  const payload = grixExecApprovalAdapter.buildPendingPayload?.({
     cfg: buildConfig(),
     nowMs: 1_000,
     target: {
-      channel: "clawpool",
+      channel: "grix",
       to: "session-1",
       source: "target",
     },
@@ -156,7 +156,7 @@ test("buildPendingPayload emits official execApproval metadata plus namespaced c
         approvalSlug: "approval",
         allowedDecisions: ["allow-once", "allow-always", "deny"],
       },
-      clawpool: {
+      grix: {
         execApproval: {
           approval_command_id: "approval_full_123",
           command: "npm run deploy",
@@ -171,18 +171,18 @@ test("buildPendingPayload emits official execApproval metadata plus namespaced c
   });
 });
 
-test("buildResolvedPayload emits namespaced clawpool status payload", () => {
-  const payload = clawpoolExecApprovalAdapter.buildResolvedPayload?.({
+test("buildResolvedPayload emits namespaced grix status payload", () => {
+  const payload = grixExecApprovalAdapter.buildResolvedPayload?.({
     cfg: buildConfig(),
     target: {
-      channel: "clawpool",
+      channel: "grix",
       to: "session-1",
       source: "target",
     },
     resolved: {
       id: "approval_full_123",
       decision: "deny",
-      resolvedBy: "clawpool:user-1",
+      resolvedBy: "grix:user-1",
       ts: 2_000,
       request: {
         host: "gateway",
@@ -192,18 +192,18 @@ test("buildResolvedPayload emits namespaced clawpool status payload", () => {
   });
 
   assert.deepEqual(payload, {
-    text: "✅ Exec approval denied. Resolved by clawpool:user-1. ID: approval_full_123",
+    text: "✅ Exec approval denied. Resolved by grix:user-1. ID: approval_full_123",
     channelData: {
-      clawpool: {
+      grix: {
         execStatus: {
           status: "resolved-deny",
           summary: "Exec approval denied.",
-          detail_text: "Resolved by clawpool:user-1.",
+          detail_text: "Resolved by grix:user-1.",
           approval_id: "approval_full_123",
           approval_command_id: "approval_full_123",
           host: "gateway",
           decision: "deny",
-          resolved_by_id: "clawpool:user-1",
+          resolved_by_id: "grix:user-1",
         },
       },
     },

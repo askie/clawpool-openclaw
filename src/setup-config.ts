@@ -41,7 +41,7 @@ export function applySetupAccountConfig(params: {
   const { cfg, accountId, name, values } = params;
   const namedConfig = applyAccountNameToChannelSection({
     cfg,
-    channelKey: "clawpool",
+    channelKey: "grix",
     accountId,
     name,
   });
@@ -49,7 +49,7 @@ export function applySetupAccountConfig(params: {
     accountId !== DEFAULT_ACCOUNT_ID
       ? migrateBaseNameToDefaultAccount({
           cfg: namedConfig,
-          channelKey: "clawpool",
+          channelKey: "grix",
         })
       : namedConfig;
 
@@ -58,8 +58,8 @@ export function applySetupAccountConfig(params: {
       ...next,
       channels: {
         ...next.channels,
-        clawpool: {
-          ...(next.channels?.clawpool as Record<string, unknown> | undefined),
+        grix: {
+          ...(next.channels?.grix as Record<string, unknown> | undefined),
           enabled: true,
           ...(values.apiKey ? { apiKey: values.apiKey } : {}),
           ...(values.wsUrl ? { wsUrl: values.wsUrl } : {}),
@@ -73,14 +73,14 @@ export function applySetupAccountConfig(params: {
     ...next,
     channels: {
       ...next.channels,
-      clawpool: {
-        ...(next.channels?.clawpool as Record<string, unknown> | undefined),
+      grix: {
+        ...(next.channels?.grix as Record<string, unknown> | undefined),
         enabled: true,
         accounts: {
-          ...((next.channels?.clawpool as { accounts?: Record<string, unknown> } | undefined)
+          ...((next.channels?.grix as { accounts?: Record<string, unknown> } | undefined)
             ?.accounts ?? {}),
           [accountId]: {
-            ...((next.channels?.clawpool as { accounts?: Record<string, unknown> } | undefined)
+            ...((next.channels?.grix as { accounts?: Record<string, unknown> } | undefined)
               ?.accounts?.[accountId] as Record<string, unknown> | undefined),
             enabled: true,
             ...(values.apiKey ? { apiKey: values.apiKey } : {}),

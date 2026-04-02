@@ -39,7 +39,7 @@ export async function resolveSilentUnsendPlan(params: {
 }): Promise<SilentUnsendPlan> {
   const targetMessageId = normalizeMessageId(params.messageId);
   if (!targetMessageId) {
-    throw new Error("Clawpool unsend requires numeric messageId.");
+    throw new Error("Grix unsend requires numeric messageId.");
   }
 
   const targetSessionId = await resolveAibotDeleteTarget({
@@ -52,7 +52,7 @@ export async function resolveSilentUnsendPlan(params: {
   });
   if (!targetSessionId) {
     throw new Error(
-      "Clawpool unsend requires sessionId or to, or must be used inside an active Clawpool conversation.",
+      "Grix unsend requires sessionId or to, or must be used inside an active Grix conversation.",
     );
   }
 
@@ -83,7 +83,7 @@ export async function resolveSilentUnsendPlan(params: {
     currentChannelId,
   });
   if (!currentSessionId) {
-    throw new Error("Clawpool unsend could not resolve the current command message session.");
+    throw new Error("Grix unsend could not resolve the current command message session.");
   }
 
   return {

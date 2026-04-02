@@ -10,7 +10,7 @@ test("buildAibotOutboundEnvelope returns exec approval fallback text for structu
         approvalId: "approval_full_123",
         approvalSlug: "approval",
       },
-      clawpool: {
+      grix: {
         execApproval: {
           approval_command_id: "approval_full_123",
           command: "npm run deploy",
@@ -27,7 +27,7 @@ test("buildAibotOutboundEnvelope returns exec approval fallback text for structu
   );
 });
 
-test("buildAibotOutboundEnvelope keeps raw text when payload has no structured clawpool card data", () => {
+test("buildAibotOutboundEnvelope keeps raw text when payload has no structured grix card data", () => {
   const envelope = buildAibotOutboundEnvelope({
     text: "⏱️ Exec approval expired. ID: approval_full_321",
     channelData: {},

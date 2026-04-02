@@ -21,11 +21,11 @@ if [[ "${1:-}" == "--publish" ]]; then
     echo "Error: Missing npm web auth helper: ${AUTH_HELPER_SCRIPT}"
     exit 1
   fi
-  echo "=> Publishing @dhf-openclaw/clawpool to NPM (Public)..."
+  echo "=> Publishing @dhf-openclaw/grix to NPM (Public)..."
   echo "=> Browser auth will auto-open if npm asks for it."
   exec bash "${PUBLISH_SCRIPT}" "$@"
 fi
 
-echo "=> Running preview for @dhf-openclaw/clawpool..."
+echo "=> Running preview for @dhf-openclaw/grix..."
 echo "=> This only verifies the package, build output, and final tarball name."
 exec bash "${PUBLISH_SCRIPT}" "$@"

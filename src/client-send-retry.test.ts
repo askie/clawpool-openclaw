@@ -97,7 +97,7 @@ test("buildAuthPayload pins openclaw client_type", () => {
     {
       agent_id: "9001",
       api_key: "test-api-key",
-      client: "openclaw-clawpool",
+      client: "openclaw-grix",
       client_type: "openclaw",
     },
   );

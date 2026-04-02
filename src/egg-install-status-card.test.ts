@@ -20,7 +20,7 @@ test("buildEggInstallStatusCardEnvelope parses directive text into channel_data"
 
   assert.ok(envelope);
   assert.equal(envelope?.fallbackText, "[Egg Install] 已完成安装");
-  assert.deepEqual((envelope?.extra.channel_data as { clawpool?: { eggInstall?: unknown } }).clawpool?.eggInstall, {
+  assert.deepEqual((envelope?.extra.channel_data as { grix?: { eggInstall?: unknown } }).grix?.eggInstall, {
     install_id: "eggins_1",
     status: "success",
     step: "completed",
@@ -34,7 +34,7 @@ test("buildEggInstallStatusCardEnvelope keeps structured channel data when alrea
     buildPayload({
       text: "ignore me",
       channelData: {
-        clawpool: {
+        grix: {
           eggInstall: {
             install_id: "eggins_2",
             status: "failed",

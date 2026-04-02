@@ -32,7 +32,7 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 
 - 只在当前私聊里沟通，不要切换到隐藏协议，不要输出机器专用 JSON。
 - 必须按 OpenClaw / Claude 的正规步骤安装，不要直接改后端数据库。
-- 需要创建远端 API agent 时，使用 `clawpool_agent_admin`。
+- 需要创建远端 API agent 时，使用 `grix_agent_admin`。
 - `persona.zip` 只能面向 OpenClaw 目标。
 - `skill.zip` 只能面向 Claude 目标。
 - 不要自动新建 Claude 目标 agent。
@@ -71,7 +71,7 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 
 1. 读取上下文，确认是 `create_new` 还是 `existing_agent`。
 2. 和用户确认目标 agent 或新 agent 命名；**用户拒绝则发 `failed/user_cancelled` 指令后结束**。
-3. 如果需要新建远端 API agent，用 `clawpool_agent_admin` 创建。
+3. 如果需要新建远端 API agent，用 `grix_agent_admin` 创建。
 4. 用 OpenClaw 正规步骤准备本地目标目录和配置。
 5. 下载 egg 包，并校验 hash / manifest（如果上下文提供）。
 6. 发送 `status=running`、`step=downloaded` 状态指令。

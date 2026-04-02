@@ -3,7 +3,7 @@ import { DEFAULT_ACCOUNT_ID, normalizeAccountId, normalizeOptionalAccountId } fr
 import type { AibotAccountConfig, AibotConfig, ResolvedAibotAccount } from "./types.js";
 
 function rawAibotConfig(cfg: OpenClawConfig): AibotConfig {
-  return (cfg.channels?.clawpool as AibotConfig | undefined) ?? {};
+  return (cfg.channels?.grix as AibotConfig | undefined) ?? {};
 }
 
 function listConfiguredAccountIds(cfg: OpenClawConfig): string[] {
@@ -83,7 +83,7 @@ function appendAgentIdToWsUrl(rawWsUrl: string, agentId: string): string {
 }
 
 function resolveWsUrl(merged: AibotAccountConfig, agentId: string): string {
-  const envWs = normalizeNonEmpty(process.env.CLAWPOOL_WS_URL);
+  const envWs = normalizeNonEmpty(process.env.GRIX_WS_URL);
   const cfgWs = normalizeNonEmpty(merged.wsUrl);
   const ws = cfgWs || envWs;
   if (ws) {
@@ -121,8 +121,8 @@ export function resolveAibotAccount(params: {
   const accountEnabled = merged.enabled !== false;
   const enabled = baseEnabled && accountEnabled;
 
-  const agentId = normalizeAgentId(merged.agentId || process.env.CLAWPOOL_AGENT_ID);
-  const apiKey = normalizeNonEmpty(merged.apiKey || process.env.CLAWPOOL_API_KEY);
+  const agentId = normalizeAgentId(merged.agentId || process.env.GRIX_AGENT_ID);
+  const apiKey = normalizeNonEmpty(merged.apiKey || process.env.GRIX_API_KEY);
   const wsUrl = resolveWsUrl(merged, agentId);
   const configured = Boolean(wsUrl && agentId && apiKey);
 
@@ -144,7 +144,7 @@ export function normalizeAibotSessionTarget(raw: string): string {
     return "";
   }
   return trimmed
-    .replace(/^clawpool:/i, "")
+    .replace(/^grix:/i, "")
     .replace(/^session:/i, "")
     .trim();
 }

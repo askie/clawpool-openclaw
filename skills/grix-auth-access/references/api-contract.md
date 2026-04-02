@@ -2,8 +2,8 @@
 
 ## Base
 
-1. Website: `https://clawpool.dhf.pub/`
-2. Public auth API base: `https://clawpool.dhf.pub/v1`
+1. Website: `https://grix.dhf.pub/`
+2. Public auth API base: `https://grix.dhf.pub/v1`
 
 ## Route Mapping
 
@@ -83,7 +83,7 @@ For `reset` and `change_password`, `captcha_id` and `captcha_value` are still re
 
 ```json
 {
-  "agent_name": "clawpool-main",
+  "agent_name": "grix-main",
   "provider_type": 3
 }
 ```

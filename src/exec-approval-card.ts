@@ -26,7 +26,7 @@ type ExecApprovalReplyMetadata = {
   allowedDecisions: ExecApprovalDecision[];
 };
 
-type StructuredClawpoolExecApproval = {
+type StructuredGrixExecApproval = {
   approvalCommandId: string;
   command: string;
   host: string;
@@ -44,7 +44,7 @@ export type ExecApprovalCardDiagnostic = {
     | "ok"
     | "missing-channel-data"
     | "missing-exec-approval-channel-data"
-    | "missing-clawpool-channel-data"
+    | "missing-grix-channel-data"
     | "missing-approval-identifiers"
     | "missing-approval-command-id"
     | "missing-pending-command"
@@ -52,7 +52,7 @@ export type ExecApprovalCardDiagnostic = {
     | "non-approval-payload";
   hasChannelData: boolean;
   hasExecApprovalField: boolean;
-  hasClawpoolApprovalField: boolean;
+  hasGrixApprovalField: boolean;
   approvalId?: string;
   approvalSlug?: string;
   allowedDecisionCount: number;
@@ -124,18 +124,18 @@ function getExecApprovalReplyMetadata(payload: OutboundReplyPayload): ExecApprov
   };
 }
 
-function getStructuredClawpoolExecApproval(
+function getStructuredGrixExecApproval(
   payload: OutboundReplyPayload,
-): StructuredClawpoolExecApproval | null {
+): StructuredGrixExecApproval | null {
   const channelData = payload.channelData;
   if (!channelData || typeof channelData !== "object" || Array.isArray(channelData)) {
     return null;
   }
-  const clawpool = (channelData as Record<string, unknown>).clawpool;
-  if (!clawpool || typeof clawpool !== "object" || Array.isArray(clawpool)) {
+  const grix = (channelData as Record<string, unknown>).grix;
+  if (!grix || typeof grix !== "object" || Array.isArray(grix)) {
     return null;
   }
-  const execApproval = (clawpool as Record<string, unknown>).execApproval;
+  const execApproval = (grix as Record<string, unknown>).execApproval;
   if (!execApproval || typeof execApproval !== "object" || Array.isArray(execApproval)) {
     return null;
   }
@@ -183,9 +183,9 @@ export function diagnoseExecApprovalPayload(payload: OutboundReplyPayload): Exec
     ? execApprovalRecord.allowedDecisions.length
     : 0;
 
-  const structured = getStructuredClawpoolExecApproval(payload);
-  const hasClawpoolApprovalField = Boolean(structured);
-  const isCandidate = hasExecApprovalField || hasClawpoolApprovalField;
+  const structured = getStructuredGrixExecApproval(payload);
+  const hasGrixApprovalField = Boolean(structured);
+  const isCandidate = hasExecApprovalField || hasGrixApprovalField;
   if (!isCandidate) {
     return {
       isCandidate: false,
@@ -193,7 +193,7 @@ export function diagnoseExecApprovalPayload(payload: OutboundReplyPayload): Exec
       reason: "non-approval-payload",
       hasChannelData,
       hasExecApprovalField,
-      hasClawpoolApprovalField,
+      hasGrixApprovalField,
       allowedDecisionCount,
       commandDetected: false,
       textPrefix,
@@ -206,7 +206,7 @@ export function diagnoseExecApprovalPayload(payload: OutboundReplyPayload): Exec
       reason: "missing-channel-data",
       hasChannelData,
       hasExecApprovalField,
-      hasClawpoolApprovalField,
+      hasGrixApprovalField,
       allowedDecisionCount,
       commandDetected: false,
       textPrefix,
@@ -219,7 +219,7 @@ export function diagnoseExecApprovalPayload(payload: OutboundReplyPayload): Exec
       reason: "missing-exec-approval-channel-data",
       hasChannelData,
       hasExecApprovalField,
-      hasClawpoolApprovalField,
+      hasGrixApprovalField,
       allowedDecisionCount,
       commandDetected: Boolean(structured?.command),
       approvalCommandId: structured?.approvalCommandId,
@@ -235,10 +235,10 @@ export function diagnoseExecApprovalPayload(payload: OutboundReplyPayload): Exec
     return {
       isCandidate: true,
       matched: false,
-      reason: "missing-clawpool-channel-data",
+      reason: "missing-grix-channel-data",
       hasChannelData,
       hasExecApprovalField,
-      hasClawpoolApprovalField,
+      hasGrixApprovalField,
       approvalId: approvalId || undefined,
       approvalSlug: approvalSlug || undefined,
       allowedDecisionCount,
@@ -253,7 +253,7 @@ export function diagnoseExecApprovalPayload(payload: OutboundReplyPayload): Exec
       reason: "missing-approval-identifiers",
       hasChannelData,
       hasExecApprovalField,
-      hasClawpoolApprovalField,
+      hasGrixApprovalField,
       approvalId: approvalId || undefined,
       approvalSlug: approvalSlug || undefined,
       allowedDecisionCount,
@@ -274,7 +274,7 @@ export function diagnoseExecApprovalPayload(payload: OutboundReplyPayload): Exec
       reason: "missing-approval-command-id",
       hasChannelData,
       hasExecApprovalField,
-      hasClawpoolApprovalField,
+      hasGrixApprovalField,
       approvalId,
       approvalSlug,
       allowedDecisionCount,
@@ -294,7 +294,7 @@ export function diagnoseExecApprovalPayload(payload: OutboundReplyPayload): Exec
       reason: "missing-pending-command",
       hasChannelData,
       hasExecApprovalField,
-      hasClawpoolApprovalField,
+      hasGrixApprovalField,
       approvalId,
       approvalSlug,
       allowedDecisionCount,
@@ -315,7 +315,7 @@ export function diagnoseExecApprovalPayload(payload: OutboundReplyPayload): Exec
       reason: "missing-host",
       hasChannelData,
       hasExecApprovalField,
-      hasClawpoolApprovalField,
+      hasGrixApprovalField,
       approvalId,
       approvalSlug,
       allowedDecisionCount,
@@ -334,7 +334,7 @@ export function diagnoseExecApprovalPayload(payload: OutboundReplyPayload): Exec
     reason: "ok",
     hasChannelData,
     hasExecApprovalField,
-    hasClawpoolApprovalField,
+    hasGrixApprovalField,
     approvalId,
     approvalSlug,
     allowedDecisionCount,
@@ -364,7 +364,7 @@ export function buildExecApprovalCardEnvelope(
   payload: OutboundReplyPayload,
 ): ExecApprovalCardEnvelope | undefined {
   const metadata = getExecApprovalReplyMetadata(payload);
-  const structured = getStructuredClawpoolExecApproval(payload);
+  const structured = getStructuredGrixExecApproval(payload);
   if (!metadata || !structured) {
     return undefined;
   }

@@ -29,7 +29,7 @@ function normalizeAibotSessionTarget(raw: string): string {
     return "";
   }
   return trimmed
-    .replace(/^clawpool:/i, "")
+    .replace(/^grix:/i, "")
     .replace(/^session:/i, "")
     .trim();
 }
@@ -48,12 +48,12 @@ export async function resolveAibotOutboundTarget(params: {
 }): Promise<ResolvedOutboundTarget> {
   const rawTarget = String(params.to ?? "").trim();
   if (!rawTarget) {
-    throw new Error("clawpool outbound target must be non-empty");
+    throw new Error("grix outbound target must be non-empty");
   }
 
   const normalizedTarget = normalizeAibotSessionTarget(rawTarget);
   if (!normalizedTarget) {
-    throw new Error("clawpool outbound target must contain session_id or route_session_key");
+    throw new Error("grix outbound target must contain session_id or route_session_key");
   }
 
   if (isAibotSessionID(normalizedTarget)) {
@@ -67,7 +67,7 @@ export async function resolveAibotOutboundTarget(params: {
 
   if (/^\d+$/.test(normalizedTarget)) {
     throw new Error(
-      `clawpool outbound target "${rawTarget}" is numeric; expected session_id(UUID) or route.sessionKey`,
+      `grix outbound target "${rawTarget}" is numeric; expected session_id(UUID) or route.sessionKey`,
     );
   }
 
@@ -75,7 +75,7 @@ export async function resolveAibotOutboundTarget(params: {
   let lastResolveError: Error | null = null;
   for (const routeSessionKey of routeSessionKeyCandidates) {
     try {
-      const ack = await params.client.resolveSessionRoute("clawpool", params.accountId, routeSessionKey);
+      const ack = await params.client.resolveSessionRoute("grix", params.accountId, routeSessionKey);
       const sessionId = String(ack.session_id ?? "").trim();
       if (!isAibotSessionID(sessionId)) {
         throw new Error(
@@ -95,8 +95,8 @@ export async function resolveAibotOutboundTarget(params: {
 
   if (lastResolveError) {
     throw new Error(
-      `clawpool outbound target resolve failed target="${rawTarget}" accountId=${params.accountId}: ${lastResolveError.message}`,
+      `grix outbound target resolve failed target="${rawTarget}" accountId=${params.accountId}: ${lastResolveError.message}`,
     );
   }
-  throw new Error(`clawpool outbound target resolve failed target="${rawTarget}" accountId=${params.accountId}`);
+  throw new Error(`grix outbound target resolve failed target="${rawTarget}" accountId=${params.accountId}`);
 }

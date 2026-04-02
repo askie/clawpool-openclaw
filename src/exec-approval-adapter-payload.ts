@@ -1,14 +1,14 @@
 import type { ChannelPlugin } from "openclaw/plugin-sdk/core";
 import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
 
-type ClawpoolExecApprovalAdapter = NonNullable<ChannelPlugin["execApprovals"]>;
-type BuildPendingPayload = NonNullable<ClawpoolExecApprovalAdapter["buildPendingPayload"]>;
-type BuildResolvedPayload = NonNullable<ClawpoolExecApprovalAdapter["buildResolvedPayload"]>;
+type GrixExecApprovalAdapter = NonNullable<ChannelPlugin["execApprovals"]>;
+type BuildPendingPayload = NonNullable<GrixExecApprovalAdapter["buildPendingPayload"]>;
+type BuildResolvedPayload = NonNullable<GrixExecApprovalAdapter["buildResolvedPayload"]>;
 
 type BuildPendingPayloadParams = Parameters<BuildPendingPayload>[0];
 type BuildResolvedPayloadParams = Parameters<BuildResolvedPayload>[0];
 
-export type ClawpoolExecApprovalChannelData = {
+export type GrixExecApprovalChannelData = {
   approval_command_id: string;
   command: string;
   host: string;
@@ -19,7 +19,7 @@ export type ClawpoolExecApprovalChannelData = {
   warning_text?: string;
 };
 
-export type ClawpoolExecStatusChannelData = {
+export type GrixExecStatusChannelData = {
   status:
     | "approval-expired"
     | "resolved-allow-once"
@@ -131,7 +131,7 @@ function decisionLabel(decision: "allow-once" | "allow-always" | "deny"): string
 
 function mapResolvedStatus(
   decision: "allow-once" | "allow-always" | "deny",
-): ClawpoolExecStatusChannelData["status"] {
+): GrixExecStatusChannelData["status"] {
   if (decision === "allow-once") {
     return "resolved-allow-once";
   }
@@ -150,7 +150,7 @@ function buildResolvedApprovalText(params: {
   return `✅ Exec approval ${decisionLabel(params.decision)}.${by} ID: ${params.approvalId}`;
 }
 
-export function buildClawpoolPendingExecApprovalPayload(
+export function buildGrixPendingExecApprovalPayload(
   params: BuildPendingPayloadParams,
 ): OutboundReplyPayload | null {
   const approvalId = normalizeText(params.request.id);
@@ -185,8 +185,8 @@ export function buildClawpoolPendingExecApprovalPayload(
         approvalSlug,
         allowedDecisions: [...DEFAULT_ALLOWED_DECISIONS],
       },
-      clawpool: {
-        execApproval: stripUndefinedFields<ClawpoolExecApprovalChannelData>({
+      grix: {
+        execApproval: stripUndefinedFields<GrixExecApprovalChannelData>({
           approval_command_id: approvalCommandId,
           command,
           host,
@@ -200,7 +200,7 @@ export function buildClawpoolPendingExecApprovalPayload(
   };
 }
 
-export function buildClawpoolResolvedExecApprovalPayload(
+export function buildGrixResolvedExecApprovalPayload(
   params: BuildResolvedPayloadParams,
 ): OutboundReplyPayload | null {
   const approvalId = normalizeText(params.resolved.id);
@@ -215,7 +215,7 @@ export function buildClawpoolResolvedExecApprovalPayload(
   const approvalCommandId = approvalId;
   const summary = `Exec approval ${decisionLabel(decision)}.`;
   const detailText = resolvedBy ? `Resolved by ${resolvedBy}.` : undefined;
-  const structuredStatus = stripUndefinedFields<ClawpoolExecStatusChannelData>({
+  const structuredStatus = stripUndefinedFields<GrixExecStatusChannelData>({
     status: mapResolvedStatus(decision),
     summary,
     detail_text: detailText,
@@ -234,7 +234,7 @@ export function buildClawpoolResolvedExecApprovalPayload(
       resolvedBy,
     }),
     channelData: {
-      clawpool: {
+      grix: {
         execStatus: structuredStatus,
       },
     },

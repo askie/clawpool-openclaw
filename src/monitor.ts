@@ -170,12 +170,12 @@ async function deliverAibotStreamBlock(params: {
     clientMsgId: params.clientMsgId,
   });
   params.runtime.log(
-    `[clawpool:${params.account.accountId}] stream block split into ${chunks.length} chunk(s) ${context} textLen=${params.text.length} chunkDelayMs=${chunkDelayMs}`,
+    `[grix:${params.account.accountId}] stream block split into ${chunks.length} chunk(s) ${context} textLen=${params.text.length} chunkDelayMs=${chunkDelayMs}`,
   );
   for (let index = 0; index < chunks.length; index++) {
     if (params.abortSignal?.aborted) {
       params.runtime.log(
-        `[clawpool:${params.account.accountId}] stream chunk abort before send ${context} chunkIndex=${index + 1}/${chunks.length} didSend=${didSend} abortReason=${resolveAbortReason(params.abortSignal)}`,
+        `[grix:${params.account.accountId}] stream chunk abort before send ${context} chunkIndex=${index + 1}/${chunks.length} didSend=${didSend} abortReason=${resolveAbortReason(params.abortSignal)}`,
       );
       return didSend;
     }
@@ -185,7 +185,7 @@ async function deliverAibotStreamBlock(params: {
       continue;
     }
     params.runtime.log(
-      `[clawpool:${params.account.accountId}] stream chunk send ${context} chunkIndex=${index + 1}/${chunks.length} deltaLen=${normalized.length}`,
+      `[grix:${params.account.accountId}] stream chunk send ${context} chunkIndex=${index + 1}/${chunks.length} deltaLen=${normalized.length}`,
     );
     await params.client.sendStreamChunk(params.sessionId, normalized, {
       eventId: params.eventId,
@@ -222,7 +222,7 @@ async function deliverAibotMessage(params: {
   const execApprovalDiagnostic = outboundEnvelope.execApprovalDiagnostic;
   if (execApprovalDiagnostic.isCandidate) {
     runtime.log(
-      `[clawpool:${account.accountId}] exec approval outbound diagnostic eventId=${params.eventId || "-"} sessionId=${sessionId} clientMsgId=${stableClientMsgId || "-"} matched=${execApprovalDiagnostic.matched ? "true" : "false"} reason=${execApprovalDiagnostic.reason} hasChannelData=${execApprovalDiagnostic.hasChannelData ? "true" : "false"} hasExecApprovalField=${execApprovalDiagnostic.hasExecApprovalField ? "true" : "false"} approvalId=${execApprovalDiagnostic.approvalId || "-"} approvalSlug=${execApprovalDiagnostic.approvalSlug || "-"} approvalCommandId=${execApprovalDiagnostic.approvalCommandId || "-"} commandDetected=${execApprovalDiagnostic.commandDetected ? "true" : "false"} host=${execApprovalDiagnostic.host || "-"} nodeId=${execApprovalDiagnostic.nodeId || "-"} cwd=${execApprovalDiagnostic.cwd || "-"} expiresInSeconds=${execApprovalDiagnostic.expiresInSeconds ?? "-"} allowedDecisionCount=${execApprovalDiagnostic.allowedDecisionCount} textPrefix=${JSON.stringify(execApprovalDiagnostic.textPrefix)} bizCard=${outboundEnvelope.cardKind ?? "none"}`,
+      `[grix:${account.accountId}] exec approval outbound diagnostic eventId=${params.eventId || "-"} sessionId=${sessionId} clientMsgId=${stableClientMsgId || "-"} matched=${execApprovalDiagnostic.matched ? "true" : "false"} reason=${execApprovalDiagnostic.reason} hasChannelData=${execApprovalDiagnostic.hasChannelData ? "true" : "false"} hasExecApprovalField=${execApprovalDiagnostic.hasExecApprovalField ? "true" : "false"} approvalId=${execApprovalDiagnostic.approvalId || "-"} approvalSlug=${execApprovalDiagnostic.approvalSlug || "-"} approvalCommandId=${execApprovalDiagnostic.approvalCommandId || "-"} commandDetected=${execApprovalDiagnostic.commandDetected ? "true" : "false"} host=${execApprovalDiagnostic.host || "-"} nodeId=${execApprovalDiagnostic.nodeId || "-"} cwd=${execApprovalDiagnostic.cwd || "-"} expiresInSeconds=${execApprovalDiagnostic.expiresInSeconds ?? "-"} allowedDecisionCount=${execApprovalDiagnostic.allowedDecisionCount} textPrefix=${JSON.stringify(execApprovalDiagnostic.textPrefix)} bizCard=${outboundEnvelope.cardKind ?? "none"}`,
     );
   }
   const rawText = outboundEnvelope.text;
@@ -239,7 +239,7 @@ async function deliverAibotMessage(params: {
     quotedMessageId,
     stableClientMsgId,
     onMediaError: (error) => {
-      runtime.error(`clawpool media send failed: ${String(error)}`);
+      runtime.error(`grix media send failed: ${String(error)}`);
     },
     statusSink,
   });
@@ -262,20 +262,20 @@ async function bindSessionRouteMapping(params: {
 
   try {
     params.runtime.log(
-      `[clawpool:${params.account.accountId}] session route bind begin routeSessionKey=${routeSessionKey} sessionId=${sessionId}`,
+      `[grix:${params.account.accountId}] session route bind begin routeSessionKey=${routeSessionKey} sessionId=${sessionId}`,
     );
     await params.client.bindSessionRoute(
-      "clawpool",
+      "grix",
       params.account.accountId,
       routeSessionKey,
       sessionId,
     );
     params.runtime.log(
-      `[clawpool:${params.account.accountId}] session route bind success routeSessionKey=${routeSessionKey} sessionId=${sessionId}`,
+      `[grix:${params.account.accountId}] session route bind success routeSessionKey=${routeSessionKey} sessionId=${sessionId}`,
     );
   } catch (err) {
-    const reason = `clawpool session route bind failed routeSessionKey=${routeSessionKey} sessionId=${sessionId}: ${String(err)}`;
-    params.runtime.error(`[clawpool:${params.account.accountId}] ${reason}`);
+    const reason = `grix session route bind failed routeSessionKey=${routeSessionKey} sessionId=${sessionId}: ${String(err)}`;
+    params.runtime.error(`[grix:${params.account.accountId}] ${reason}`);
     params.statusSink?.({ lastError: reason });
   }
 }
@@ -295,13 +295,13 @@ function handleEventStop(params: {
   const stopId = toStringId(params.payload.stop_id);
   if (!eventId || !sessionId) {
     const reason = `invalid event_stop payload: event_id=${eventId || "<empty>"} session_id=${sessionId || "<empty>"}`;
-    params.runtime.error(`[clawpool:${params.account.accountId}] ${reason}`);
+    params.runtime.error(`[grix:${params.account.accountId}] ${reason}`);
     params.statusSink?.({ lastError: reason });
     return;
   }
 
   params.runtime.log(
-    `[clawpool:${params.account.accountId}] event_stop begin eventId=${eventId} sessionId=${sessionId} stopId=${stopId || "-"} acceptedPayload=${JSON.stringify(params.payload)}`,
+    `[grix:${params.account.accountId}] event_stop begin eventId=${eventId} sessionId=${sessionId} stopId=${stopId || "-"} acceptedPayload=${JSON.stringify(params.payload)}`,
   );
 
   try {
@@ -313,11 +313,11 @@ function handleEventStop(params: {
     });
     params.statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
     params.runtime.log(
-      `[clawpool:${params.account.accountId}] event_stop_ack sent eventId=${eventId} sessionId=${sessionId} stopId=${stopId || "-"}`,
+      `[grix:${params.account.accountId}] event_stop_ack sent eventId=${eventId} sessionId=${sessionId} stopId=${stopId || "-"}`,
     );
   } catch (err) {
     const reason = `event_stop_ack failed eventId=${eventId} sessionId=${sessionId}: ${String(err)}`;
-    params.runtime.error(`[clawpool:${params.account.accountId}] ${reason}`);
+    params.runtime.error(`[grix:${params.account.accountId}] ${reason}`);
     params.statusSink?.({ lastError: reason });
     return;
   }
@@ -328,7 +328,7 @@ function handleEventStop(params: {
     sessionId,
   });
   params.runtime.log(
-    `[clawpool:${params.account.accountId}] event_stop resolve_active_run eventId=${eventId} sessionId=${sessionId} found=${activeRun ? "true" : "false"} stopRequested=${activeRun?.stopRequested === true} aborted=${activeRun?.controller.signal.aborted === true} abortReason=${activeRun ? resolveAbortReason(activeRun.controller.signal) : "-"}`,
+    `[grix:${params.account.accountId}] event_stop resolve_active_run eventId=${eventId} sessionId=${sessionId} found=${activeRun ? "true" : "false"} stopRequested=${activeRun?.stopRequested === true} aborted=${activeRun?.controller.signal.aborted === true} abortReason=${activeRun ? resolveAbortReason(activeRun.controller.signal) : "-"}`,
   );
   if (!activeRun) {
     params.client.sendEventStopResult({
@@ -339,7 +339,7 @@ function handleEventStop(params: {
     });
     params.statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
     params.runtime.log(
-      `[clawpool:${params.account.accountId}] event_stop already_finished eventId=${eventId} sessionId=${sessionId} stopId=${stopId || "-"}`,
+      `[grix:${params.account.accountId}] event_stop already_finished eventId=${eventId} sessionId=${sessionId} stopId=${stopId || "-"}`,
     );
     return;
   }
@@ -351,7 +351,7 @@ function handleEventStop(params: {
     activeRun.controller.abort(activeRun.abortReason);
   }
   params.runtime.log(
-    `[clawpool:${params.account.accountId}] owner stop requested eventId=${eventId} sessionId=${sessionId} stopId=${stopId || "-"} aborted=${activeRun.controller.signal.aborted} abortReason=${resolveAbortReason(activeRun.controller.signal)}`,
+    `[grix:${params.account.accountId}] owner stop requested eventId=${eventId} sessionId=${sessionId} stopId=${stopId || "-"} aborted=${activeRun.controller.signal.aborted} abortReason=${resolveAbortReason(activeRun.controller.signal)}`,
   );
 }
 
@@ -382,7 +382,7 @@ function reportHandledCommandResult(params: {
     params.statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
   } catch (err) {
     params.runtime.error(
-      `[clawpool:${params.account.accountId}] command event result send failed eventId=${params.eventId} status=${params.status}: ${String(err)}`,
+      `[grix:${params.account.accountId}] command event result send failed eventId=${params.eventId} status=${params.status}: ${String(err)}`,
     );
     params.statusSink?.({ lastError: String(err) });
   }
@@ -409,7 +409,7 @@ async function sendHandledCommandReply(params: {
   });
   params.statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
   params.runtime.log(
-    `[clawpool:${params.account.accountId}] command reply sent eventId=${params.eventId || "-"} sessionId=${params.sessionId} quotedMessageId=${params.quotedMessageId || "-"} textLen=${params.replyText.length}`,
+    `[grix:${params.account.accountId}] command reply sent eventId=${params.eventId || "-"} sessionId=${params.sessionId} quotedMessageId=${params.quotedMessageId || "-"} textLen=${params.replyText.length}`,
   );
 }
 
@@ -433,7 +433,7 @@ async function processEvent(params: {
   const rawBody = String(event.content ?? "").trim();
   if (!sessionId || !messageSid || !rawBody) {
     const reason = `invalid event_msg payload: session_id=${sessionId || "<empty>"} msg_id=${messageSid || "<empty>"}`;
-    runtime.error(`[clawpool:${account.accountId}] ${reason}`);
+    runtime.error(`[grix:${account.accountId}] ${reason}`);
     statusSink?.({ lastError: reason });
     return;
   }
@@ -459,7 +459,7 @@ async function processEvent(params: {
   });
   if (inboundEvent.duplicate) {
     runtime.log(
-      `[clawpool:${account.accountId}] skip duplicate inbound event ${baseLogContext} confirmed=${inboundEvent.confirmed}`,
+      `[grix:${account.accountId}] skip duplicate inbound event ${baseLogContext} confirmed=${inboundEvent.confirmed}`,
     );
     if (inboundEvent.confirmed && eventId) {
       try {
@@ -471,7 +471,7 @@ async function processEvent(params: {
         statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
       } catch (err) {
         runtime.error(
-          `[clawpool:${account.accountId}] duplicate event ack failed eventId=${eventId}: ${String(err)}`,
+          `[grix:${account.accountId}] duplicate event ack failed eventId=${eventId}: ${String(err)}`,
         );
         statusSink?.({ lastError: String(err) });
       }
@@ -479,7 +479,7 @@ async function processEvent(params: {
     return;
   }
   runtime.log(
-    `[clawpool:${account.accountId}] inbound event ${baseLogContext} chatType=${chatType} bodyLen=${rawBody.length} quotedMessageId=${quotedMessageId || "-"}`,
+    `[grix:${account.accountId}] inbound event ${baseLogContext} chatType=${chatType} bodyLen=${rawBody.length} quotedMessageId=${quotedMessageId || "-"}`,
   );
 
   let inboundEventAccepted = false;
@@ -516,7 +516,7 @@ async function processEvent(params: {
         client,
         eventId,
         status: "responded",
-        code: "clawpool_exec_approval_command_handled",
+        code: "grix_exec_approval_command_handled",
         msg: "exec approval command handled",
         account,
         runtime,
@@ -526,14 +526,14 @@ async function processEvent(params: {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       runtime.error(
-        `[clawpool:${account.accountId}] exec approval command failed ${baseLogContext}: ${message}`,
+        `[grix:${account.accountId}] exec approval command failed ${baseLogContext}: ${message}`,
       );
       statusSink?.({ lastError: message });
       reportHandledCommandResult({
         client,
         eventId,
         status: "failed",
-        code: "clawpool_exec_approval_command_failed",
+        code: "grix_exec_approval_command_failed",
         msg: message,
         account,
         runtime,
@@ -551,12 +551,12 @@ async function processEvent(params: {
     controller: runAbortController,
   });
   runtime.log(
-    `[clawpool:${account.accountId}] active reply run registered eventId=${eventId || `${sessionId}:${messageSid}`} sessionId=${sessionId} messageSid=${messageSid} activeRun=${activeRun ? "true" : "false"}`,
+    `[grix:${account.accountId}] active reply run registered eventId=${eventId || `${sessionId}:${messageSid}`} sessionId=${sessionId} messageSid=${messageSid} activeRun=${activeRun ? "true" : "false"}`,
   );
   try {
     const route = core.channel.routing.resolveAgentRoute({
       cfg: config,
-      channel: "clawpool",
+      channel: "grix",
       accountId: account.accountId,
       peer: {
         kind: isGroup ? "group" : "direct",
@@ -577,7 +577,7 @@ async function processEvent(params: {
       : `user:${senderId || "unknown"}`;
     const envelopeOptions = core.channel.reply.resolveEnvelopeFormatOptions(config);
     const body = core.channel.reply.formatAgentEnvelope({
-      channel: "Clawpool",
+      channel: "Grix",
       from: fromLabel,
       timestamp: createdAt,
       previousTimestamp,
@@ -586,16 +586,16 @@ async function processEvent(params: {
     });
 
     const from = isGroup
-      ? `clawpool:group:${sessionId}:${senderId || "unknown"}`
-      : `clawpool:${senderId || "unknown"}`;
-    const to = `clawpool:${sessionId}`;
+      ? `grix:group:${sessionId}:${senderId || "unknown"}`
+      : `grix:${senderId || "unknown"}`;
+    const to = `grix:${sessionId}`;
 
     const ctxPayload = core.channel.reply.finalizeInboundContext({
       Body: body,
       BodyForAgent: bodyForAgent,
       RawBody: rawBody,
       CommandBody: rawBody,
-      // Clawpool inbound text is end-user chat content; do not parse it as OpenClaw slash/bang commands.
+      // Grix inbound text is end-user chat content; do not parse it as OpenClaw slash/bang commands.
       BodyForCommands: "",
       From: from,
       To: to,
@@ -606,13 +606,13 @@ async function processEvent(params: {
       SenderName: senderId || undefined,
       SenderId: senderId || undefined,
       CommandAuthorized: false,
-      Provider: "clawpool",
-      Surface: "clawpool",
+      Provider: "grix",
+      Surface: "grix",
       MessageSid: messageSid,
       // This field carries the inbound quoted message id from end user (event.quoted_message_id).
       // It is not the outbound reply anchor used when plugin sends replies back to Aibot.
       ReplyToMessageSid: quotedMessageId,
-      OriginatingChannel: "clawpool",
+      OriginatingChannel: "grix",
       OriginatingTo: to,
     });
 
@@ -621,7 +621,7 @@ async function processEvent(params: {
       storePath,
       sessionKey: routeSessionKey,
       ctx: ctxPayload,
-      onRecordError: (err) => runtime.error(`clawpool session meta update failed: ${String(err)}`),
+      onRecordError: (err) => runtime.error(`grix session meta update failed: ${String(err)}`),
     });
     await bindSessionRouteMapping({
       client,
@@ -642,7 +642,7 @@ async function processEvent(params: {
         confirmInboundEvent(inboundEvent.claim);
         inboundEventAccepted = true;
       } catch (err) {
-        runtime.error(`[clawpool:${account.accountId}] event ack failed eventId=${eventId}: ${String(err)}`);
+        runtime.error(`[grix:${account.accountId}] event ack failed eventId=${eventId}: ${String(err)}`);
         statusSink?.({ lastError: String(err) });
       }
     } else {
@@ -656,7 +656,7 @@ async function processEvent(params: {
 
     const tableMode = core.channel.text.resolveMarkdownTableMode({
       cfg: config,
-      channel: "clawpool",
+      channel: "grix",
       accountId: account.accountId,
     });
     const streamClientMsgId = `reply_${messageSid}_stream`;
@@ -676,7 +676,7 @@ async function processEvent(params: {
       statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
     } catch (err) {
       runtime.error(
-        `[clawpool:${account.accountId}] session activity update failed eventId=${eventId || "-"} sessionId=${sessionId} active=${active}: ${String(err)}`,
+        `[grix:${account.accountId}] session activity update failed eventId=${eventId || "-"} sessionId=${sessionId} active=${active}: ${String(err)}`,
       );
       statusSink?.({ lastError: String(err) });
     }
@@ -723,7 +723,7 @@ async function processEvent(params: {
       statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
     } catch (err) {
       runtime.error(
-        `[clawpool:${account.accountId}] event result send failed eventId=${eventId} status=${status}: ${String(err)}`,
+        `[grix:${account.accountId}] event result send failed eventId=${eventId} status=${status}: ${String(err)}`,
       );
       statusSink?.({ lastError: String(err) });
     }
@@ -749,11 +749,11 @@ async function processEvent(params: {
       });
       statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
       runtime.log(
-        `[clawpool:${account.accountId}] event_stop_result sent eventId=${eventId} stopId=${activeRun.stopId || "-"} status=${status} code=${code || "-"} msg=${msg || "-"}`,
+        `[grix:${account.accountId}] event_stop_result sent eventId=${eventId} stopId=${activeRun.stopId || "-"} status=${status} code=${code || "-"} msg=${msg || "-"}`,
       );
     } catch (err) {
       runtime.error(
-        `[clawpool:${account.accountId}] event_stop_result send failed eventId=${eventId} status=${status}: ${String(err)}`,
+        `[grix:${account.accountId}] event_stop_result send failed eventId=${eventId} status=${status}: ${String(err)}`,
       );
       statusSink?.({ lastError: String(err) });
     }
@@ -792,7 +792,7 @@ async function processEvent(params: {
         }
         if (runAbortController.signal.aborted) {
           runtime.log(
-            `[clawpool:${account.accountId}] skip stream finish due to abort ${buildEventLogContext({
+            `[grix:${account.accountId}] skip stream finish due to abort ${buildEventLogContext({
               eventId,
               sessionId,
               messageSid,
@@ -813,12 +813,12 @@ async function processEvent(params: {
           const finishDelayMs = resolveStreamFinishDelayMs(account);
           if (finishDelayMs > 0) {
             runtime.log(
-              `[clawpool:${account.accountId}] stream finish delay ${finishContext} delayMs=${finishDelayMs}`,
+              `[grix:${account.accountId}] stream finish delay ${finishContext} delayMs=${finishDelayMs}`,
             );
             await sleep(finishDelayMs);
           }
           runtime.log(
-            `[clawpool:${account.accountId}] stream finish ${finishContext}`,
+            `[grix:${account.accountId}] stream finish ${finishContext}`,
           );
           await client.sendStreamChunk(sessionId, "", {
             eventId,
@@ -829,7 +829,7 @@ async function processEvent(params: {
           attemptHasOutbound = true;
           statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
         } catch (err) {
-          runtime.error(`[clawpool:${account.accountId}] stream finish failed: ${String(err)}`);
+          runtime.error(`[grix:${account.accountId}] stream finish failed: ${String(err)}`);
           statusSink?.({ lastError: String(err) });
         }
       };
@@ -857,12 +857,12 @@ async function processEvent(params: {
               outboundCounter,
             });
             runtime.log(
-              `[clawpool:${account.accountId}] deliver ${deliverContext} kind=${info.kind} textLen=${text.length} hasMedia=${hasMedia} streamedBefore=${streamedTextAlreadyVisible}`,
+              `[grix:${account.accountId}] deliver ${deliverContext} kind=${info.kind} textLen=${text.length} hasMedia=${hasMedia} streamedBefore=${streamedTextAlreadyVisible}`,
             );
 
             if (guardedText) {
               runtime.error(
-                `[clawpool:${account.accountId}] rewrite internal reply text ${deliverContext} code=${guardedText.code} raw=${JSON.stringify(guardedText.rawText)}`,
+                `[grix:${account.accountId}] rewrite internal reply text ${deliverContext} code=${guardedText.code} raw=${JSON.stringify(guardedText.rawText)}`,
               );
             }
 
@@ -875,14 +875,14 @@ async function processEvent(params: {
             ) {
               retryGuardedText = guardedText;
               runtime.log(
-                `[clawpool:${account.accountId}] defer guarded upstream reply for retry ${deliverContext} attempt=${attemptLabel} code=${guardedText.code}`,
+                `[grix:${account.accountId}] defer guarded upstream reply for retry ${deliverContext} attempt=${attemptLabel} code=${guardedText.code}`,
               );
               return;
             }
 
             if (retryGuardedText && !attemptHasOutbound && !hasSentBlock) {
               runtime.log(
-                `[clawpool:${account.accountId}] skip outbound while retry pending ${deliverContext} attempt=${attemptLabel} code=${retryGuardedText.code}`,
+                `[grix:${account.accountId}] skip outbound while retry pending ${deliverContext} attempt=${attemptLabel} code=${retryGuardedText.code}`,
               );
               return;
             }
@@ -913,14 +913,14 @@ async function processEvent(params: {
 
             if (info.kind === "final" && streamedTextAlreadyVisible && !hasMedia && text) {
               runtime.log(
-                `[clawpool:${account.accountId}] skip final text after streamed block ${deliverContext} textLen=${text.length}`,
+                `[grix:${account.accountId}] skip final text after streamed block ${deliverContext} textLen=${text.length}`,
               );
               return;
             }
 
             const stableClientMsgId = `reply_${messageSid}_${outboundCounter}`;
             runtime.log(
-              `[clawpool:${account.accountId}] deliver message ${buildEventLogContext({
+              `[grix:${account.accountId}] deliver message ${buildEventLogContext({
                 eventId,
                 sessionId,
                 messageSid,
@@ -947,7 +947,7 @@ async function processEvent(params: {
             }
           },
           onError: (err, info) => {
-            runtime.error(`[clawpool:${account.accountId}] ${info.kind} reply failed: ${String(err)}`);
+            runtime.error(`[grix:${account.accountId}] ${info.kind} reply failed: ${String(err)}`);
             statusSink?.({ lastError: String(err) });
           },
         },
@@ -956,14 +956,14 @@ async function processEvent(params: {
         },
       });
       runtime.log(
-        `[clawpool:${account.accountId}] dispatch complete ${baseLogContext} attempt=${attemptLabel} queuedFinal=${dispatchResult.queuedFinal} counts=${JSON.stringify(dispatchResult.counts)}`,
+        `[grix:${account.accountId}] dispatch complete ${baseLogContext} attempt=${attemptLabel} queuedFinal=${dispatchResult.queuedFinal} counts=${JSON.stringify(dispatchResult.counts)}`,
       );
 
       await finishStreamIfNeeded();
 
       if (!visibleOutputSent && consumeSilentUnsendCompleted(messageSid)) {
         runtime.log(
-          `[clawpool:${account.accountId}] silent unsend completed ${baseLogContext} attempt=${attemptLabel}`,
+          `[grix:${account.accountId}] silent unsend completed ${baseLogContext} attempt=${attemptLabel}`,
         );
         reportEventResult("responded");
       }
@@ -973,7 +973,7 @@ async function processEvent(params: {
         shouldTreatDispatchAsRespondedWithoutVisibleOutput(dispatchResult)
       ) {
         runtime.log(
-          `[clawpool:${account.accountId}] dispatch completed without visible reply but produced actionable outcome ${baseLogContext} attempt=${attemptLabel}`,
+          `[grix:${account.accountId}] dispatch completed without visible reply but produced actionable outcome ${baseLogContext} attempt=${attemptLabel}`,
         );
         reportEventResult("responded");
       }
@@ -983,7 +983,7 @@ async function processEvent(params: {
         if (attempt < retryPolicy.maxAttempts) {
           const delayMs = resolveUpstreamRetryDelayMs(retryPolicy, attempt);
           runtime.error(
-            `[clawpool:${account.accountId}] upstream guarded reply retry ${baseLogContext} code=${finalRetryGuardedText.code} attempt=${attemptLabel} next=${attempt + 1}/${retryPolicy.maxAttempts} delayMs=${delayMs}`,
+            `[grix:${account.accountId}] upstream guarded reply retry ${baseLogContext} code=${finalRetryGuardedText.code} attempt=${attemptLabel} next=${attempt + 1}/${retryPolicy.maxAttempts} delayMs=${delayMs}`,
           );
           if (delayMs > 0) {
             await sleep(delayMs);
@@ -994,7 +994,7 @@ async function processEvent(params: {
         outboundCounter++;
         const stableClientMsgId = `reply_${messageSid}_${outboundCounter}`;
         runtime.error(
-          `[clawpool:${account.accountId}] upstream guarded reply retry exhausted ${baseLogContext} code=${finalRetryGuardedText.code} attempts=${retryPolicy.maxAttempts}`,
+          `[grix:${account.accountId}] upstream guarded reply retry exhausted ${baseLogContext} code=${finalRetryGuardedText.code} attempts=${retryPolicy.maxAttempts}`,
         );
         const didSendMessage = await deliverAibotMessage({
           payload: {
@@ -1020,12 +1020,12 @@ async function processEvent(params: {
       break;
     }
     if (!visibleOutputSent && !eventResultReported) {
-      reportEventResult("failed", "clawpool_no_outbound_reply", "no outbound reply emitted");
+      reportEventResult("failed", "grix_no_outbound_reply", "no outbound reply emitted");
     }
   } catch (err) {
     if (runAbortController.signal.aborted) {
       runtime.log(
-        `[clawpool:${account.accountId}] dispatch aborted ${baseLogContext} stopRequested=${activeRun?.stopRequested === true} abortReason=${resolveAbortReason(runAbortController.signal)}`,
+        `[grix:${account.accountId}] dispatch aborted ${baseLogContext} stopRequested=${activeRun?.stopRequested === true} abortReason=${resolveAbortReason(runAbortController.signal)}`,
       );
       clearComposing();
       if (activeRun?.stopRequested) {
@@ -1038,9 +1038,9 @@ async function processEvent(params: {
     }
     if (!visibleOutputSent) {
       const message = err instanceof Error ? err.message : String(err);
-      reportEventResult("failed", "clawpool_dispatch_failed", message);
+      reportEventResult("failed", "grix_dispatch_failed", message);
     }
-    reportStopResult("failed", "clawpool_stop_failed", err instanceof Error ? err.message : String(err));
+    reportStopResult("failed", "grix_stop_failed", err instanceof Error ? err.message : String(err));
     throw err;
   } finally {
     stopComposingRenewal();
@@ -1050,7 +1050,7 @@ async function processEvent(params: {
   }
   } finally {
     runtime.log(
-      `[clawpool:${account.accountId}] active reply run clearing eventId=${activeRun?.eventId || "-"} sessionId=${activeRun?.sessionId || sessionId} stopRequested=${activeRun?.stopRequested === true} abortReason=${activeRun ? resolveAbortReason(activeRun.controller.signal) : "-"} visibleOutputSent=${visibleOutputSent}`,
+      `[grix:${account.accountId}] active reply run clearing eventId=${activeRun?.eventId || "-"} sessionId=${activeRun?.sessionId || sessionId} stopRequested=${activeRun?.stopRequested === true} abortReason=${activeRun ? resolveAbortReason(activeRun.controller.signal) : "-"} visibleOutputSent=${visibleOutputSent}`,
     );
     clearActiveReplyRun(activeRun);
     if (!inboundEventAccepted) {
@@ -1101,7 +1101,7 @@ export async function monitorAibotProvider(options: AibotMonitorOptions): Promis
           return;
         }
         const msg = err instanceof Error ? err.message : String(err);
-        runtime.error(`[clawpool:${account.accountId}] process event failed: ${msg}`);
+        runtime.error(`[grix:${account.accountId}] process event failed: ${msg}`);
         guardedStatusSink({ lastError: msg });
       });
     },
@@ -1125,11 +1125,11 @@ export async function monitorAibotProvider(options: AibotMonitorOptions): Promis
           config,
         });
         runtime.log(
-          `[clawpool:${account.accountId}] inbound revoke sessionId=${revokeEvent.sessionId} messageSid=${revokeEvent.messageId} routeSessionKey=${revokeEvent.sessionKey}`,
+          `[grix:${account.accountId}] inbound revoke sessionId=${revokeEvent.sessionId} messageSid=${revokeEvent.messageId} routeSessionKey=${revokeEvent.sessionKey}`,
         );
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        runtime.error(`[clawpool:${account.accountId}] process revoke event failed: ${msg}`);
+        runtime.error(`[grix:${account.accountId}] process revoke event failed: ${msg}`);
         guardedStatusSink({ lastError: msg });
       }
     },
@@ -1150,7 +1150,7 @@ export async function monitorAibotProvider(options: AibotMonitorOptions): Promis
 
   const previousClient = registerActiveMonitor(account.accountId, client);
   if (previousClient) {
-    runtime.log(`[clawpool:${account.accountId}] stopping superseded clawpool monitor before restart`);
+    runtime.log(`[grix:${account.accountId}] stopping superseded grix monitor before restart`);
     previousClient.stop();
   }
   setActiveAibotClient(account.accountId, client);
@@ -1168,7 +1168,7 @@ export async function monitorAibotProvider(options: AibotMonitorOptions): Promis
         return;
       }
       const msg = err instanceof Error ? err.message : String(err);
-      runtime.error(`[clawpool:${account.accountId}] background run loop failed: ${msg}`);
+      runtime.error(`[grix:${account.accountId}] background run loop failed: ${msg}`);
       guardedStatusSink({ lastError: msg });
     })
     .finally(() => {

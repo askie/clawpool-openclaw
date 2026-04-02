@@ -1,8 +1,8 @@
 {
-  "id": "clawpool",
+  "id": "grix",
   "skills": ["./skills"],
   "channels": [
-    "clawpool"
+    "grix"
   ],
   "configSchema": {
     "type": "object",

@@ -13,24 +13,24 @@ import urllib.request
 import uuid
 
 
-DEFAULT_BASE_URL = "https://clawpool.dhf.pub"
+DEFAULT_BASE_URL = "https://grix.dhf.pub"
 DEFAULT_TIMEOUT_SECONDS = 15
 DEFAULT_OPENCLAW_CONFIG_PATH = "~/.openclaw/openclaw.json"
-DEFAULT_PORTAL_URL = "https://clawpool.dhf.pub/"
+DEFAULT_PORTAL_URL = "https://grix.dhf.pub/"
 DEFAULT_OPENCLAW_TOOLS_PROFILE = "coding"
 DEFAULT_OPENCLAW_TOOLS_VISIBILITY = "agent"
 REQUIRED_OPENCLAW_TOOLS = [
     "message",
-    "clawpool_group",
-    "clawpool_agent_admin",
+    "grix_group",
+    "grix_agent_admin",
 ]
 REQUIRED_ADMIN_PLUGIN_TOOLS = [
-    "clawpool_group",
-    "clawpool_agent_admin",
+    "grix_group",
+    "grix_agent_admin",
 ]
 
 
-class ClawpoolAuthError(RuntimeError):
+class GrixAuthError(RuntimeError):
     def __init__(self, message, status=0, code=-1, payload=None):
         super().__init__(message)
         self.status = status
@@ -72,17 +72,17 @@ def request_json(method: str, path: str, base_url: str, body=None, headers=None)
         status = exc.code
         raw = exc.read().decode("utf-8", errors="replace")
     except urllib.error.URLError as exc:
-        raise ClawpoolAuthError(f"network error: {exc.reason}") from exc
+        raise GrixAuthError(f"network error: {exc.reason}") from exc
 
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise ClawpoolAuthError(f"invalid json response: {raw[:256]}", status=status) from exc
+        raise GrixAuthError(f"invalid json response: {raw[:256]}", status=status) from exc
 
     code = int(payload.get("code", -1))
     msg = str(payload.get("msg", "")).strip() or "unknown error"
     if status >= 400 or code != 0:
-        raise ClawpoolAuthError(msg, status=status, code=code, payload=payload)
+        raise GrixAuthError(msg, status=status, code=code, payload=payload)
 
     return {
         "api_base_url": api_base_url,
@@ -106,7 +106,7 @@ def maybe_write_captcha_image(b64s: str):
     except Exception:
         return ""
 
-    fd, path = tempfile.mkstemp(prefix="clawpool-captcha-", suffix=".png")
+    fd, path = tempfile.mkstemp(prefix="grix-captcha-", suffix=".png")
     try:
         with os.fdopen(fd, "wb") as handle:
             handle.write(content)
@@ -262,7 +262,7 @@ def create_or_reuse_api_agent(
         existing = find_existing_api_agent(agents, agent_name)
         if existing is not None:
             if not rotate_on_reuse:
-                raise ClawpoolAuthError(
+                raise GrixAuthError(
                     "existing provider_type=3 agent found but rotate-on-reuse is disabled; cannot obtain api_key safely",
                     payload={"existing_agent": existing},
                 )
@@ -335,20 +335,20 @@ def build_reference_commands(args, agent_id: str, api_endpoint: str, api_key: st
     commands = []
     openclaw_cmd = build_openclaw_base_cmd(args)
     if not args.skip_plugin_install:
-        commands.append(openclaw_cmd + ["plugins", "install", "@dhf-openclaw/clawpool"])
+        commands.append(openclaw_cmd + ["plugins", "install", "@dhf-openclaw/grix"])
     if not args.skip_plugin_enable:
-        commands.append(openclaw_cmd + ["plugins", "enable", "clawpool"])
+        commands.append(openclaw_cmd + ["plugins", "enable", "grix"])
     if not bool(getattr(args, "skip_admin_plugin_install", False)):
-        commands.append(openclaw_cmd + ["plugins", "install", "@dhf-openclaw/clawpool-admin"])
+        commands.append(openclaw_cmd + ["plugins", "install", "@dhf-openclaw/grix-admin"])
     if not bool(getattr(args, "skip_admin_plugin_enable", False)):
-        commands.append(openclaw_cmd + ["plugins", "enable", "clawpool-admin"])
+        commands.append(openclaw_cmd + ["plugins", "enable", "grix-admin"])
     commands.append(
         openclaw_cmd
         + [
             "channels",
             "add",
             "--channel",
-            "clawpool",
+            "grix",
             "--name",
             args.channel_name.strip(),
             "--http-url",
@@ -430,8 +430,8 @@ def inspect_plugin_state(args, plugin_id: str, required_channel_ids=None, requir
 def inspect_openclaw_plugin(args):
     return inspect_plugin_state(
         args,
-        "clawpool",
-        required_channel_ids=["clawpool"],
+        "grix",
+        required_channel_ids=["grix"],
         skip_install=bool(getattr(args, "skip_plugin_install", False)),
         skip_enable=bool(getattr(args, "skip_plugin_enable", False)),
     )
@@ -440,7 +440,7 @@ def inspect_openclaw_plugin(args):
 def inspect_openclaw_admin_plugin(args):
     return inspect_plugin_state(
         args,
-        "clawpool-admin",
+        "grix-admin",
         required_tool_names=REQUIRED_ADMIN_PLUGIN_TOOLS,
         skip_install=bool(getattr(args, "skip_admin_plugin_install", False)),
         skip_enable=bool(getattr(args, "skip_admin_plugin_enable", False)),
@@ -452,15 +452,15 @@ def build_plugin_commands(args, plugin_status=None):
     openclaw_cmd = build_openclaw_base_cmd(args)
     if isinstance(plugin_status, dict):
         if bool(plugin_status.get("needs_install", False)):
-            commands.append(openclaw_cmd + ["plugins", "install", "@dhf-openclaw/clawpool"])
+            commands.append(openclaw_cmd + ["plugins", "install", "@dhf-openclaw/grix"])
         if bool(plugin_status.get("needs_enable", False)):
-            commands.append(openclaw_cmd + ["plugins", "enable", "clawpool"])
+            commands.append(openclaw_cmd + ["plugins", "enable", "grix"])
         return commands
 
     if not args.skip_plugin_install:
-        commands.append(openclaw_cmd + ["plugins", "install", "@dhf-openclaw/clawpool"])
+        commands.append(openclaw_cmd + ["plugins", "install", "@dhf-openclaw/grix"])
     if not args.skip_plugin_enable:
-        commands.append(openclaw_cmd + ["plugins", "enable", "clawpool"])
+        commands.append(openclaw_cmd + ["plugins", "enable", "grix"])
     return commands
 
 
@@ -469,22 +469,22 @@ def build_admin_plugin_commands(args, plugin_status=None):
     openclaw_cmd = build_openclaw_base_cmd(args)
     if isinstance(plugin_status, dict):
         if bool(plugin_status.get("needs_install", False)):
-            commands.append(openclaw_cmd + ["plugins", "install", "@dhf-openclaw/clawpool-admin"])
+            commands.append(openclaw_cmd + ["plugins", "install", "@dhf-openclaw/grix-admin"])
         if bool(plugin_status.get("needs_enable", False)):
-            commands.append(openclaw_cmd + ["plugins", "enable", "clawpool-admin"])
+            commands.append(openclaw_cmd + ["plugins", "enable", "grix-admin"])
         return commands
 
     if not bool(getattr(args, "skip_admin_plugin_install", False)):
-        commands.append(openclaw_cmd + ["plugins", "install", "@dhf-openclaw/clawpool-admin"])
+        commands.append(openclaw_cmd + ["plugins", "install", "@dhf-openclaw/grix-admin"])
     if not bool(getattr(args, "skip_admin_plugin_enable", False)):
-        commands.append(openclaw_cmd + ["plugins", "enable", "clawpool-admin"])
+        commands.append(openclaw_cmd + ["plugins", "enable", "grix-admin"])
     return commands
 
 
 def build_direct_config(agent_id: str, api_endpoint: str, api_key: str):
     return {
         "channels": {
-            "clawpool": {
+            "grix": {
                 "enabled": True,
                 "wsUrl": api_endpoint,
                 "agentId": agent_id,
@@ -527,16 +527,16 @@ def load_json_file(path: str):
     return json.loads(raw)
 
 
-def extract_main_clawpool_config(cfg):
+def extract_main_grix_config(cfg):
     channels = cfg.get("channels") if isinstance(cfg, dict) else None
-    clawpool = channels.get("clawpool") if isinstance(channels, dict) else None
-    if not isinstance(clawpool, dict):
+    grix = channels.get("grix") if isinstance(channels, dict) else None
+    if not isinstance(grix, dict):
         return {}
     return {
-        "enabled": bool(clawpool.get("enabled", False)),
-        "wsUrl": str(clawpool.get("wsUrl", "")).strip(),
-        "agentId": str(clawpool.get("agentId", "")).strip(),
-        "apiKey": str(clawpool.get("apiKey", "")).strip(),
+        "enabled": bool(grix.get("enabled", False)),
+        "wsUrl": str(grix.get("wsUrl", "")).strip(),
+        "agentId": str(grix.get("agentId", "")).strip(),
+        "apiKey": str(grix.get("apiKey", "")).strip(),
     }
 
 
@@ -596,16 +596,16 @@ def build_portal_guidance(portal_ready: bool, portal_hint: str):
     return payload
 
 
-def build_clawpool_explainer():
+def build_grix_explainer():
     return {
-        "clawpool_intro": f"这个插件接入是为了在 {DEFAULT_PORTAL_URL} 管理 OpenClaw，并支持移动端 PWA 页面；同时 ClawPool 完全适配 OpenClaw 通讯协议。",
-        "clawpool_highlights": [
+        "grix_intro": f"这个插件接入是为了在 {DEFAULT_PORTAL_URL} 管理 OpenClaw，并支持移动端 PWA 页面；同时 Grix 完全适配 OpenClaw 通讯协议。",
+        "grix_highlights": [
             f"接入目标是让你直接在 {DEFAULT_PORTAL_URL} 管理 OpenClaw，移动端可用 PWA 页面",
             "支持多 agent 建群互聊",
             "支持 agent 私聊",
             "agent 之间通信链路完美打通",
             "配置简单易用，只需要将这个技能交给 OpenClaw、Claude、Codex，即可完成检查与配置",
-            "如需群管理能力，还需要安装启用 @dhf-openclaw/clawpool-admin，并在 tools 中允许 message、clawpool_group、clawpool_agent_admin",
+            "如需群管理能力，还需要安装启用 @dhf-openclaw/grix-admin，并在 tools 中允许 message、grix_group、grix_agent_admin",
         ],
     }
 
@@ -613,7 +613,7 @@ def build_clawpool_explainer():
 def build_user_reply_templates(scenario: str):
     one_liner = f"这个插件接入是为了在 {DEFAULT_PORTAL_URL} 管理 OpenClaw，并支持移动端 PWA 页面。"
     short_intro = (
-        f"这个插件把 OpenClaw 的渠道交互和 agent 通信接到 ClawPool，重点是让你在 {DEFAULT_PORTAL_URL} 管理 OpenClaw，"
+        f"这个插件把 OpenClaw 的渠道交互和 agent 通信接到 Grix，重点是让你在 {DEFAULT_PORTAL_URL} 管理 OpenClaw，"
         "并在手机上通过 PWA 页面使用。"
     )
     messages = {
@@ -621,8 +621,8 @@ def build_user_reply_templates(scenario: str):
         "configured_now": f"{one_liner}现在已经配置完成，你可以直接登录 {DEFAULT_PORTAL_URL} 体验。",
         "main_ready_admin_pending": (
             f"{one_liner}当前主通道已经可用，你可以先直接登录 {DEFAULT_PORTAL_URL} 体验；"
-            "如果还要在 OpenClaw 里使用群管理能力，我可以继续安装启用 @dhf-openclaw/clawpool-admin，"
-            "并补齐 message、clawpool_group、clawpool_agent_admin 这三个工具权限。"
+            "如果还要在 OpenClaw 里使用群管理能力，我可以继续安装启用 @dhf-openclaw/grix-admin，"
+            "并补齐 message、grix_group、grix_agent_admin 这三个工具权限。"
         ),
         "needs_setup": f"{one_liner}当前还没有完全配置好，我可以继续帮你完成检查和配置。",
         "login_ready": f"{one_liner}账号已经可用，你可以直接登录 {DEFAULT_PORTAL_URL} 体验；如果需要，我也可以继续帮你把 OpenClaw 主通道配好。",
@@ -655,7 +655,7 @@ def extract_ws_agent_id(ws_url: str):
     return str(candidates[0]).strip()
 
 
-def inspect_main_clawpool_channel(channel):
+def inspect_main_grix_channel(channel):
     current = dict(channel or {})
     issues = []
     ws_url = str(current.get("wsUrl", "")).strip()
@@ -667,7 +667,7 @@ def inspect_main_clawpool_channel(channel):
         issues.append(
             {
                 "code": "main_channel_missing",
-                "message": "channels.clawpool is not configured for the main OpenClaw agent",
+                "message": "channels.grix is not configured for the main OpenClaw agent",
             }
         )
         return {
@@ -682,7 +682,7 @@ def inspect_main_clawpool_channel(channel):
         issues.append(
             {
                 "code": "main_channel_disabled",
-                "message": "channels.clawpool exists but is disabled",
+                "message": "channels.grix exists but is disabled",
             }
         )
 
@@ -690,7 +690,7 @@ def inspect_main_clawpool_channel(channel):
         issues.append(
             {
                 "code": "main_channel_missing_ws_url",
-                "message": "channels.clawpool.wsUrl is empty",
+                "message": "channels.grix.wsUrl is empty",
             }
         )
     else:
@@ -702,21 +702,21 @@ def inspect_main_clawpool_channel(channel):
             issues.append(
                 {
                     "code": "main_channel_invalid_ws_url",
-                    "message": "channels.clawpool.wsUrl must be a ws:// or wss:// URL",
+                    "message": "channels.grix.wsUrl must be a ws:// or wss:// URL",
                 }
             )
         if not ws_agent_id:
             issues.append(
                 {
                     "code": "main_channel_missing_ws_agent_id",
-                    "message": "channels.clawpool.wsUrl does not contain agent_id query parameter",
+                    "message": "channels.grix.wsUrl does not contain agent_id query parameter",
                 }
             )
         elif agent_id and ws_agent_id != agent_id:
             issues.append(
                 {
                     "code": "main_channel_agent_id_mismatch",
-                    "message": "channels.clawpool.agentId does not match the wsUrl agent_id",
+                    "message": "channels.grix.agentId does not match the wsUrl agent_id",
                     "ws_agent_id": ws_agent_id,
                     "agent_id": agent_id,
                 }
@@ -726,7 +726,7 @@ def inspect_main_clawpool_channel(channel):
         issues.append(
             {
                 "code": "main_channel_missing_agent_id",
-                "message": "channels.clawpool.agentId is empty",
+                "message": "channels.grix.agentId is empty",
             }
         )
 
@@ -734,7 +734,7 @@ def inspect_main_clawpool_channel(channel):
         issues.append(
             {
                 "code": "main_channel_missing_api_key",
-                "message": "channels.clawpool.apiKey is empty",
+                "message": "channels.grix.apiKey is empty",
             }
         )
 
@@ -747,15 +747,15 @@ def inspect_main_clawpool_channel(channel):
     }
 
 
-def apply_main_clawpool_config(cfg, agent_id: str, api_endpoint: str, api_key: str):
+def apply_main_grix_config(cfg, agent_id: str, api_endpoint: str, api_key: str):
     next_cfg = dict(cfg or {})
     channels = dict(next_cfg.get("channels") or {})
-    clawpool = dict(channels.get("clawpool") or {})
-    clawpool["enabled"] = True
-    clawpool["wsUrl"] = api_endpoint
-    clawpool["agentId"] = agent_id
-    clawpool["apiKey"] = api_key
-    channels["clawpool"] = clawpool
+    grix = dict(channels.get("grix") or {})
+    grix["enabled"] = True
+    grix["wsUrl"] = api_endpoint
+    grix["agentId"] = agent_id
+    grix["apiKey"] = api_key
+    channels["grix"] = grix
     next_cfg["channels"] = channels
     return next_cfg
 
@@ -797,7 +797,7 @@ def inspect_openclaw_tools_config(cfg):
         issues.append(
             {
                 "code": "tools_required_tools_missing",
-                "message": "tools.alsoAllow is missing required ClawPool tool ids",
+                "message": "tools.alsoAllow is missing required Grix tool ids",
                 "missing_tools": missing_tools,
                 "expected_tools": list(REQUIRED_OPENCLAW_TOOLS),
             }
@@ -864,7 +864,7 @@ def run_commands(commands):
         entry = run_command_capture(cmd)
         results.append(entry)
         if entry["returncode"] != 0:
-            raise ClawpoolAuthError(
+            raise GrixAuthError(
                 f"openclaw command failed: {entry['command']}",
                 payload={"command_results": results},
             )
@@ -873,7 +873,7 @@ def run_commands(commands):
 
 def build_onboard_values(agent_id: str, api_endpoint: str, api_key: str):
     return {
-        "channel": "Clawpool",
+        "channel": "Grix",
         "wsUrl": api_endpoint,
         "agentId": agent_id,
         "apiKey": api_key,
@@ -882,9 +882,9 @@ def build_onboard_values(agent_id: str, api_endpoint: str, api_key: str):
 
 def build_channel_environment_variables(agent_id: str, api_endpoint: str, api_key: str):
     return {
-        "CLAWPOOL_WS_URL": api_endpoint,
-        "CLAWPOOL_AGENT_ID": agent_id,
-        "CLAWPOOL_API_KEY": api_key,
+        "GRIX_WS_URL": api_endpoint,
+        "GRIX_AGENT_ID": agent_id,
+        "GRIX_API_KEY": api_key,
     }
 
 
@@ -970,18 +970,18 @@ def classify_gap_state(gaps):
 
 def build_recommended_next_steps(gaps):
     mapping = {
-        "plugin_verification_failed": "verify_clawpool_plugin_state",
-        "plugin_missing": "install_or_enable_clawpool_plugin",
-        "plugin_not_ready": "repair_or_enable_clawpool_plugin",
-        "main_channel_missing": "configure_main_clawpool_channel",
-        "main_channel_invalid": "repair_main_clawpool_channel",
-        "needs_main_config_update": "update_main_clawpool_channel",
-        "admin_plugin_verification_failed": "verify_clawpool_admin_plugin_state",
-        "admin_plugin_missing": "install_or_enable_clawpool_admin_plugin",
-        "admin_plugin_not_ready": "repair_or_enable_clawpool_admin_plugin",
-        "tools_config_missing": "configure_required_clawpool_tools",
-        "tools_not_ready": "repair_required_clawpool_tools",
-        "needs_tools_config_update": "update_required_clawpool_tools",
+        "plugin_verification_failed": "verify_grix_plugin_state",
+        "plugin_missing": "install_or_enable_grix_plugin",
+        "plugin_not_ready": "repair_or_enable_grix_plugin",
+        "main_channel_missing": "configure_main_grix_channel",
+        "main_channel_invalid": "repair_main_grix_channel",
+        "needs_main_config_update": "update_main_grix_channel",
+        "admin_plugin_verification_failed": "verify_grix_admin_plugin_state",
+        "admin_plugin_missing": "install_or_enable_grix_admin_plugin",
+        "admin_plugin_not_ready": "repair_or_enable_grix_admin_plugin",
+        "tools_config_missing": "configure_required_grix_tools",
+        "tools_not_ready": "repair_required_grix_tools",
+        "needs_tools_config_update": "update_required_grix_tools",
     }
     steps = []
     for gap in gaps:
@@ -994,11 +994,11 @@ def build_recommended_next_steps(gaps):
 def build_openclaw_inspection_result(args):
     config_path = resolve_config_path(args)
     current_cfg = load_json_file(config_path)
-    current_main = extract_main_clawpool_config(current_cfg)
+    current_main = extract_main_grix_config(current_cfg)
     current_tools = extract_openclaw_tools_config(current_cfg)
     plugin_status = inspect_openclaw_plugin(args)
     admin_plugin_status = inspect_openclaw_admin_plugin(args)
-    channel_inspection = inspect_main_clawpool_channel(current_main)
+    channel_inspection = inspect_main_grix_channel(current_main)
     tools_inspection = inspect_openclaw_tools_config(current_cfg)
     gaps = collect_inspection_gaps(plugin_status, channel_inspection, admin_plugin_status, tools_inspection)
     inspection_state = classify_gap_state(gaps)
@@ -1040,7 +1040,7 @@ def build_openclaw_inspection_result(args):
                 True,
                 (
                     f"主通道已配置完成，可直接登录 {DEFAULT_PORTAL_URL} 体验；"
-                    "如需群管理能力，还需安装启用 @dhf-openclaw/clawpool-admin 并补齐 required tools 配置。"
+                    "如需群管理能力，还需安装启用 @dhf-openclaw/grix-admin 并补齐 required tools 配置。"
                 ),
             )
         )
@@ -1048,19 +1048,19 @@ def build_openclaw_inspection_result(args):
     else:
         payload.update(build_portal_guidance(False, ""))
         payload.update(build_user_reply_templates("needs_setup"))
-    payload.update(build_clawpool_explainer())
+    payload.update(build_grix_explainer())
     return payload
 
 
 def build_openclaw_setup_result(args, agent_id: str, api_endpoint: str, api_key: str):
     config_path = resolve_config_path(args)
     current_cfg = load_json_file(config_path)
-    current_main = extract_main_clawpool_config(current_cfg)
+    current_main = extract_main_grix_config(current_cfg)
     current_tools = extract_openclaw_tools_config(current_cfg)
     next_cfg = apply_required_openclaw_tools_config(
-        apply_main_clawpool_config(current_cfg, agent_id, api_endpoint, api_key)
+        apply_main_grix_config(current_cfg, agent_id, api_endpoint, api_key)
     )
-    next_main = extract_main_clawpool_config(next_cfg)
+    next_main = extract_main_grix_config(next_cfg)
     next_tools = extract_openclaw_tools_config(next_cfg)
     needs_main_update = current_main != next_main
     needs_tools_update = current_tools != next_tools
@@ -1070,7 +1070,7 @@ def build_openclaw_setup_result(args, agent_id: str, api_endpoint: str, api_key:
     plugin_commands = build_plugin_commands(args, plugin_status)
     admin_plugin_commands = build_admin_plugin_commands(args, admin_plugin_status)
     reference_commands = build_reference_commands(args, agent_id, api_endpoint, api_key)
-    channel_inspection = inspect_main_clawpool_channel(current_main)
+    channel_inspection = inspect_main_grix_channel(current_main)
     tools_inspection = inspect_openclaw_tools_config(current_cfg)
     planned_apply_commands = list(plugin_commands) + list(admin_plugin_commands)
     restart_needed = (not args.skip_gateway_restart) and (
@@ -1127,7 +1127,7 @@ def build_openclaw_setup_result(args, agent_id: str, api_endpoint: str, api_key:
                 True,
                 (
                     f"主通道已配置完成，可直接登录 {DEFAULT_PORTAL_URL} 体验；"
-                    "如需群管理能力，还需安装启用 @dhf-openclaw/clawpool-admin 并补齐 required tools 配置。"
+                    "如需群管理能力，还需安装启用 @dhf-openclaw/grix-admin 并补齐 required tools 配置。"
                 ),
             )
         )
@@ -1135,7 +1135,7 @@ def build_openclaw_setup_result(args, agent_id: str, api_endpoint: str, api_key:
     else:
         payload.update(build_portal_guidance(False, ""))
         payload.update(build_user_reply_templates("needs_setup"))
-    payload.update(build_clawpool_explainer())
+    payload.update(build_grix_explainer())
     if args.apply:
         command_results = []
         if plugin_commands:
@@ -1153,11 +1153,11 @@ def build_openclaw_setup_result(args, agent_id: str, api_endpoint: str, api_key:
             command_results.extend(run_commands([build_gateway_restart_command(args)]))
         payload["command_results"] = command_results
         applied_cfg = load_json_file(config_path)
-        applied_main = extract_main_clawpool_config(applied_cfg)
+        applied_main = extract_main_grix_config(applied_cfg)
         applied_tools = extract_openclaw_tools_config(applied_cfg)
         applied_plugin_status = inspect_openclaw_plugin(args)
         applied_admin_plugin_status = inspect_openclaw_admin_plugin(args)
-        applied_channel_checks = inspect_main_clawpool_channel(applied_main)
+        applied_channel_checks = inspect_main_grix_channel(applied_main)
         applied_tools_checks = inspect_openclaw_tools_config(applied_cfg)
         payload["applied_state"] = {
             "plugin_status": applied_plugin_status,
@@ -1204,7 +1204,7 @@ def build_openclaw_setup_result(args, agent_id: str, api_endpoint: str, api_key:
                     True,
                     (
                         f"主通道已完成配置，可直接登录 {DEFAULT_PORTAL_URL} 体验；"
-                        "如需群管理能力，还需继续补齐 @dhf-openclaw/clawpool-admin 或 required tools 配置。"
+                        "如需群管理能力，还需继续补齐 @dhf-openclaw/grix-admin 或 required tools 配置。"
                     ),
                 )
             )
@@ -1241,7 +1241,7 @@ def handle_send_email_code(args):
     captcha_value = (args.captcha_value or "").strip()
     if scene in {"reset", "change_password"}:
         if not captcha_id or not captcha_value:
-            raise ClawpoolAuthError(
+            raise GrixAuthError(
                 "captcha_id and captcha_value are required for reset/change_password"
             )
     if captcha_id:
@@ -1291,7 +1291,7 @@ def handle_register(args):
 def handle_login(args):
     account = (args.email or args.account or "").strip()
     if not account:
-        raise ClawpoolAuthError("either --email or --account is required")
+        raise GrixAuthError("either --email or --account is required")
     platform = (args.platform or "").strip() or "web"
     device_id = (args.device_id or "").strip() or default_device_id(platform)
     print_json(
@@ -1339,9 +1339,9 @@ def handle_bootstrap_openclaw(args):
     if not access_token:
         account = (args.email or args.account or "").strip()
         if not account:
-            raise ClawpoolAuthError("bootstrap@dhf-openclaw requires --access-token or login identity")
+            raise GrixAuthError("bootstrap@dhf-openclaw requires --access-token or login identity")
         if not (args.password or "").strip():
-            raise ClawpoolAuthError("bootstrap@dhf-openclaw requires --password when access token is not provided")
+            raise GrixAuthError("bootstrap@dhf-openclaw requires --password when access token is not provided")
         platform = (args.platform or "").strip() or "web"
         device_id = (args.device_id or "").strip() or default_device_id(platform)
         login_result = login_with_credentials(
@@ -1353,7 +1353,7 @@ def handle_bootstrap_openclaw(args):
         )
         access_token = str(login_result.get("access_token", "")).strip()
         if not access_token:
-            raise ClawpoolAuthError("login did not return access_token")
+            raise GrixAuthError("login did not return access_token")
 
     create_result = create_or_reuse_api_agent(
         args.base_url,
@@ -1368,7 +1368,7 @@ def handle_bootstrap_openclaw(args):
     agent_id = str(create_result.get("agent_id", "")).strip()
     api_key = str(create_result.get("api_key", "")).strip()
     if not api_endpoint or not agent_id or not api_key:
-        raise ClawpoolAuthError("create-api-agent did not return full Clawpool channel credentials")
+        raise GrixAuthError("create-api-agent did not return full Grix channel credentials")
 
     payload = {
         "ok": True,
@@ -1405,14 +1405,14 @@ def handle_bootstrap_openclaw(args):
         payload["bootstrap_state"] = "agent_ready_openclaw_setup_skipped"
         payload.update(build_portal_guidance(False, ""))
         payload.update(build_user_reply_templates("login_ready"))
-    payload.update(build_clawpool_explainer())
+    payload.update(build_grix_explainer())
 
     print_json(payload)
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(description="ClawPool public auth API helper")
-    parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="ClawPool web base URL")
+    parser = argparse.ArgumentParser(description="Grix public auth API helper")
+    parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="Grix web base URL")
 
     subparsers = parser.add_subparsers(dest="action", required=True)
 
@@ -1456,7 +1456,7 @@ def build_parser():
 
     inspect_openclaw = subparsers.add_parser(
         "inspect@dhf-openclaw",
-        help="Inspect local OpenClaw clawpool readiness without mutating local state",
+        help="Inspect local OpenClaw grix readiness without mutating local state",
     )
     inspect_openclaw.add_argument("--openclaw-bin", dest="openclaw_bin", default="openclaw")
     inspect_openclaw.add_argument("--openclaw-profile", dest="openclaw_profile", default="")
@@ -1469,12 +1469,12 @@ def build_parser():
 
     configure_openclaw = subparsers.add_parser(
         "configure@dhf-openclaw",
-        help="Prepare or apply local OpenClaw clawpool channel setup",
+        help="Prepare or apply local OpenClaw grix channel setup",
     )
     configure_openclaw.add_argument("--agent-id", required=True)
     configure_openclaw.add_argument("--api-endpoint", required=True)
     configure_openclaw.add_argument("--api-key", required=True)
-    configure_openclaw.add_argument("--channel-name", default="clawpool-main")
+    configure_openclaw.add_argument("--channel-name", default="grix-main")
     configure_openclaw.add_argument("--openclaw-bin", dest="openclaw_bin", default="openclaw")
     configure_openclaw.add_argument("--openclaw-profile", dest="openclaw_profile", default="")
     configure_openclaw.add_argument("--config-path", default=DEFAULT_OPENCLAW_CONFIG_PATH)
@@ -1499,7 +1499,7 @@ def build_parser():
     bootstrap_openclaw.add_argument("--platform", default="web")
     bootstrap_openclaw.add_argument("--agent-name", required=True)
     bootstrap_openclaw.add_argument("--avatar-url", default="")
-    bootstrap_openclaw.add_argument("--channel-name", default="clawpool-main")
+    bootstrap_openclaw.add_argument("--channel-name", default="grix-main")
     bootstrap_openclaw.add_argument("--openclaw-bin", dest="openclaw_bin", default="openclaw")
     bootstrap_openclaw.add_argument("--openclaw-profile", dest="openclaw_profile", default="")
     bootstrap_openclaw.add_argument("--config-path", default=DEFAULT_OPENCLAW_CONFIG_PATH)
@@ -1522,7 +1522,7 @@ def main():
     args = parser.parse_args()
     try:
         args.handler(args)
-    except ClawpoolAuthError as exc:
+    except GrixAuthError as exc:
         print_json(
             {
                 "ok": False,

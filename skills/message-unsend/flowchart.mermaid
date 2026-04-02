@@ -5,12 +5,12 @@ flowchart TD
     CheckSender -->|是| ResolveTarget{能定位目标消息?}
 
     ResolveTarget -->|否| End2[直接 NO_REPLY]
-    ResolveTarget -->|是| PrepareTarget[准备目标消息参数<br/>action=unsend<br/>channel=clawpool<br/>accountId=default<br/>topic=sessionId<br/>messageId=目标消息]
+    ResolveTarget -->|是| PrepareTarget[准备目标消息参数<br/>action=unsend<br/>channel=grix<br/>accountId=default<br/>topic=sessionId<br/>messageId=目标消息]
 
     PrepareTarget --> UnsendTarget[执行目标消息撤回]
     UnsendTarget --> TargetResult{成功或已删除?}
     TargetResult -->|否| End3[直接 NO_REPLY]
-    TargetResult -->|是| PrepareCommand[准备指令消息参数<br/>action=unsend<br/>channel=clawpool<br/>accountId=default<br/>topic=sessionId<br/>messageId=当前指令消息]
+    TargetResult -->|是| PrepareCommand[准备指令消息参数<br/>action=unsend<br/>channel=grix<br/>accountId=default<br/>topic=sessionId<br/>messageId=当前指令消息]
 
     PrepareCommand --> UnsendCommand[执行指令消息撤回]
     UnsendCommand --> End4[返回 NO_REPLY]

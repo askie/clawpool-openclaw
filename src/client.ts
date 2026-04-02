@@ -118,7 +118,7 @@ export function buildAuthPayload(account: ResolvedAibotAccount): Record<string, 
   return {
     agent_id: account.agentId,
     api_key: account.apiKey,
-    client: "openclaw-clawpool",
+    client: "openclaw-grix",
     client_type: "openclaw",
   };
 }
@@ -128,7 +128,7 @@ class AibotPacketError extends Error {
   readonly code: number;
 
   constructor(cmd: string, code: number, message: string) {
-    super(`clawpool ${cmd}: code=${code} msg=${message}`);
+    super(`grix ${cmd}: code=${code} msg=${message}`);
     this.name = "AibotPacketError";
     this.cmd = cmd;
     this.code = code;
@@ -254,7 +254,7 @@ class AuthRejectedError extends Error {
   readonly code: number;
 
   constructor(code: number, message: string) {
-    super(`clawpool auth failed: code=${code}, msg=${message}`);
+    super(`grix auth failed: code=${code}, msg=${message}`);
     this.name = "AuthRejectedError";
     this.code = code;
   }
@@ -333,15 +333,15 @@ export class AibotWsClient {
   }
 
   private logInfo(message: string): void {
-    this.callbacks.logger?.info?.(`[clawpool] [${this.account.accountId}] ${message}`);
+    this.callbacks.logger?.info?.(`[grix] [${this.account.accountId}] ${message}`);
   }
 
   private logWarn(message: string): void {
-    this.callbacks.logger?.warn?.(`[clawpool] [${this.account.accountId}] ${message}`);
+    this.callbacks.logger?.warn?.(`[grix] [${this.account.accountId}] ${message}`);
   }
 
   private logError(message: string): void {
-    this.callbacks.logger?.error?.(`[clawpool] [${this.account.accountId}] ${message}`);
+    this.callbacks.logger?.error?.(`[grix] [${this.account.accountId}] ${message}`);
   }
 
   private logConnectionError(message: string): void {
@@ -428,7 +428,7 @@ export class AibotWsClient {
   stop(): void {
     this.running = false;
     this.stopKeepalive();
-    this.rejectAllPending(new Error("clawpool client stopped"));
+    this.rejectAllPending(new Error("grix client stopped"));
     this.safeCloseWs("client_stopped");
     this.updateStatus({
       running: false,
@@ -448,7 +448,7 @@ export class AibotWsClient {
     opts: SendMessageOptions = {},
   ): Promise<AibotSendAckPayload> {
     this.ensureReady();
-    const clientMsgId = opts.clientMsgId || `clawpool_${randomUUID()}`;
+    const clientMsgId = opts.clientMsgId || `grix_${randomUUID()}`;
     const payload = this.buildSendTextPayload(sessionId, text, clientMsgId, opts);
     try {
       return await this.sendMessageWithRetry(sessionId, payload, opts.timeoutMs ?? 20_000, "sendText");
@@ -467,7 +467,7 @@ export class AibotWsClient {
     opts: SendMediaOptions = {},
   ): Promise<AibotSendAckPayload> {
     this.ensureReady();
-    const clientMsgId = opts.clientMsgId || `clawpool_${randomUUID()}`;
+    const clientMsgId = opts.clientMsgId || `grix_${randomUUID()}`;
     const payload = this.buildSendMediaPayload(sessionId, mediaUrl, caption, clientMsgId, opts);
     try {
       return await this.sendMessageWithRetry(sessionId, payload, opts.timeoutMs ?? 30_000, "sendMedia");
@@ -492,7 +492,7 @@ export class AibotWsClient {
     const normalizedRouteSessionKey = String(routeSessionKey ?? "").trim();
     const normalizedSessionID = String(sessionId ?? "").trim();
     if (!normalizedChannel || !normalizedAccountID || !normalizedRouteSessionKey || !normalizedSessionID) {
-      throw new Error("clawpool session_route_bind requires channel/account_id/route_session_key/session_id");
+      throw new Error("grix session_route_bind requires channel/account_id/route_session_key/session_id");
     }
     this.logInfo(
       `session_route_bind request channel=${normalizedChannel} accountId=${normalizedAccountID} routeSessionKey=${normalizedRouteSessionKey} sessionId=${normalizedSessionID}`,
@@ -533,7 +533,7 @@ export class AibotWsClient {
     const normalizedAccountID = String(accountId ?? "").trim();
     const normalizedRouteSessionKey = String(routeSessionKey ?? "").trim();
     if (!normalizedChannel || !normalizedAccountID || !normalizedRouteSessionKey) {
-      throw new Error("clawpool session_route_resolve requires channel/account_id/route_session_key");
+      throw new Error("grix session_route_resolve requires channel/account_id/route_session_key");
     }
     this.logInfo(
       `session_route_resolve request channel=${normalizedChannel} accountId=${normalizedAccountID} routeSessionKey=${normalizedRouteSessionKey}`,
@@ -559,7 +559,7 @@ export class AibotWsClient {
     const payload = packet.payload as AibotSessionRouteAckPayload;
     const normalizedSessionID = String(payload.session_id ?? "").trim();
     if (!normalizedSessionID) {
-      throw new Error("clawpool session_route_resolve ack missing session_id");
+      throw new Error("grix session_route_resolve ack missing session_id");
     }
     this.logInfo(
       `session_route_resolve ack channel=${normalizedChannel} accountId=${normalizedAccountID} routeSessionKey=${normalizedRouteSessionKey} sessionId=${normalizedSessionID}`,
@@ -623,12 +623,12 @@ export class AibotWsClient {
     this.ensureReady();
     const normalizedSessionId = String(sessionId ?? "").trim();
     if (!normalizedSessionId) {
-      throw new Error("clawpool delete_msg requires session_id");
+      throw new Error("grix delete_msg requires session_id");
     }
 
     const normalizedMsgId = String(msgId ?? "").trim();
     if (!/^\d+$/.test(normalizedMsgId)) {
-      throw new Error("clawpool delete_msg requires numeric msg_id");
+      throw new Error("grix delete_msg requires numeric msg_id");
     }
 
     const packet = await this.request(
@@ -656,7 +656,7 @@ export class AibotWsClient {
     this.ensureReady();
     const normalizedEventId = String(eventId ?? "").trim();
     if (!normalizedEventId) {
-      throw new Error("clawpool event_ack requires event_id");
+      throw new Error("grix event_ack requires event_id");
     }
 
     const ackPayload: Record<string, unknown> = {
@@ -680,10 +680,10 @@ export class AibotWsClient {
     const eventId = String(payload.event_id ?? "").trim();
     const status = String(payload.status ?? "").trim();
     if (!eventId) {
-      throw new Error("clawpool event_result requires event_id");
+      throw new Error("grix event_result requires event_id");
     }
     if (!status) {
-      throw new Error("clawpool event_result requires status");
+      throw new Error("grix event_result requires status");
     }
 
     const packet: Record<string, unknown> = {
@@ -709,7 +709,7 @@ export class AibotWsClient {
     this.ensureReady();
     const eventId = String(payload.event_id ?? "").trim();
     if (!eventId) {
-      throw new Error("clawpool event_stop_ack requires event_id");
+      throw new Error("grix event_stop_ack requires event_id");
     }
 
     const packet: Record<string, unknown> = {
@@ -732,10 +732,10 @@ export class AibotWsClient {
     const eventId = String(payload.event_id ?? "").trim();
     const status = String(payload.status ?? "").trim();
     if (!eventId) {
-      throw new Error("clawpool event_stop_result requires event_id");
+      throw new Error("grix event_stop_result requires event_id");
     }
     if (!status) {
-      throw new Error("clawpool event_stop_result requires status");
+      throw new Error("grix event_stop_result requires status");
     }
 
     const packet: Record<string, unknown> = {
@@ -769,7 +769,7 @@ export class AibotWsClient {
     this.ensureReady();
     const normalizedSessionId = String(sessionId ?? "").trim();
     if (!normalizedSessionId) {
-      throw new Error("clawpool session_activity_set requires session_id");
+      throw new Error("grix session_activity_set requires session_id");
     }
     const payload: Record<string, unknown> = {
       session_id: normalizedSessionId,
@@ -879,7 +879,7 @@ export class AibotWsClient {
         authed: false,
         lastDisconnectAt: Date.now(),
       });
-      this.rejectAllPending(new Error("clawpool websocket closed"));
+      this.rejectAllPending(new Error("grix websocket closed"));
       if (this.ws === ws && ws.readyState !== WebSocket.OPEN) {
         this.ws = null;
         if (this.activeConnectionSerial === connSerial) {
@@ -894,7 +894,7 @@ export class AibotWsClient {
         authed: false,
         lastDisconnectAt: Date.now(),
       });
-      this.rejectAllPending(new Error("clawpool websocket error"));
+      this.rejectAllPending(new Error("grix websocket error"));
     };
 
     ws.addEventListener("message", onMessage);
@@ -944,7 +944,7 @@ export class AibotWsClient {
       };
 
       const onError = (): void => {
-        finish(() => reject(new Error("clawpool websocket connect failed")));
+        finish(() => reject(new Error("grix websocket connect failed")));
       };
 
       const onAbort = (): void => {
@@ -971,7 +971,7 @@ export class AibotWsClient {
       timer = setTimeout(() => {
         finish(() => {
           closeWs();
-          reject(new Error("clawpool websocket connect timeout"));
+          reject(new Error("grix websocket connect timeout"));
         });
       }, timeoutMs);
 
@@ -1146,10 +1146,10 @@ export class AibotWsClient {
 
   private ensureReady(requireAuthed = true): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      throw new Error("clawpool websocket is not open");
+      throw new Error("grix websocket is not open");
     }
     if (requireAuthed && !this.status.authed) {
-      throw new Error("clawpool websocket is not authed");
+      throw new Error("grix websocket is not authed");
     }
   }
 
@@ -1312,7 +1312,7 @@ export class AibotWsClient {
       }
       throw err;
     }
-    throw new Error(`clawpool ${action} exhausted retry attempts`);
+    throw new Error(`grix ${action} exhausted retry attempts`);
   }
 
   private async sendSplitTextAfterSizeError(
@@ -1323,7 +1323,7 @@ export class AibotWsClient {
   ): Promise<AibotSendAckPayload> {
     const chunks = splitTextForAibotProtocol(text, DEFAULT_OUTBOUND_TEXT_CHUNK_LIMIT);
     if (chunks.length <= 1) {
-      throw new Error(`clawpool sendText size recovery failed clientMsgId=${clientMsgId}`);
+      throw new Error(`grix sendText size recovery failed clientMsgId=${clientMsgId}`);
     }
 
     this.logWarn(
@@ -1341,7 +1341,7 @@ export class AibotWsClient {
       );
     }
     if (lastAck == null) {
-      throw new Error(`clawpool sendText size recovery produced no outbound chunks clientMsgId=${clientMsgId}`);
+      throw new Error(`grix sendText size recovery produced no outbound chunks clientMsgId=${clientMsgId}`);
     }
     return lastAck;
   }
@@ -1355,7 +1355,7 @@ export class AibotWsClient {
   ): Promise<AibotSendAckPayload> {
     const chunks = splitTextForAibotProtocol(caption, DEFAULT_OUTBOUND_TEXT_CHUNK_LIMIT);
     if (chunks.length <= 1) {
-      throw new Error(`clawpool sendMedia size recovery failed clientMsgId=${clientMsgId}`);
+      throw new Error(`grix sendMedia size recovery failed clientMsgId=${clientMsgId}`);
     }
 
     this.logWarn(
@@ -1536,7 +1536,7 @@ export class AibotWsClient {
         "ping",
         {
           ts: startedAt,
-          source: "clawpool_keepalive",
+          source: "grix_keepalive",
         },
         {
           expected: ["pong"],
@@ -1642,7 +1642,7 @@ export function requireActiveAibotClient(accountId: string): AibotWsClient {
   const client = getActiveAibotClient(accountId);
   if (!client) {
     throw new Error(
-      `clawpool account "${accountId}" is not connected; start the gateway channel runtime first`,
+      `grix account "${accountId}" is not connected; start the gateway channel runtime first`,
     );
   }
   return client;
