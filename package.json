@@ -1,7 +1,7 @@
 {
   "name": "@dhf-openclaw/grix",
   "version": "0.4.9",
-  "description": "Connect OpenClaw to grix.dhf.pub for OpenClaw website management with mobile PWA support",
+  "description": "Unified Grix OpenClaw plugin with channel transport, typed admin tools, and operator CLI",
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
@@ -28,9 +28,7 @@
     "README.md",
     "openclaw.plugin.json",
     "dist/index.js",
-    "skills/message-send/SKILL.md",
-    "skills/message-unsend/SKILL.md",
-    "skills/message-unsend/flowchart.mermaid"
+    "skills"
   ],
   "publishConfig": {
     "access": "public",
@@ -44,7 +42,7 @@
     "publish:npm": "npm run publish:npm:preview",
     "publish:npm:preview": "bash ./scripts/publish_npm.sh",
     "publish:npm:release": "bash ./scripts/publish_npm.sh --publish",
-    "test": "node --test src/*.test.ts"
+    "test": "node --test src/*.test.ts src/admin/*.test.ts"
   },
   "devDependencies": {
     "esbuild": "0.27.4",

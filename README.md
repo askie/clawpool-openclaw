@@ -1,37 +1,41 @@
-# OpenClaw Grix Channel Plugin
+# OpenClaw Grix Unified Plugin
 
-This plugin connects OpenClaw to [https://grix.dhf.pub/](https://grix.dhf.pub/) so OpenClaw can be managed on that website, with mobile PWA page support.
+This plugin connects OpenClaw to [https://grix.dhf.pub/](https://grix.dhf.pub/) and provides a single, unified integration for:
+
+- Grix channel transport (WebSocket Agent API)
+- native message actions (`unsend` / `delete`)
+- typed Grix admin tools
+- operator CLI commands
+- bundled Grix workflow skills
 
 Compatibility:
 
 - Requires `OpenClaw >= 2026.3.13`
 
-Its runtime remains focused on channel responsibilities:
+## Included Capability
 
-- connect to Grix over the Agent API WebSocket
-- receive inbound messages
-- send replies, media, and streaming chunks
-- support native channel actions such as `unsend` / `delete`
+After installation, one plugin covers all major Grix workflows:
 
-The npm package also bundles OpenClaw skills for channel helpers and native channel actions.
-
-For full group-governance and API-agent admin capability, OpenClaw also needs the separate typed admin plugin:
-
-- `@dhf-openclaw/grix-admin`
-
-If you are reading the admin plugin documentation first, also read the companion Grix admin plugin README.
-
-## Which Package Do I Need?
-
-- Install only `@dhf-openclaw/grix` when you only need Grix channel transport and bundled helper skills
-- Install both `@dhf-openclaw/grix` and `@dhf-openclaw/grix-admin` when you want OpenClaw agents to use typed group governance or API-agent admin tools
-- Never install only `@dhf-openclaw/grix-admin` without configuring `@dhf-openclaw/grix` first, because the admin plugin reads credentials from `channels.grix`
+- Channel runtime:
+  - inbound message receive
+  - outbound reply / media / streaming chunk send
+  - native channel actions (`unsend`, `delete`)
+- Typed admin tools:
+  - `grix_query`
+  - `grix_group`
+  - `grix_agent_admin`
+- Operator CLI:
+  - `openclaw grix doctor`
+  - `openclaw grix create-agent ...`
+- Bundled skills:
+  - `message-send`
+  - `message-unsend`
+  - `egg-install`
+  - `grix-query`
+  - `grix-group-governance`
+  - `grix-agent-admin`
 
 ## Install
-
-Before install, confirm your local OpenClaw version is greater than or equal to `2026.3.13`.
-
-### Base Channel Transport
 
 ```bash
 openclaw plugins install @dhf-openclaw/grix
@@ -41,37 +45,31 @@ openclaw gateway restart
 
 ### Local Source Checkout
 
-If you load this plugin directly from a local checkout instead of the published npm package, install repo dependencies first so `openclaw/plugin-sdk` can resolve from this workspace:
+If you load from a local checkout:
 
 ```bash
 npm install
-```
-
-Then point OpenClaw at the tracked local entry file:
-
-```bash
 openclaw plugins install ./grix.ts
 ```
 
-### Full Grix Capability
+## Required OpenClaw Config
 
-For native group-management capability inside OpenClaw, also install the admin plugin and enable the required tools:
+### Channel Config (`channels.grix`)
 
-```bash
-openclaw plugins install @dhf-openclaw/grix-admin
-openclaw plugins enable grix-admin
-openclaw gateway restart
+```json
+{
+  "channels": {
+    "grix": {
+      "enabled": true,
+      "wsUrl": "wss://grix.dhf.pub/v1/agent-api/ws?agent_id=<YOUR_AGENT_ID>",
+      "agentId": "<YOUR_AGENT_ID>",
+      "apiKey": "<YOUR_API_KEY>"
+    }
+  }
+}
 ```
 
-Recommended order:
-
-1. Install and configure `@dhf-openclaw/grix`
-2. Confirm `channels.grix` is healthy
-3. Install and enable `@dhf-openclaw/grix-admin`
-4. Enable the required `tools` block
-5. Restart the OpenClaw gateway
-
-If you need the detailed admin-side requirements, see the companion Grix admin plugin README.
+### Tool Exposure Config
 
 ```json
 {
@@ -79,6 +77,7 @@ If you need the detailed admin-side requirements, see the companion Grix admin p
     "profile": "coding",
     "alsoAllow": [
       "message",
+      "grix_query",
       "grix_group",
       "grix_agent_admin"
     ],
@@ -89,41 +88,7 @@ If you need the detailed admin-side requirements, see the companion Grix admin p
 }
 ```
 
-After install, OpenClaw can surface these bundled skills from this plugin:
-
-- `message-send`: send current-session or cross-session Grix messages
-- `message-unsend`: unsend previously sent Grix messages
-
-`egg-install` is bundled in `@dhf-openclaw/grix-admin` so install the admin plugin when you need Shrimp Pond install workflow.
-
-You can confirm the bundled skill is visible with:
-
-```bash
-openclaw skills list
-```
-
-## Configure
-
-### `openclaw onboard`
-
-Choose `Grix` in channel setup and enter:
-
-- `wsUrl`
-- `agentId`
-- `apiKey`
-
-### `openclaw channels add`
-
-```bash
-openclaw channels add \
-  --channel grix \
-  --name grix-main \
-  --http-url 'wss://grix.dhf.pub/v1/agent-api/ws?agent_id=<YOUR_AGENT_ID>' \
-  --user-id '<YOUR_AGENT_ID>' \
-  --token '<YOUR_API_KEY>'
-```
-
-### Direct config
+Full example:
 
 ```json
 {
@@ -139,6 +104,7 @@ openclaw channels add \
     "profile": "coding",
     "alsoAllow": [
       "message",
+      "grix_query",
       "grix_group",
       "grix_agent_admin"
     ],
@@ -149,17 +115,70 @@ openclaw channels add \
 }
 ```
 
-The `channels.grix` section is the dependency that `@dhf-openclaw/grix-admin` reads when it calls the Grix Agent API.
+After any config change:
+
+```bash
+openclaw gateway restart
+```
+
+## Typed Tools
+
+### `grix_query`
+
+Supported actions:
+
+- `contact_search`
+- `session_search`
+- `message_history`
+
+### `grix_group`
+
+Supported actions:
+
+- `create`
+- `detail`
+- `add_members`
+- `remove_members`
+- `update_member_role`
+- `update_all_members_muted`
+- `update_member_speaking`
+- `dissolve`
+
+### `grix_agent_admin`
+
+Creates `provider_type=3` API agents with typed parameters.
+
+This tool creates the remote Grix API agent only. It does not directly mutate local OpenClaw channel config.
+
+## Operator CLI
+
+### Inspect Grix accounts
+
+```bash
+openclaw grix doctor
+```
+
+### Create API agent
+
+```bash
+openclaw grix create-agent \
+  --agent-name ops-assistant \
+  --describe-message-tool '{"actions":["unsend","delete"]}'
+```
+
+`create-agent` prints:
+
+- created agent payload
+- one-time API key in result payload
+- safe next-step channel binding command template
+
+`--describe-message-tool` is required and must follow OpenClaw `describeMessageTool` discovery structure.
 
 ## Exec Approvals
 
 Grix can approve OpenClaw host `exec` requests in chat.
 
-`exec` approvals only require `@dhf-openclaw/grix`. They do not require `@dhf-openclaw/grix-admin`.
-
 ### 1. Configure Grix approvers
-
-Add the Grix sender ids that are allowed to approve:
 
 ```json
 {
@@ -174,14 +193,14 @@ Add the Grix sender ids that are allowed to approve:
 }
 ```
 
-If you use a named Grix account, configure approvers under that account:
+If using named accounts:
 
 ```json
 {
   "channels": {
     "grix": {
       "accounts": {
-        "xiami": {
+        "ops": {
           "execApprovals": {
             "enabled": true,
             "approvers": ["<GRIX_SENDER_ID>"]
@@ -194,8 +213,6 @@ If you use a named Grix account, configure approvers under that account:
 ```
 
 ### 2. Enable OpenClaw exec approvals
-
-Minimal OpenClaw config:
 
 ```json
 {
@@ -223,17 +240,13 @@ Minimal OpenClaw config:
 }
 ```
 
-Mode selection:
+Mode choices:
 
-- `session`: send the approval prompt back to the current Grix chat
-- `targets`: send the approval prompt to the explicit targets configured in `approvals.exec.targets`
-- `both`: send to the current chat and to explicit targets
+- `session`: send approval prompt to current Grix chat
+- `targets`: send approval prompt to configured `approvals.exec.targets`
+- `both`: send to both
 
-If needed, you can also use OpenClaw's upstream `approvals.exec` fields such as `agentFilter`, `sessionFilter`, and `targets`.
-
-### 3. Restart the gateway
-
-After changing any approval-related config:
+### 3. Restart
 
 ```bash
 openclaw gateway restart
@@ -241,60 +254,32 @@ openclaw gateway restart
 
 ### 4. Approve in chat
 
-Usage flow:
+Flow:
 
-1. Ask OpenClaw to run an `exec` command that requires approval.
-2. OpenClaw sends the approval prompt to Grix according to `approvals.exec.mode`.
+1. Ask OpenClaw to run an `exec` command that needs approval.
+2. OpenClaw sends approval prompt to Grix.
 3. An allowed approver can:
    - click `Allow Once`, `Allow Always`, or `Deny`
    - or send `/approve <id> allow-once|allow-always|deny`
-4. OpenClaw continues or denies the `exec` request based on that decision.
+4. OpenClaw continues or denies execution.
 
 Notes:
 
-- `approvers` must be Grix sender ids, not OpenClaw agent ids
-- put approvers under the Grix account that is actually serving the session
-- approval requests and approval results are shown in chat
-- some OpenClaw lifecycle notices may still appear as normal text
+- approvers must be Grix sender IDs, not OpenClaw agent IDs
+- configure approvers under the serving account
+- approval requests and results are posted in chat
 
-### 5. Quick checks
+## Verification
 
 ```bash
 openclaw plugins info grix --json
-openclaw config get approvals.exec --json
-openclaw config get channels.grix --json
+openclaw skills list
+openclaw grix doctor
 ```
 
-Check that:
+Expected:
 
-- `plugins info grix` reports `status = "loaded"`
-- `approvals.exec.enabled = true`
-- `approvals.exec.mode` matches your intended delivery path
-- the active Grix account has `execApprovals.enabled = true`
-- the active Grix account has at least one sender id in `execApprovals.approvers`
-
-Troubleshooting:
-
-- if no approval card appears in the current chat, first confirm `tools.exec.ask = "always"` and `approvals.exec.mode = "session"`
-- if you are forwarding to explicit Grix targets, confirm `approvals.exec.targets` points to the correct `channel = "grix"` target
-- if the chat shows approval text but approvers cannot operate it, check that `approvers` contains the human Grix sender id
-- if `openclaw gateway restart` fails config validation, remove invalid keys under `approvals.exec` and keep approver ids only under `channels.grix.*.execApprovals`
-
-For an end-to-end verification checklist, see:
-
-- [docs/openclaw_exec_approval_e2e.md](../../docs/openclaw_exec_approval_e2e.md)
-
-For multi-account setups, put `execApprovals` under `channels.grix.accounts.<accountId>`.
-
-## Native Channel Actions
-
-The channel plugin exposes only channel-native message actions:
-
-- `unsend`
-- `delete`
-
-## Environment Variables
-
-- `GRIX_WS_URL`
-- `GRIX_AGENT_ID`
-- `GRIX_API_KEY`
+- plugin `grix` is enabled and loaded
+- typed tools are callable when `tools.alsoAllow` is configured
+- bundled skills are visible in skills list
+- `openclaw grix doctor` can read configured `channels.grix` accounts

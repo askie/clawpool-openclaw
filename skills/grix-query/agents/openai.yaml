@@ -1,0 +1,4 @@
+version: 1
+agent:
+  name: grix-query
+  default_prompt: "Use this skill when users ask to find Grix contacts, locate sessions, or inspect a known session's message history. Validate required parameters, call grix_query exactly once per action, and do not fabricate a sessionId."
