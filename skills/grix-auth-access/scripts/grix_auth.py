@@ -141,7 +141,7 @@ def build_auth_result(action: str, result: dict):
     payload.update(
         build_portal_guidance(
             True,
-            f"账号已可用，可直接登录 {DEFAULT_PORTAL_URL} 体验。",
+            f"Grix 访问已可用，可直接登录 {DEFAULT_PORTAL_URL} 体验。",
         )
     )
     payload.update(build_user_reply_templates("login_ready"))
@@ -625,7 +625,7 @@ def build_user_reply_templates(scenario: str):
             "并补齐 message、grix_group、grix_agent_admin 这三个工具权限。"
         ),
         "needs_setup": f"{one_liner}当前还没有完全配置好，我可以继续帮你完成检查和配置。",
-        "login_ready": f"{one_liner}账号已经可用，你可以直接登录 {DEFAULT_PORTAL_URL} 体验；如果需要，我也可以继续帮你把 OpenClaw 主通道配好。",
+        "login_ready": f"{one_liner}Grix 访问已经可用，你可以直接登录 {DEFAULT_PORTAL_URL} 体验；如果需要，我也可以继续帮你把 OpenClaw 主通道配好。",
     }
     normalized_scenario = str(scenario or "").strip() or "needs_setup"
     return {
@@ -1335,25 +1335,8 @@ def handle_configure_openclaw(args):
 
 def handle_bootstrap_openclaw(args):
     access_token = (args.access_token or "").strip()
-    login_result = None
     if not access_token:
-        account = (args.email or args.account or "").strip()
-        if not account:
-            raise GrixAuthError("bootstrap@dhf-openclaw requires --access-token or login identity")
-        if not (args.password or "").strip():
-            raise GrixAuthError("bootstrap@dhf-openclaw requires --password when access token is not provided")
-        platform = (args.platform or "").strip() or "web"
-        device_id = (args.device_id or "").strip() or default_device_id(platform)
-        login_result = login_with_credentials(
-            args.base_url,
-            account,
-            args.password.strip(),
-            device_id,
-            platform,
-        )
-        access_token = str(login_result.get("access_token", "")).strip()
-        if not access_token:
-            raise GrixAuthError("login did not return access_token")
+        raise GrixAuthError("bootstrap@dhf-openclaw requires --access-token")
 
     create_result = create_or_reuse_api_agent(
         args.base_url,
@@ -1373,8 +1356,7 @@ def handle_bootstrap_openclaw(args):
     payload = {
         "ok": True,
         "action": "bootstrap@dhf-openclaw",
-        "used_access_token_source": "provided" if (args.access_token or "").strip() else "login",
-        "login": login_result,
+        "used_access_token_source": "provided",
         "created_agent": create_result,
         "openclaw_setup": None,
         "channel_credentials": build_onboard_values(agent_id, api_endpoint, api_key),
@@ -1490,13 +1472,7 @@ def build_parser():
         "bootstrap@dhf-openclaw",
         help="Login if needed, create provider_type=3 agent, then prepare or apply OpenClaw setup",
     )
-    bootstrap_openclaw.add_argument("--access-token", default="")
-    bootstrap_identity = bootstrap_openclaw.add_mutually_exclusive_group(required=False)
-    bootstrap_identity.add_argument("--account")
-    bootstrap_identity.add_argument("--email")
-    bootstrap_openclaw.add_argument("--password", default="")
-    bootstrap_openclaw.add_argument("--device-id", default="")
-    bootstrap_openclaw.add_argument("--platform", default="web")
+    bootstrap_openclaw.add_argument("--access-token", required=True)
     bootstrap_openclaw.add_argument("--agent-name", required=True)
     bootstrap_openclaw.add_argument("--avatar-url", default="")
     bootstrap_openclaw.add_argument("--channel-name", default="grix-main")

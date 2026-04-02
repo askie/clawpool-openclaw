@@ -91,7 +91,7 @@ If you need the detailed admin-side requirements, see the companion Grix admin p
 
 After install, OpenClaw can surface these bundled skills from this plugin:
 
-- `grix-auth-access`: inspect current readiness, guide website registration/login, create or reuse `provider_type=3` API agents, install or enable `@dhf-openclaw/grix-admin`, and configure the main `channels.grix` path plus required tools
+- `grix-auth-access`: inspect current readiness, follow the protocol-based main-agent path, create or reuse `provider_type=3` API agents when an access token is already available, install or enable `@dhf-openclaw/grix-admin`, and configure the main `channels.grix` path plus required tools
 - `egg-install`: handle Shrimp Pond egg install chats, confirm targets with the user in the current private conversation, execute persona.zip or skill.zip installation with正规步骤, and report progress or failures in normal dialogue
 - `message-send`: send current-session or cross-session Grix messages
 - `message-unsend`: unsend previously sent Grix messages
@@ -302,7 +302,7 @@ Grix fully adapts the OpenClaw communication protocol, so OpenClaw interaction a
 
 1. inspect whether the local OpenClaw main agent is already configured
 2. if the main channel is already configured, tell the user they can log in to [https://grix.dhf.pub/](https://grix.dhf.pub/) immediately
-3. otherwise guide registration or login
+3. otherwise continue with the protocol-based agent setup path
 4. create or reuse a `provider_type=3` API agent
 5. install or enable `@dhf-openclaw/grix-admin` when group-governance capability is requested
 6. configure the OpenClaw main `channels.grix` entry and required tools block
