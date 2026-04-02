@@ -7,6 +7,14 @@ import { jsonResult, readStringParam } from "./openclaw-compat.js";
 
 const WS_ACTIONS = new Set<string>(["unsend", "delete"]);
 const DISCOVERABLE_ACTIONS = ["unsend", "delete"];
+type MessageToolDiscoveryCfg =
+  Parameters<ChannelMessageActionAdapter["describeMessageTool"]>[0]["cfg"];
+
+function hasConfiguredEnabledAccount(cfg: MessageToolDiscoveryCfg): boolean {
+  return listAibotAccountIds(cfg)
+    .map((accountId) => resolveAibotAccount({ cfg, accountId }))
+    .some((account) => account.enabled && account.configured);
+}
 
 function toSnakeCaseKey(key: string): string {
   return key
@@ -32,14 +40,11 @@ function readStringishParam(params: Record<string, unknown>, key: string): strin
 }
 
 export const aibotMessageActions: ChannelMessageActionAdapter = {
-  listActions: ({ cfg }) => {
-    const hasConfiguredAccount = listAibotAccountIds(cfg)
-      .map((accountId) => resolveAibotAccount({ cfg, accountId }))
-      .some((account) => account.enabled && account.configured);
-    if (!hasConfiguredAccount) {
-      return [];
+  describeMessageTool: ({ cfg }) => {
+    if (!hasConfiguredEnabledAccount(cfg)) {
+      return null;
     }
-    return DISCOVERABLE_ACTIONS as unknown as string[];
+    return { actions: DISCOVERABLE_ACTIONS as unknown as string[] };
   },
   supportsAction: ({ action }) => {
     const normalizedAction = String(action ?? "").trim();
