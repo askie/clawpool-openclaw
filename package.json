@@ -1,6 +1,6 @@
 {
   "name": "@dhf-openclaw/grix",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "description": "Connect OpenClaw to grix.dhf.pub for OpenClaw website management with mobile PWA support",
   "type": "module",
   "main": "./dist/index.js",
