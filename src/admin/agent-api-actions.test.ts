@@ -7,6 +7,7 @@ test("isAgentHTTPActionName recognizes supported actions", () => {
   assert.equal(isAgentHTTPActionName("session_search"), true);
   assert.equal(isAgentHTTPActionName("message_history"), true);
   assert.equal(isAgentHTTPActionName("group_create"), true);
+  assert.equal(isAgentHTTPActionName("group_leave_self"), true);
   assert.equal(isAgentHTTPActionName("group_member_speaking_update"), true);
   assert.equal(isAgentHTTPActionName("agent_api_create"), true);
   assert.equal(isAgentHTTPActionName("unsend"), false);
@@ -185,6 +186,17 @@ test("buildAgentHTTPRequest builds group_detail_read query", () => {
   assert.equal(req.path, "/sessions/group/detail");
   assert.deepEqual(req.query, {
     session_id: "task_room_1",
+  });
+});
+
+test("buildAgentHTTPRequest builds group_leave_self payload", () => {
+  const req = buildAgentHTTPRequest("group_leave_self", {
+    sessionId: "task_room_3",
+  });
+  assert.equal(req.method, "POST");
+  assert.equal(req.path, "/sessions/leave");
+  assert.deepEqual(req.body, {
+    session_id: "task_room_3",
   });
 });
 

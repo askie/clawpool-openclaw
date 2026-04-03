@@ -16,6 +16,7 @@ Map high-level governance actions to Aibot Agent API HTTP routes.
 | Action | Method | Route | Required Scope |
 |---|---|---|---|
 | `group_create` | `POST` | `/sessions/create_group` | `group.create` |
+| `group_leave_self` | `POST` | `/sessions/leave` | - |
 | `group_member_add` | `POST` | `/sessions/members/add` | `group.member.add` |
 
 ## OpenClaw Tool Mapping
@@ -26,6 +27,7 @@ Use the native `grix_group` tool with typed fields:
 |---|---|---|
 | `create` | `group_create` | `name` |
 | `detail` | `group_detail_read` | `sessionId` |
+| `leave` | `group_leave_self` | `sessionId` |
 | `add_members` | `group_member_add` | `sessionId`, `memberIds` |
 | `remove_members` | `group_member_remove` | `sessionId`, `memberIds` |
 | `update_member_role` | `group_member_role_update` | `sessionId`, `memberId`, `role` |
@@ -57,6 +59,15 @@ Use the native `grix_group` tool with typed fields:
 }
 ```
 
+### leave
+
+```json
+{
+  "action": "leave",
+  "sessionId": "task_room_9083"
+}
+```
+
 ## Error Matrix
 
 | HTTP/BizCode | Meaning | Skill Response |
@@ -65,6 +76,10 @@ Use the native `grix_group` tool with typed fields:
 | `400/10003` | invalid request payload | Ask for missing or corrected parameters |
 | `401/10001` | invalid or missing auth | Check api_key and account config |
 | `403/10002` | agent not active / invalid provider | Ask owner to activate the agent |
+
+Notes:
+
+1. `leave` does not require scope and should not route `403/20011` into scope remediation.
 
 ## Retry Policy
 

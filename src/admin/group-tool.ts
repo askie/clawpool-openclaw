@@ -35,6 +35,16 @@ export const GrixGroupToolSchema = {
       type: "object",
       additionalProperties: false,
       properties: {
+        action: { const: "leave" },
+        accountId: { type: "string", minLength: 1 },
+        sessionId: { type: "string", minLength: 1 },
+      },
+      required: ["action", "sessionId"],
+    },
+    {
+      type: "object",
+      additionalProperties: false,
+      properties: {
         action: { const: "add_members" },
         accountId: { type: "string", minLength: 1 },
         sessionId: { type: "string", minLength: 1 },

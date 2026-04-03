@@ -168,7 +168,7 @@ openclaw skills list
 ### Agent 可调用工具
 
 - `grix_query`：`contact_search`、`session_search`、`message_history`
-- `grix_group`：`create`、`detail`、`add_members`、`remove_members`、`update_member_role`、`update_all_members_muted`、`update_member_speaking`、`dissolve`
+- `grix_group`：`create`、`detail`、`leave`、`add_members`、`remove_members`、`update_member_role`、`update_all_members_muted`、`update_member_speaking`、`dissolve`
 - `grix_agent_admin`：创建 `provider_type=3` 的 Grix API agent（只创建远端 agent，不会直接改本地 `channels.grix`）
 
 ### 运维命令

@@ -5,6 +5,7 @@ export const AGENT_HTTP_ACTION_NAMES = [
   "session_search",
   "message_history",
   "group_create",
+  "group_leave_self",
   "group_member_add",
   "group_member_remove",
   "group_member_role_update",
@@ -320,6 +321,18 @@ function buildGroupMemberAddRequest(params: Record<string, unknown>): AgentHTTPR
   };
 }
 
+function buildGroupLeaveSelfRequest(params: Record<string, unknown>): AgentHTTPRequest {
+  const sessionID = readRequiredStringParam(params, "sessionId");
+  return {
+    actionName: "group_leave_self",
+    method: "POST",
+    path: "/sessions/leave",
+    body: {
+      session_id: sessionID,
+    },
+  };
+}
+
 function buildGroupMemberRemoveRequest(params: Record<string, unknown>): AgentHTTPRequest {
   const sessionID = readRequiredStringParam(params, "sessionId");
   const memberIDs = readNumericIDArray(params, "memberIds", true);
@@ -561,6 +574,8 @@ export function buildAgentHTTPRequest(
       return buildMessageHistoryRequest(params);
     case "group_create":
       return buildGroupCreateRequest(params);
+    case "group_leave_self":
+      return buildGroupLeaveSelfRequest(params);
     case "group_member_add":
       return buildGroupMemberAddRequest(params);
     case "group_member_remove":

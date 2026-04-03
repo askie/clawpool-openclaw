@@ -1,6 +1,6 @@
 ---
 name: grix-group
-description: Use the typed `grix_group` tool for Grix group lifecycle and membership operations. Trigger when users ask to create, inspect, update, or dissolve groups, or when these operations fail with scope or permission errors.
+description: Use the typed `grix_group` tool for Grix group lifecycle and membership operations. Trigger when users ask to create, inspect, leave, update, or dissolve groups, or when these operations fail with scope or permission errors.
 ---
 
 # Grix Group Governance
@@ -11,7 +11,7 @@ This skill is about tool selection and guardrails, not protocol bridging.
 ## Workflow
 
 1. Parse the user request into one action:
-   `create`, `detail`, `add_members`, `remove_members`, `update_member_role`, `update_all_members_muted`, `update_member_speaking`, or `dissolve`.
+   `create`, `detail`, `leave`, `add_members`, `remove_members`, `update_member_role`, `update_all_members_muted`, `update_member_speaking`, or `dissolve`.
 2. Validate required fields before any call.
 3. Call `grix_group` exactly once per business action.
 4. Classify failures by HTTP/BizCode and return exact remediation.
@@ -23,7 +23,7 @@ This skill is about tool selection and guardrails, not protocol bridging.
 For Grix group governance, always call:
 
 1. Tool: `grix_group`
-2. `action`: one of `create`, `detail`, `add_members`, `remove_members`, `update_member_role`, `update_all_members_muted`, `update_member_speaking`, `dissolve`
+2. `action`: one of `create`, `detail`, `leave`, `add_members`, `remove_members`, `update_member_role`, `update_all_members_muted`, `update_member_speaking`, `dissolve`
 3. `accountId`: optional; include it when the configured account is ambiguous
 
 Rules:
@@ -66,6 +66,21 @@ Guardrails:
 1. Reject empty `sessionId` before calling the tool.
 2. Reject non-numeric `memberIds` before calling the tool.
 3. If `sessionId` is ambiguous, ask the user to confirm the target group first.
+
+### leave
+
+Purpose: let the current Agent leave a group by itself.
+
+Required input:
+
+1. `sessionId`
+
+Guardrails:
+
+1. This action is only for the current Agent leaving its own group membership.
+2. Never translate a request to remove other members into `leave`; use `remove_members` for that.
+3. Do not send `memberId`, `memberIds`, or `memberTypes` with this action.
+4. This action does not require scope and should not be described as a scope-grant workflow.
 
 ### remove_members
 
@@ -123,6 +138,7 @@ Required input:
 
 1. `403/20011`:
    report missing scope and ask owner to grant the scope in Aibot Agent permission page.
+   Do not use this remediation for `leave`, because `leave` is scope-free.
 2. `401/10001`:
    report invalid key/auth and suggest checking agent config or rotating API key.
 3. `403/10002`:

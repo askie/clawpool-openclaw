@@ -6,6 +6,7 @@ import type { OpenClawCoreConfig } from "./types.js";
 export const GRIX_GROUP_TOOL_ACTIONS = [
   "create",
   "detail",
+  "leave",
   "add_members",
   "remove_members",
   "update_member_role",
@@ -37,6 +38,8 @@ function mapGroupActionToRequestAction(action: GrixGroupToolAction) {
       return "group_create" as const;
     case "detail":
       return "group_detail_read" as const;
+    case "leave":
+      return "group_leave_self" as const;
     case "add_members":
       return "group_member_add" as const;
     case "remove_members":
