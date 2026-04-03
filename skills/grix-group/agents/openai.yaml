@@ -1,4 +1,0 @@
-interface:
-  display_name: "Grix Group Governance"
-  short_description: "Use the typed grix_group tool for Grix group operations."
-  default_prompt: "Use this skill when users ask to create, inspect, update, or dissolve Grix groups. Validate parameters, call grix_group exactly once per action, and return clear remediation for scope/auth/parameter failures."

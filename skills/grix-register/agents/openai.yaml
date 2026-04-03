@@ -1,4 +1,0 @@
-interface:
-  display_name: "Grix Register"
-  short_description: "Only for first-time setup: register/login account and obtain first provider_type=3 agent credentials."
-  default_prompt: "This skill only handles first-time account registration/login and first-agent credential acquisition. Never modify local openclaw config, never run openclaw plugin/channel commands. Ask for email, run send-email-code, collect code, generate a strong random password, run register (or login fallback), then run create-api-agent. After receiving agent_name/agent_id/api_endpoint/api_key, immediately hand off to grix-admin with payload mode=bind-local and those fields."
