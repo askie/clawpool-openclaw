@@ -170,7 +170,7 @@ async function deliverAibotStreamBlock(params: {
     clientMsgId: params.clientMsgId,
   });
   params.runtime.log(
-    `[grix:${params.account.accountId}] stream block split into ${chunks.length} chunk(s) ${context} textLen=${params.text.length} chunkDelayMs=${chunkDelayMs}`,
+    `[grix:${params.account.accountId}] stream block send ${context} chunkCount=${chunks.length} textLen=${params.text.length} chunkDelayMs=${chunkDelayMs}`,
   );
   for (let index = 0; index < chunks.length; index++) {
     if (params.abortSignal?.aborted) {
@@ -184,9 +184,6 @@ async function deliverAibotStreamBlock(params: {
     if (!normalized) {
       continue;
     }
-    params.runtime.log(
-      `[grix:${params.account.accountId}] stream chunk send ${context} chunkIndex=${index + 1}/${chunks.length} deltaLen=${normalized.length}`,
-    );
     await params.client.sendStreamChunk(params.sessionId, normalized, {
       eventId: params.eventId,
       clientMsgId: params.clientMsgId,
@@ -261,9 +258,6 @@ async function bindSessionRouteMapping(params: {
   }
 
   try {
-    params.runtime.log(
-      `[grix:${params.account.accountId}] session route bind begin routeSessionKey=${routeSessionKey} sessionId=${sessionId}`,
-    );
     await params.client.bindSessionRoute(
       "grix",
       params.account.accountId,
@@ -550,9 +544,6 @@ async function processEvent(params: {
     sessionId,
     controller: runAbortController,
   });
-  runtime.log(
-    `[grix:${account.accountId}] active reply run registered eventId=${eventId || `${sessionId}:${messageSid}`} sessionId=${sessionId} messageSid=${messageSid} activeRun=${activeRun ? "true" : "false"}`,
-  );
   try {
     const route = core.channel.routing.resolveAgentRoute({
       cfg: config,
@@ -804,22 +795,10 @@ async function processEvent(params: {
         }
         hasSentBlock = false;
         try {
-          const finishContext = buildEventLogContext({
-            eventId,
-            sessionId,
-            messageSid,
-            clientMsgId: streamClientMsgId,
-          });
           const finishDelayMs = resolveStreamFinishDelayMs(account);
           if (finishDelayMs > 0) {
-            runtime.log(
-              `[grix:${account.accountId}] stream finish delay ${finishContext} delayMs=${finishDelayMs}`,
-            );
             await sleep(finishDelayMs);
           }
-          runtime.log(
-            `[grix:${account.accountId}] stream finish ${finishContext}`,
-          );
           await client.sendStreamChunk(sessionId, "", {
             eventId,
             clientMsgId: streamClientMsgId,
@@ -856,9 +835,12 @@ async function processEvent(params: {
               clientMsgId: info.kind === "block" ? streamClientMsgId : `reply_${messageSid}_${outboundCounter}`,
               outboundCounter,
             });
-            runtime.log(
-              `[grix:${account.accountId}] deliver ${deliverContext} kind=${info.kind} textLen=${text.length} hasMedia=${hasMedia} streamedBefore=${streamedTextAlreadyVisible}`,
-            );
+            const isStreamBlock = info.kind === "block" && !guardedText && !hasMedia && text.length > 0;
+            if (!isStreamBlock) {
+              runtime.log(
+                `[grix:${account.accountId}] deliver ${deliverContext} kind=${info.kind} textLen=${text.length} hasMedia=${hasMedia} streamedBefore=${streamedTextAlreadyVisible}`,
+              );
+            }
 
             if (guardedText) {
               runtime.error(
@@ -887,7 +869,7 @@ async function processEvent(params: {
               return;
             }
 
-            if (info.kind === "block" && !guardedText && !hasMedia && text) {
+            if (isStreamBlock) {
               const didSendBlock = await deliverAibotStreamBlock({
                 text,
                 client,
@@ -1050,7 +1032,7 @@ async function processEvent(params: {
   }
   } finally {
     runtime.log(
-      `[grix:${account.accountId}] active reply run clearing eventId=${activeRun?.eventId || "-"} sessionId=${activeRun?.sessionId || sessionId} stopRequested=${activeRun?.stopRequested === true} abortReason=${activeRun ? resolveAbortReason(activeRun.controller.signal) : "-"} visibleOutputSent=${visibleOutputSent}`,
+      `[grix:${account.accountId}] active reply run clearing eventId=${activeRun?.eventId || "-"} stopRequested=${activeRun?.stopRequested === true} abortReason=${activeRun ? resolveAbortReason(activeRun.controller.signal) : "-"} visibleOutputSent=${visibleOutputSent}`,
     );
     clearActiveReplyRun(activeRun);
     if (!inboundEventAccepted) {

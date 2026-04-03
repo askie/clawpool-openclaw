@@ -397,6 +397,10 @@ export class AibotWsClient {
     );
   }
 
+  private shouldLogInboundPacket(cmd: string): boolean {
+    return cmd !== "ping" && cmd !== "pong" && cmd !== "send_ack";
+  }
+
   getStatus(): AibotConnectionStatus {
     return { ...this.status };
   }
@@ -494,9 +498,6 @@ export class AibotWsClient {
     if (!normalizedChannel || !normalizedAccountID || !normalizedRouteSessionKey || !normalizedSessionID) {
       throw new Error("grix session_route_bind requires channel/account_id/route_session_key/session_id");
     }
-    this.logInfo(
-      `session_route_bind request channel=${normalizedChannel} accountId=${normalizedAccountID} routeSessionKey=${normalizedRouteSessionKey} sessionId=${normalizedSessionID}`,
-    );
     const packet = await this.request(
       "session_route_bind",
       {
@@ -516,9 +517,6 @@ export class AibotWsClient {
       );
       throw this.packetError(packet);
     }
-    this.logInfo(
-      `session_route_bind ack channel=${normalizedChannel} accountId=${normalizedAccountID} routeSessionKey=${normalizedRouteSessionKey} sessionId=${normalizedSessionID}`,
-    );
     return packet.payload as AibotSessionRouteAckPayload;
   }
 
@@ -535,9 +533,6 @@ export class AibotWsClient {
     if (!normalizedChannel || !normalizedAccountID || !normalizedRouteSessionKey) {
       throw new Error("grix session_route_resolve requires channel/account_id/route_session_key");
     }
-    this.logInfo(
-      `session_route_resolve request channel=${normalizedChannel} accountId=${normalizedAccountID} routeSessionKey=${normalizedRouteSessionKey}`,
-    );
     const packet = await this.request(
       "session_route_resolve",
       {
@@ -561,9 +556,6 @@ export class AibotWsClient {
     if (!normalizedSessionID) {
       throw new Error("grix session_route_resolve ack missing session_id");
     }
-    this.logInfo(
-      `session_route_resolve ack channel=${normalizedChannel} accountId=${normalizedAccountID} routeSessionKey=${normalizedRouteSessionKey} sessionId=${normalizedSessionID}`,
-    );
     return {
       ...payload,
       channel: String(payload.channel ?? normalizedChannel),
@@ -1082,7 +1074,7 @@ export class AibotWsClient {
 
     const cmd = String(packet.cmd ?? "").trim();
     const seq = Number(packet.seq ?? 0);
-    if (cmd !== "ping") {
+    if (this.shouldLogInboundPacket(cmd)) {
       this.logInfo(
         `inbound packet conn=${resolvedConnSerial} cmd=${cmd || "-"} seq=${seq} bytes=${text.length}`,
       );
