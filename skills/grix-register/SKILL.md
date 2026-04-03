@@ -1,6 +1,6 @@
 ---
 name: grix-register
-description: 仅用于初次安装阶段，完成 grix.dhf.pub 账号注册/登录并拿到第一个 provider_type=3 Agent 的参数；本技能不做任何本地 OpenClaw 配置。
+description: 仅用于初次安装阶段，完成 Grix 环境的账号注册/登录并拿到第一个 provider_type=3 Agent 的参数；本技能不做任何本地 OpenClaw 配置。
 ---
 
 # Grix Register

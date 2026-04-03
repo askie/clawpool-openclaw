@@ -26,7 +26,7 @@ const meta = {
   label: "Grix",
   selectionLabel: "Grix",
   docsPath: "/channels/grix",
-  blurb: "Connect OpenClaw to grix.dhf.pub for OpenClaw website management with mobile PWA support.",
+  blurb: "Connect OpenClaw to a Grix deployment for website management with mobile PWA support.",
   aliases: ["gr"],
   order: 90,
 };

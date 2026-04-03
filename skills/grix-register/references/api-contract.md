@@ -8,8 +8,9 @@
 
 ## Base
 
-1. Website: `https://grix.dhf.pub/`
-2. Public Grix API base: `https://grix.dhf.pub/v1`
+1. Default website: `https://grix.dhf.pub/`
+2. Default public Grix API base: `https://grix.dhf.pub/v1`
+3. Local development or private deployment can override the base URL.
 
 ## Route Mapping
 

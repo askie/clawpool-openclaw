@@ -1,6 +1,6 @@
 # OpenClaw Grix 插件
 
-把 OpenClaw 接到 Grix（`grix.dhf.pub`）的统一插件，包含：
+把 OpenClaw 接到 Grix 服务的统一插件，默认支持正式环境，也支持本地开发地址，包含：
 
 - Grix Channel（收发消息、流式回复、`unsend`、`delete`）
 - 管理工具：`grix_query`、`grix_group`、`grix_agent_admin`
@@ -28,7 +28,7 @@ openclaw plugins enable grix
 openclaw channels add \
   --channel grix \
   --name grix-main \
-  --http-url "wss://grix.dhf.pub/v1/agent-api/ws?agent_id={agent_id}" \
+  --http-url "wss://<YOUR_GRIX_HOST>/v1/agent-api/ws?agent_id={agent_id}" \
   --user-id "<YOUR_AGENT_ID>" \
   --token "<YOUR_API_KEY>"
 ```
@@ -85,13 +85,31 @@ openclaw skills list
 
 ### 最小可用配置（单账户）
 
+线上发布示例：
+
 ```json
 {
   "channels": {
     "grix": {
       "enabled": true,
-      "wsUrl": "wss://grix.dhf.pub/v1/agent-api/ws?agent_id=<YOUR_AGENT_ID>",
-      "apiBaseUrl": "https://grix.dhf.pub/v1/agent-api",
+      "wsUrl": "wss://<YOUR_GRIX_HOST>/v1/agent-api/ws?agent_id=<YOUR_AGENT_ID>",
+      "apiBaseUrl": "https://<YOUR_GRIX_HOST>/v1/agent-api",
+      "agentId": "<YOUR_AGENT_ID>",
+      "apiKey": "<YOUR_API_KEY>"
+    }
+  }
+}
+```
+
+本地开发示例：
+
+```json
+{
+  "channels": {
+    "grix": {
+      "enabled": true,
+      "wsUrl": "ws://127.0.0.1:27189/v1/agent-api/ws?agent_id=<YOUR_AGENT_ID>",
+      "apiBaseUrl": "http://127.0.0.1:27180/v1/agent-api",
       "agentId": "<YOUR_AGENT_ID>",
       "apiKey": "<YOUR_API_KEY>"
     }
@@ -111,15 +129,15 @@ openclaw skills list
         "ops": {
           "enabled": true,
           "name": "Ops",
-          "wsUrl": "wss://grix.dhf.pub/v1/agent-api/ws?agent_id=<OPS_AGENT_ID>",
+          "wsUrl": "ws://127.0.0.1:27189/v1/agent-api/ws?agent_id=<OPS_AGENT_ID>",
           "apiBaseUrl": "http://127.0.0.1:27180/v1/agent-api",
           "agentId": "<OPS_AGENT_ID>",
           "apiKey": "<OPS_API_KEY>"
         },
         "prod": {
           "enabled": true,
-          "wsUrl": "wss://grix.dhf.pub/v1/agent-api/ws?agent_id=<PROD_AGENT_ID>",
-          "apiBaseUrl": "https://grix.dhf.pub/v1/agent-api",
+          "wsUrl": "wss://<YOUR_GRIX_HOST>/v1/agent-api/ws?agent_id=<PROD_AGENT_ID>",
+          "apiBaseUrl": "https://<YOUR_GRIX_HOST>/v1/agent-api",
           "agentId": "<PROD_AGENT_ID>",
           "apiKey": "<PROD_API_KEY>"
         }
@@ -168,10 +186,15 @@ openclaw skills list
 - `GRIX_AGENT_ID`
 - `GRIX_API_KEY`
 
+注册脚本默认使用正式环境地址；如果要切到本地或其他部署，可额外设置：
+
+- `GRIX_WEB_BASE_URL`
+
 说明：
 
 - `grix_query`、`grix_group`、`grix_agent_admin` 这些 HTTP 请求会优先使用 `apiBaseUrl`。
 - 如果没配 `apiBaseUrl`，会先看 `GRIX_AGENT_API_BASE`，再按 `wsUrl` 自动推导。
+- `skills/grix-register/scripts/grix_auth.py` 会优先读取 `GRIX_WEB_BASE_URL`，再回落到正式环境地址。
 - 本地开发最稳妥的写法是同时配置：
 
 ```json

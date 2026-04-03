@@ -13,7 +13,24 @@ import uuid
 
 DEFAULT_BASE_URL = "https://grix.dhf.pub"
 DEFAULT_TIMEOUT_SECONDS = 15
-DEFAULT_PORTAL_URL = "https://grix.dhf.pub/"
+
+
+def resolve_default_base_url() -> str:
+    return (os.environ.get("GRIX_WEB_BASE_URL", "") or "").strip() or DEFAULT_BASE_URL
+
+
+def derive_portal_url(raw_base_url: str) -> str:
+    base = (raw_base_url or "").strip() or resolve_default_base_url()
+    parsed = urllib.parse.urlparse(base)
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError(f"Invalid base URL: {base}")
+
+    path = parsed.path.rstrip("/")
+    if path.endswith("/v1"):
+        path = path[: -len("/v1")]
+
+    normalized = parsed._replace(path=path or "/", params="", query="", fragment="")
+    return urllib.parse.urlunparse(normalized).rstrip("/") + "/"
 
 
 class GrixAuthError(RuntimeError):
@@ -25,7 +42,7 @@ class GrixAuthError(RuntimeError):
 
 
 def normalize_base_url(raw_base_url: str) -> str:
-    base = (raw_base_url or "").strip() or DEFAULT_BASE_URL
+    base = (raw_base_url or "").strip() or resolve_default_base_url()
     parsed = urllib.parse.urlparse(base)
     if not parsed.scheme or not parsed.netloc:
         raise ValueError(f"Invalid base URL: {base}")
@@ -112,7 +129,7 @@ def print_json(payload):
     sys.stdout.write("\n")
 
 
-def build_auth_result(action: str, result: dict):
+def build_auth_result(action: str, result: dict, base_url: str):
     data = result.get("data") or {}
     user = data.get("user") or {}
     return {
@@ -123,7 +140,7 @@ def build_auth_result(action: str, result: dict):
         "refresh_token": data.get("refresh_token", ""),
         "expires_in": data.get("expires_in", 0),
         "user_id": user.get("id", ""),
-        "portal_url": DEFAULT_PORTAL_URL,
+        "portal_url": derive_portal_url(base_url),
         "data": data,
     }
 
@@ -170,7 +187,7 @@ def login_with_credentials(base_url: str, account: str, password: str, device_id
             "platform": platform,
         },
     )
-    return build_auth_result("login", result)
+    return build_auth_result("login", result, base_url)
 
 
 def create_api_agent(base_url: str, access_token: str, agent_name: str, avatar_url: str):
@@ -338,7 +355,7 @@ def handle_register(args):
             "platform": platform,
         },
     )
-    print_json(build_auth_result("register", result))
+    print_json(build_auth_result("register", result, args.base_url))
 
 
 def handle_login(args):
@@ -374,7 +391,11 @@ def handle_create_api_agent(args):
 
 def build_parser():
     parser = argparse.ArgumentParser(description="Grix public auth API helper")
-    parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="Grix web base URL")
+    parser.add_argument(
+        "--base-url",
+        default=resolve_default_base_url(),
+        help="Grix web base URL (defaults to GRIX_WEB_BASE_URL or https://grix.dhf.pub)",
+    )
 
     subparsers = parser.add_subparsers(dest="action", required=True)
 
