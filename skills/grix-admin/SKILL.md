@@ -1,11 +1,11 @@
 ---
-name: grix-agent-admin
-description: 通过 Grix Agent API 协议创建 `provider_type=3` 的 API agent，并直接完成本地 OpenClaw agent 与 Grix 渠道绑定配置（默认直接应用并返回结果）。
+name: grix-admin
+description: 通过 Grix Agent API 协议创建API agent，并直接完成本地 OpenClaw agent 与 Grix 渠道绑定配置（默认直接应用并返回结果）。
 ---
 
 # Grix Agent Admin
 
-Create a remote `provider_type=3` API agent, then complete local OpenClaw agent + grix channel binding in one flow.
+Create a remote API agent, then complete local OpenClaw agent + grix channel binding in one flow.
 
 ## Security + Auth Path
 

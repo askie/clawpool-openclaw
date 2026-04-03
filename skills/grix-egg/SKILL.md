@@ -1,5 +1,5 @@
 ---
-name: egg-install
+name: grix-egg
 description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 OpenClaw agent 收到包含 install_id、egg、install、main_agent 的安装上下文时，负责与用户多轮确认、执行 persona.zip 到 OpenClaw agent 或 skill.zip 到 Claude agent 的正规安装流程，并在当前私聊里持续回报进度、失败原因和最终结果。
 ---
 

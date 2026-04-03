@@ -1,5 +1,5 @@
 ---
-name: grix-group-governance
+name: grix-group
 description: Use the typed `grix_group` tool for Grix group lifecycle and membership operations. Trigger when users ask to create, inspect, update, or dissolve groups, or when these operations fail with scope or permission errors.
 ---
 
