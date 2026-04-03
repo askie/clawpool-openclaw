@@ -177,6 +177,7 @@ def create_api_agent(base_url: str, access_token: str, agent_name: str, avatar_u
     request_body = {
         "agent_name": agent_name.strip(),
         "provider_type": 3,
+        "is_main": True,
     }
     normalized_avatar_url = (avatar_url or "").strip()
     if normalized_avatar_url:
