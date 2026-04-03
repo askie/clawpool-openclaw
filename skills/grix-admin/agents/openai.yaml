@@ -1,4 +1,4 @@
 interface:
-  display_name: "Grix Agent Admin"
+  display_name: "Grix Admin"
   short_description: "Create Grix API agents and finish local OpenClaw binding."
   default_prompt: "Use this skill when users ask to create a new Grix API agent and finish OpenClaw binding. Never ask for website account/password. Validate `agentName` and require `describeMessageTool` (`actions` must be non-empty), then call `grix_agent_admin` once. After successful create, directly run `scripts/grix_agent_bind.py configure-local-openclaw ... --apply` and return final local binding result (success or exact failure reason)."
