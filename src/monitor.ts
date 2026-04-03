@@ -169,9 +169,9 @@ async function deliverAibotStreamBlock(params: {
     messageSid: params.messageSid,
     clientMsgId: params.clientMsgId,
   });
-  params.runtime.log(
-    `[grix:${params.account.accountId}] stream block send ${context} chunkCount=${chunks.length} textLen=${params.text.length} chunkDelayMs=${chunkDelayMs}`,
-  );
+  // params.runtime.log(
+  //   `[grix:${params.account.accountId}] stream block send ${context} chunkCount=${chunks.length} textLen=${params.text.length} chunkDelayMs=${chunkDelayMs}`,
+  // );
   for (let index = 0; index < chunks.length; index++) {
     if (params.abortSignal?.aborted) {
       params.runtime.log(
@@ -657,379 +657,379 @@ async function processEvent(params: {
     let eventResultReported = false;
     let stopResultReported = false;
 
-  const setComposing = (active: boolean): void => {
-    try {
-      client.setSessionComposing(sessionId, active, {
-        refEventId: eventId || undefined,
-        refMsgId: outboundQuotedMessageId,
-      });
-      composingSet = active;
-      statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
-    } catch (err) {
-      runtime.error(
-        `[grix:${account.accountId}] session activity update failed eventId=${eventId || "-"} sessionId=${sessionId} active=${active}: ${String(err)}`,
-      );
-      statusSink?.({ lastError: String(err) });
-    }
-  };
+    const setComposing = (active: boolean): void => {
+      try {
+        client.setSessionComposing(sessionId, active, {
+          refEventId: eventId || undefined,
+          refMsgId: outboundQuotedMessageId,
+        });
+        composingSet = active;
+        statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
+      } catch (err) {
+        runtime.error(
+          `[grix:${account.accountId}] session activity update failed eventId=${eventId || "-"} sessionId=${sessionId} active=${active}: ${String(err)}`,
+        );
+        statusSink?.({ lastError: String(err) });
+      }
+    };
 
-  const stopComposingRenewal = (): void => {
-    if (composingRenewTimer) {
-      clearTimeout(composingRenewTimer);
-      composingRenewTimer = null;
-    }
-  };
+    const stopComposingRenewal = (): void => {
+      if (composingRenewTimer) {
+        clearTimeout(composingRenewTimer);
+        composingRenewTimer = null;
+      }
+    };
 
-  const scheduleComposingRenewal = (): void => {
-    if (!composingSet || eventResultReported || visibleOutputSent || composingRenewTimer) {
-      return;
-    }
-    composingRenewTimer = setTimeout(() => {
-      composingRenewTimer = null;
-      if (!composingSet || eventResultReported || visibleOutputSent) {
+    const scheduleComposingRenewal = (): void => {
+      if (!composingSet || eventResultReported || visibleOutputSent || composingRenewTimer) {
         return;
       }
-      setComposing(true);
-      scheduleComposingRenewal();
-    }, composingRenewIntervalMs);
-  };
-
-  const reportEventResult = (status: "responded" | "failed" | "canceled", code = "", msg = ""): void => {
-    if (eventResultReported) {
-      return;
-    }
-    eventResultReported = true;
-    stopComposingRenewal();
-    if (!eventId) {
-      return;
-    }
-    try {
-      client.sendEventResult({
-        event_id: eventId,
-        status,
-        code: code || undefined,
-        msg: msg || undefined,
-        updated_at: Date.now(),
-      });
-      statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
-    } catch (err) {
-      runtime.error(
-        `[grix:${account.accountId}] event result send failed eventId=${eventId} status=${status}: ${String(err)}`,
-      );
-      statusSink?.({ lastError: String(err) });
-    }
-  };
-
-  const reportStopResult = (
-    status: "stopped" | "already_finished" | "failed",
-    code = "",
-    msg = "",
-  ): void => {
-    if (stopResultReported || !eventId || !activeRun?.stopRequested) {
-      return;
-    }
-    stopResultReported = true;
-    try {
-      client.sendEventStopResult({
-        stop_id: activeRun.stopId,
-        event_id: eventId,
-        status,
-        code: code || undefined,
-        msg: msg || undefined,
-        updated_at: Date.now(),
-      });
-      statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
-      runtime.log(
-        `[grix:${account.accountId}] event_stop_result sent eventId=${eventId} stopId=${activeRun.stopId || "-"} status=${status} code=${code || "-"} msg=${msg || "-"}`,
-      );
-    } catch (err) {
-      runtime.error(
-        `[grix:${account.accountId}] event_stop_result send failed eventId=${eventId} status=${status}: ${String(err)}`,
-      );
-      statusSink?.({ lastError: String(err) });
-    }
-  };
-
-  const clearComposing = (): void => {
-    stopComposingRenewal();
-    if (composingSet) {
-      setComposing(false);
-    }
-  };
-
-  const markVisibleOutputSent = (): void => {
-    if (visibleOutputSent) {
-      return;
-    }
-    visibleOutputSent = true;
-    clearComposing();
-    reportEventResult("responded");
-  };
-
-  setComposing(true);
-  scheduleComposingRenewal();
-
-  try {
-    for (let attempt = 1; attempt <= retryPolicy.maxAttempts; attempt++) {
-      let hasSentBlock = false;
-      let outboundCounter = 0;
-      let attemptHasOutbound = false;
-      let retryGuardedText: GuardedReplyText | null = null;
-      const attemptLabel = `${attempt}/${retryPolicy.maxAttempts}`;
-
-      const finishStreamIfNeeded = async () => {
-        if (!hasSentBlock) {
+      composingRenewTimer = setTimeout(() => {
+        composingRenewTimer = null;
+        if (!composingSet || eventResultReported || visibleOutputSent) {
           return;
         }
-        if (runAbortController.signal.aborted) {
-          runtime.log(
-            `[grix:${account.accountId}] skip stream finish due to abort ${buildEventLogContext({
-              eventId,
-              sessionId,
-              messageSid,
-              clientMsgId: streamClientMsgId,
-            })} abortReason=${resolveAbortReason(runAbortController.signal)}`,
-          );
-          hasSentBlock = false;
-          return;
-        }
-        hasSentBlock = false;
-        try {
-          const finishDelayMs = resolveStreamFinishDelayMs(account);
-          if (finishDelayMs > 0) {
-            await sleep(finishDelayMs);
+        setComposing(true);
+        scheduleComposingRenewal();
+      }, composingRenewIntervalMs);
+    };
+
+    const reportEventResult = (status: "responded" | "failed" | "canceled", code = "", msg = ""): void => {
+      if (eventResultReported) {
+        return;
+      }
+      eventResultReported = true;
+      stopComposingRenewal();
+      if (!eventId) {
+        return;
+      }
+      try {
+        client.sendEventResult({
+          event_id: eventId,
+          status,
+          code: code || undefined,
+          msg: msg || undefined,
+          updated_at: Date.now(),
+        });
+        statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
+      } catch (err) {
+        runtime.error(
+          `[grix:${account.accountId}] event result send failed eventId=${eventId} status=${status}: ${String(err)}`,
+        );
+        statusSink?.({ lastError: String(err) });
+      }
+    };
+
+    const reportStopResult = (
+      status: "stopped" | "already_finished" | "failed",
+      code = "",
+      msg = "",
+    ): void => {
+      if (stopResultReported || !eventId || !activeRun?.stopRequested) {
+        return;
+      }
+      stopResultReported = true;
+      try {
+        client.sendEventStopResult({
+          stop_id: activeRun.stopId,
+          event_id: eventId,
+          status,
+          code: code || undefined,
+          msg: msg || undefined,
+          updated_at: Date.now(),
+        });
+        statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
+        runtime.log(
+          `[grix:${account.accountId}] event_stop_result sent eventId=${eventId} stopId=${activeRun.stopId || "-"} status=${status} code=${code || "-"} msg=${msg || "-"}`,
+        );
+      } catch (err) {
+        runtime.error(
+          `[grix:${account.accountId}] event_stop_result send failed eventId=${eventId} status=${status}: ${String(err)}`,
+        );
+        statusSink?.({ lastError: String(err) });
+      }
+    };
+
+    const clearComposing = (): void => {
+      stopComposingRenewal();
+      if (composingSet) {
+        setComposing(false);
+      }
+    };
+
+    const markVisibleOutputSent = (): void => {
+      if (visibleOutputSent) {
+        return;
+      }
+      visibleOutputSent = true;
+      clearComposing();
+      reportEventResult("responded");
+    };
+
+    setComposing(true);
+    scheduleComposingRenewal();
+
+    try {
+      for (let attempt = 1; attempt <= retryPolicy.maxAttempts; attempt++) {
+        let hasSentBlock = false;
+        let outboundCounter = 0;
+        let attemptHasOutbound = false;
+        let retryGuardedText: GuardedReplyText | null = null;
+        const attemptLabel = `${attempt}/${retryPolicy.maxAttempts}`;
+
+        const finishStreamIfNeeded = async () => {
+          if (!hasSentBlock) {
+            return;
           }
-          await client.sendStreamChunk(sessionId, "", {
-            eventId,
-            clientMsgId: streamClientMsgId,
-            quotedMessageId: outboundQuotedMessageId,
-            isFinish: true,
-          });
-          attemptHasOutbound = true;
-          statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
-        } catch (err) {
-          runtime.error(`[grix:${account.accountId}] stream finish failed: ${String(err)}`);
-          statusSink?.({ lastError: String(err) });
-        }
-      };
-
-      const dispatchResult = await core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
-        ctx: ctxPayload,
-        cfg: config,
-        dispatcherOptions: {
-          ...prefixOptions,
-          deliver: async (payload, info) => {
-            outboundCounter++;
-            const outPayload = payload as OutboundReplyPayload;
-            const guardedText = guardInternalReplyText(String(outPayload.text ?? ""));
-            const normalizedPayload = guardedText
-              ? { ...outPayload, text: guardedText.userText }
-              : outPayload;
-            const hasMedia = Boolean(normalizedPayload.mediaUrl) || ((normalizedPayload.mediaUrls?.length ?? 0) > 0);
-            const text = core.channel.text.convertMarkdownTables(normalizedPayload.text ?? "", tableMode);
-            const streamedTextAlreadyVisible = hasSentBlock;
-            const deliverContext = buildEventLogContext({
+          if (runAbortController.signal.aborted) {
+            runtime.log(
+              `[grix:${account.accountId}] skip stream finish due to abort ${buildEventLogContext({
+                eventId,
+                sessionId,
+                messageSid,
+                clientMsgId: streamClientMsgId,
+              })} abortReason=${resolveAbortReason(runAbortController.signal)}`,
+            );
+            hasSentBlock = false;
+            return;
+          }
+          hasSentBlock = false;
+          try {
+            const finishDelayMs = resolveStreamFinishDelayMs(account);
+            if (finishDelayMs > 0) {
+              await sleep(finishDelayMs);
+            }
+            await client.sendStreamChunk(sessionId, "", {
               eventId,
-              sessionId,
-              messageSid,
-              clientMsgId: info.kind === "block" ? streamClientMsgId : `reply_${messageSid}_${outboundCounter}`,
-              outboundCounter,
+              clientMsgId: streamClientMsgId,
+              quotedMessageId: outboundQuotedMessageId,
+              isFinish: true,
             });
-            const isStreamBlock = info.kind === "block" && !guardedText && !hasMedia && text.length > 0;
-            if (!isStreamBlock) {
+            attemptHasOutbound = true;
+            statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
+          } catch (err) {
+            runtime.error(`[grix:${account.accountId}] stream finish failed: ${String(err)}`);
+            statusSink?.({ lastError: String(err) });
+          }
+        };
+
+        const dispatchResult = await core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
+          ctx: ctxPayload,
+          cfg: config,
+          dispatcherOptions: {
+            ...prefixOptions,
+            deliver: async (payload, info) => {
+              outboundCounter++;
+              const outPayload = payload as OutboundReplyPayload;
+              const guardedText = guardInternalReplyText(String(outPayload.text ?? ""));
+              const normalizedPayload = guardedText
+                ? { ...outPayload, text: guardedText.userText }
+                : outPayload;
+              const hasMedia = Boolean(normalizedPayload.mediaUrl) || ((normalizedPayload.mediaUrls?.length ?? 0) > 0);
+              const text = core.channel.text.convertMarkdownTables(normalizedPayload.text ?? "", tableMode);
+              const streamedTextAlreadyVisible = hasSentBlock;
+              const deliverContext = buildEventLogContext({
+                eventId,
+                sessionId,
+                messageSid,
+                clientMsgId: info.kind === "block" ? streamClientMsgId : `reply_${messageSid}_${outboundCounter}`,
+                outboundCounter,
+              });
+              const isStreamBlock = info.kind === "block" && !guardedText && !hasMedia && text.length > 0;
+              if (!isStreamBlock) {
+                runtime.log(
+                  `[grix:${account.accountId}] deliver ${deliverContext} kind=${info.kind} textLen=${text.length} hasMedia=${hasMedia} streamedBefore=${streamedTextAlreadyVisible}`,
+                );
+              }
+
+              if (guardedText) {
+                runtime.error(
+                  `[grix:${account.accountId}] rewrite internal reply text ${deliverContext} code=${guardedText.code} raw=${JSON.stringify(guardedText.rawText)}`,
+                );
+              }
+
+              if (
+                guardedText &&
+                retryGuardedText == null &&
+                isRetryableGuardedReply(guardedText) &&
+                !attemptHasOutbound &&
+                !hasSentBlock
+              ) {
+                retryGuardedText = guardedText;
+                runtime.log(
+                  `[grix:${account.accountId}] defer guarded upstream reply for retry ${deliverContext} attempt=${attemptLabel} code=${guardedText.code}`,
+                );
+                return;
+              }
+
+              if (retryGuardedText && !attemptHasOutbound && !hasSentBlock) {
+                runtime.log(
+                  `[grix:${account.accountId}] skip outbound while retry pending ${deliverContext} attempt=${attemptLabel} code=${retryGuardedText.code}`,
+                );
+                return;
+              }
+
+              if (isStreamBlock) {
+                const didSendBlock = await deliverAibotStreamBlock({
+                  text,
+                  client,
+                  account,
+                  sessionId,
+                  abortSignal: runAbortController.signal,
+                  eventId,
+                  messageSid,
+                  quotedMessageId: outboundQuotedMessageId,
+                  clientMsgId: streamClientMsgId,
+                  runtime,
+                  statusSink,
+                });
+                hasSentBlock = hasSentBlock || didSendBlock;
+                attemptHasOutbound = attemptHasOutbound || didSendBlock;
+                if (didSendBlock) {
+                  markVisibleOutputSent();
+                }
+                return;
+              }
+
+              await finishStreamIfNeeded();
+
+              if (info.kind === "final" && streamedTextAlreadyVisible && !hasMedia && text) {
+                runtime.log(
+                  `[grix:${account.accountId}] skip final text after streamed block ${deliverContext} textLen=${text.length}`,
+                );
+                return;
+              }
+
+              const stableClientMsgId = `reply_${messageSid}_${outboundCounter}`;
               runtime.log(
-                `[grix:${account.accountId}] deliver ${deliverContext} kind=${info.kind} textLen=${text.length} hasMedia=${hasMedia} streamedBefore=${streamedTextAlreadyVisible}`,
+                `[grix:${account.accountId}] deliver message ${buildEventLogContext({
+                  eventId,
+                  sessionId,
+                  messageSid,
+                  clientMsgId: stableClientMsgId,
+                  outboundCounter,
+                })} textLen=${text.length} hasMedia=${hasMedia}`,
               );
-            }
-
-            if (guardedText) {
-              runtime.error(
-                `[grix:${account.accountId}] rewrite internal reply text ${deliverContext} code=${guardedText.code} raw=${JSON.stringify(guardedText.rawText)}`,
-              );
-            }
-
-            if (
-              guardedText &&
-              retryGuardedText == null &&
-              isRetryableGuardedReply(guardedText) &&
-              !attemptHasOutbound &&
-              !hasSentBlock
-            ) {
-              retryGuardedText = guardedText;
-              runtime.log(
-                `[grix:${account.accountId}] defer guarded upstream reply for retry ${deliverContext} attempt=${attemptLabel} code=${guardedText.code}`,
-              );
-              return;
-            }
-
-            if (retryGuardedText && !attemptHasOutbound && !hasSentBlock) {
-              runtime.log(
-                `[grix:${account.accountId}] skip outbound while retry pending ${deliverContext} attempt=${attemptLabel} code=${retryGuardedText.code}`,
-              );
-              return;
-            }
-
-            if (isStreamBlock) {
-              const didSendBlock = await deliverAibotStreamBlock({
-                text,
+              const didSendMessage = await deliverAibotMessage({
+                payload: normalizedPayload,
                 client,
                 account,
                 sessionId,
                 abortSignal: runAbortController.signal,
                 eventId,
-                messageSid,
                 quotedMessageId: outboundQuotedMessageId,
-                clientMsgId: streamClientMsgId,
                 runtime,
                 statusSink,
+                stableClientMsgId,
+                tableMode,
               });
-              hasSentBlock = hasSentBlock || didSendBlock;
-              attemptHasOutbound = attemptHasOutbound || didSendBlock;
-              if (didSendBlock) {
+              attemptHasOutbound = attemptHasOutbound || didSendMessage;
+              if (didSendMessage) {
                 markVisibleOutputSent();
               }
-              return;
-            }
-
-            await finishStreamIfNeeded();
-
-            if (info.kind === "final" && streamedTextAlreadyVisible && !hasMedia && text) {
-              runtime.log(
-                `[grix:${account.accountId}] skip final text after streamed block ${deliverContext} textLen=${text.length}`,
-              );
-              return;
-            }
-
-            const stableClientMsgId = `reply_${messageSid}_${outboundCounter}`;
-            runtime.log(
-              `[grix:${account.accountId}] deliver message ${buildEventLogContext({
-                eventId,
-                sessionId,
-                messageSid,
-                clientMsgId: stableClientMsgId,
-                outboundCounter,
-              })} textLen=${text.length} hasMedia=${hasMedia}`,
-            );
-            const didSendMessage = await deliverAibotMessage({
-              payload: normalizedPayload,
-              client,
-              account,
-              sessionId,
-              abortSignal: runAbortController.signal,
-              eventId,
-              quotedMessageId: outboundQuotedMessageId,
-              runtime,
-              statusSink,
-              stableClientMsgId,
-              tableMode,
-            });
-            attemptHasOutbound = attemptHasOutbound || didSendMessage;
-            if (didSendMessage) {
-              markVisibleOutputSent();
-            }
+            },
+            onError: (err, info) => {
+              runtime.error(`[grix:${account.accountId}] ${info.kind} reply failed: ${String(err)}`);
+              statusSink?.({ lastError: String(err) });
+            },
           },
-          onError: (err, info) => {
-            runtime.error(`[grix:${account.accountId}] ${info.kind} reply failed: ${String(err)}`);
-            statusSink?.({ lastError: String(err) });
+          replyOptions: {
+            abortSignal: runAbortController.signal,
           },
-        },
-        replyOptions: {
-          abortSignal: runAbortController.signal,
-        },
-      });
-      runtime.log(
-        `[grix:${account.accountId}] dispatch complete ${baseLogContext} attempt=${attemptLabel} queuedFinal=${dispatchResult.queuedFinal} counts=${JSON.stringify(dispatchResult.counts)}`,
-      );
-
-      await finishStreamIfNeeded();
-
-      if (!visibleOutputSent && consumeSilentUnsendCompleted(messageSid)) {
-        runtime.log(
-          `[grix:${account.accountId}] silent unsend completed ${baseLogContext} attempt=${attemptLabel}`,
-        );
-        reportEventResult("responded");
-      }
-
-      if (
-        !visibleOutputSent &&
-        shouldTreatDispatchAsRespondedWithoutVisibleOutput(dispatchResult)
-      ) {
-        runtime.log(
-          `[grix:${account.accountId}] dispatch completed without visible reply but produced actionable outcome ${baseLogContext} attempt=${attemptLabel}`,
-        );
-        reportEventResult("responded");
-      }
-
-      const finalRetryGuardedText = retryGuardedText as GuardedReplyText | null;
-      if (finalRetryGuardedText && !attemptHasOutbound) {
-        if (attempt < retryPolicy.maxAttempts) {
-          const delayMs = resolveUpstreamRetryDelayMs(retryPolicy, attempt);
-          runtime.error(
-            `[grix:${account.accountId}] upstream guarded reply retry ${baseLogContext} code=${finalRetryGuardedText.code} attempt=${attemptLabel} next=${attempt + 1}/${retryPolicy.maxAttempts} delayMs=${delayMs}`,
-          );
-          if (delayMs > 0) {
-            await sleep(delayMs);
-          }
-          continue;
-        }
-
-        outboundCounter++;
-        const stableClientMsgId = `reply_${messageSid}_${outboundCounter}`;
-        runtime.error(
-          `[grix:${account.accountId}] upstream guarded reply retry exhausted ${baseLogContext} code=${finalRetryGuardedText.code} attempts=${retryPolicy.maxAttempts}`,
-        );
-        const didSendMessage = await deliverAibotMessage({
-          payload: {
-            text: finalRetryGuardedText.userText,
-          },
-          client,
-          account,
-          sessionId,
-          abortSignal: runAbortController.signal,
-          eventId,
-          quotedMessageId: outboundQuotedMessageId,
-          runtime,
-          statusSink,
-          stableClientMsgId,
-          tableMode,
         });
-        attemptHasOutbound = attemptHasOutbound || didSendMessage;
-        if (didSendMessage) {
-          markVisibleOutputSent();
-        }
-      }
+        runtime.log(
+          `[grix:${account.accountId}] dispatch complete ${baseLogContext} attempt=${attemptLabel} queuedFinal=${dispatchResult.queuedFinal} counts=${JSON.stringify(dispatchResult.counts)}`,
+        );
 
-      break;
-    }
-    if (!visibleOutputSent && !eventResultReported) {
-      reportEventResult("failed", "grix_no_outbound_reply", "no outbound reply emitted");
-    }
-  } catch (err) {
-    if (runAbortController.signal.aborted) {
-      runtime.log(
-        `[grix:${account.accountId}] dispatch aborted ${baseLogContext} stopRequested=${activeRun?.stopRequested === true} abortReason=${resolveAbortReason(runAbortController.signal)}`,
-      );
-      clearComposing();
-      if (activeRun?.stopRequested) {
-        if (!visibleOutputSent) {
-          reportEventResult("canceled", "owner_requested_stop", "owner requested stop");
+        await finishStreamIfNeeded();
+
+        if (!visibleOutputSent && consumeSilentUnsendCompleted(messageSid)) {
+          runtime.log(
+            `[grix:${account.accountId}] silent unsend completed ${baseLogContext} attempt=${attemptLabel}`,
+          );
+          reportEventResult("responded");
         }
-        reportStopResult("stopped", "owner_requested_stop", "owner requested stop");
-        return;
+
+        if (
+          !visibleOutputSent &&
+          shouldTreatDispatchAsRespondedWithoutVisibleOutput(dispatchResult)
+        ) {
+          runtime.log(
+            `[grix:${account.accountId}] dispatch completed without visible reply but produced actionable outcome ${baseLogContext} attempt=${attemptLabel}`,
+          );
+          reportEventResult("responded");
+        }
+
+        const finalRetryGuardedText = retryGuardedText as GuardedReplyText | null;
+        if (finalRetryGuardedText && !attemptHasOutbound) {
+          if (attempt < retryPolicy.maxAttempts) {
+            const delayMs = resolveUpstreamRetryDelayMs(retryPolicy, attempt);
+            runtime.error(
+              `[grix:${account.accountId}] upstream guarded reply retry ${baseLogContext} code=${finalRetryGuardedText.code} attempt=${attemptLabel} next=${attempt + 1}/${retryPolicy.maxAttempts} delayMs=${delayMs}`,
+            );
+            if (delayMs > 0) {
+              await sleep(delayMs);
+            }
+            continue;
+          }
+
+          outboundCounter++;
+          const stableClientMsgId = `reply_${messageSid}_${outboundCounter}`;
+          runtime.error(
+            `[grix:${account.accountId}] upstream guarded reply retry exhausted ${baseLogContext} code=${finalRetryGuardedText.code} attempts=${retryPolicy.maxAttempts}`,
+          );
+          const didSendMessage = await deliverAibotMessage({
+            payload: {
+              text: finalRetryGuardedText.userText,
+            },
+            client,
+            account,
+            sessionId,
+            abortSignal: runAbortController.signal,
+            eventId,
+            quotedMessageId: outboundQuotedMessageId,
+            runtime,
+            statusSink,
+            stableClientMsgId,
+            tableMode,
+          });
+          attemptHasOutbound = attemptHasOutbound || didSendMessage;
+          if (didSendMessage) {
+            markVisibleOutputSent();
+          }
+        }
+
+        break;
+      }
+      if (!visibleOutputSent && !eventResultReported) {
+        reportEventResult("failed", "grix_no_outbound_reply", "no outbound reply emitted");
+      }
+    } catch (err) {
+      if (runAbortController.signal.aborted) {
+        runtime.log(
+          `[grix:${account.accountId}] dispatch aborted ${baseLogContext} stopRequested=${activeRun?.stopRequested === true} abortReason=${resolveAbortReason(runAbortController.signal)}`,
+        );
+        clearComposing();
+        if (activeRun?.stopRequested) {
+          if (!visibleOutputSent) {
+            reportEventResult("canceled", "owner_requested_stop", "owner requested stop");
+          }
+          reportStopResult("stopped", "owner_requested_stop", "owner requested stop");
+          return;
+        }
+      }
+      if (!visibleOutputSent) {
+        const message = err instanceof Error ? err.message : String(err);
+        reportEventResult("failed", "grix_dispatch_failed", message);
+      }
+      reportStopResult("failed", "grix_stop_failed", err instanceof Error ? err.message : String(err));
+      throw err;
+    } finally {
+      stopComposingRenewal();
+      if (composingSet) {
+        setComposing(false);
       }
     }
-    if (!visibleOutputSent) {
-      const message = err instanceof Error ? err.message : String(err);
-      reportEventResult("failed", "grix_dispatch_failed", message);
-    }
-    reportStopResult("failed", "grix_stop_failed", err instanceof Error ? err.message : String(err));
-    throw err;
-  } finally {
-    stopComposingRenewal();
-    if (composingSet) {
-      setComposing(false);
-    }
-  }
   } finally {
     runtime.log(
       `[grix:${account.accountId}] active reply run clearing eventId=${activeRun?.eventId || "-"} stopRequested=${activeRun?.stopRequested === true} abortReason=${activeRun ? resolveAbortReason(activeRun.controller.signal) : "-"} visibleOutputSent=${visibleOutputSent}`,
