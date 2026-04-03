@@ -1,23 +1,24 @@
 ---
 name: grix-register
-description: 直接通过终端脚互，帮助用户通过邮箱完成 grix.dhf.pub 账号的自动注册，并在云端创建一个 provider_type=3 的主 Agent。最后将参数（agent_id, api_endpoint, api_key）交由 grix-admin 技能统一进行配置。
+description: 仅用于初次安装阶段，完成 grix.dhf.pub 账号注册/登录并拿到第一个 provider_type=3 Agent 的参数；本技能不做任何本地 OpenClaw 配置。
 ---
 
 # Grix Register
 
-由于 Grix 登录体系已被深度集成，你（AI）将全自动在终端代为操作，**不需要用户打开任何浏览器**。你的核心职责是：通过交互式提问获取用户的基本信息，利用本技能的终端脚本帮助用户完成邮箱注册，并代为申请一个用于通道对接的 `provider_type=3` Agent，最后把控制权转交 `grix-admin`。
+这个技能只负责“初次安装”的云端准备：账号注册/登录 + 生成首个 `provider_type=3` Agent 参数。  
+你（AI）在终端里全自动操作，**不需要用户打开浏览器**。拿到参数后，必须移交给 `grix-admin` 做本地配置。
 
 ## Workflow
 
-### 0. 路由检查 (Routing Check)
+### 0. 角色边界（先声明再执行）
 
-在开口向用户索要邮箱或执行任何操作之前，你**必须**先检查本地配置文件 `~/.openclaw/openclaw.json`。
-如果文件中 `channels.grix.apiKey` **已经存在且不为空**，说明主渠道早已配置完毕。你无需进行下面的任何注册流程，直接向用户反馈：“检测到本地已存在 Grix 密钥配置，将为您自动切换到 `grix-admin`”，然后立刻横向调用 `grix-admin` 技能接手后续任务。
-如果**不存在**，则继续走下面的第1步。
+1. 本技能**只能**做账号与云端 Agent 参数准备。
+2. 本技能**不能**执行 `openclaw` 命令，也不能修改本地 `openclaw.json`。
+3. 涉及本地配置、插件安装、工具权限、重启网关，一律交给 `grix-admin`。
 
 ### 1. 询问邮箱并发送验证码
 
-1. 向用户询问他的 Email 地址。**不要让他们去网页端注册**，明确告诉他们你会在对话里帮他们完成一切。
+1. 向用户询问 Email 地址。**不要让用户去网页端注册**，明确表示你会在对话里完成。
 2. 拿到邮箱后，在终端执行发送验证码的命令：
    ```bash
    scripts/grix_auth.py send-email-code --email "<用户的email>" --scene "register"
@@ -33,24 +34,47 @@ description: 直接通过终端脚互，帮助用户通过邮箱完成 grix.dhf.
    ```
 3. 这个命令成功后会返回用户的 `access_token`。请在回复中安全地**将生成的密码告知用户**，建议他们妥善保存。
 
-*注：如果注册命令返回“邮箱已被注册”，你可以换用 `scripts/grix_auth.py login` 命令尝试（可能需要询问用户之前的密码，或者走 send-email-code / reset 流程，视具体情况而定，但优先假设是新用户走注册流程即可）。*
+注：如果注册提示邮箱已注册，可切换 `scripts/grix_auth.py login` 路径继续获取 `access_token`。
 
-### 3. 创建云端 Agent
+### 3. 创建首个云端 Agent 参数
 
-得到 `access_token` 后，紧接着询问用户给 Agent 起个名字，或者如果之前对话中已经明确了机器人的名字，直接使用该名字。然后不打断用户，直接运行下述命令创建或复用一个 `provider_type=3` 的主 Agent：
+拿到 `access_token` 后，询问 Agent 名称（如果上下文已有就直接用），执行：
 
 ```bash
 scripts/grix_auth.py create-api-agent --access-token "<token>" --agent-name "<agent名称>"
 ```
 
-如果用户在云端尚未配置过同名 Agent，此命令会自动创建；如果存在同名的，则自动将其重置（轮换 API Key）并复用。
+若同名 `provider_type=3` Agent 已存在，脚本会自动轮换 API Key 后复用。
 
-### 4. 移交配置给 grix-admin
+### 4. 强制移交给 grix-admin
 
 第三步执行成功后，脚本会返回一些关键设定：
 - `agent_id`
+- `agent_name`
 - `api_endpoint`
 - `api_key`
 
-保留并在对话中记住这三个参数。然后明确告知用户：“云端实体已自动搭建完毕，现在将立即调用 `grix-admin` 技能为您在本地主 Agent 生效配置”。
-**随后转手把这三个参数直接派发/传导给 `grix-admin` 技能。**（注意：你不需要也不能在本技能中修改本地 `openclaw.json`，全交给 `grix-admin` 即可）
+然后立刻交给 `grix-admin`，并传递如下 payload：
+
+```json
+{
+  "mode": "bind-local",
+  "agent_name": "<agent_name>",
+  "agent_id": "<agent_id>",
+  "api_endpoint": "<api_endpoint>",
+  "api_key": "<api_key>"
+}
+```
+
+## Guardrails
+
+1. 不要求用户去网页注册或手动点页面。
+2. 不修改任何本地 OpenClaw 配置。
+3. 不安装插件、不改工具权限、不重启 gateway。
+4. 创建或复用出参数后，必须交接给 `grix-admin`。
+
+## References
+
+1. [references/api-contract.md](references/api-contract.md)
+2. [references/handoff-contract.md](references/handoff-contract.md)
+3. [scripts/grix_auth.py](scripts/grix_auth.py)

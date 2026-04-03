@@ -2,7 +2,10 @@
 
 ## Purpose
 
-Map remote provisioning action to Aibot Agent API HTTP route, then hand over to local OpenClaw binding.
+`grix-admin` 负责本地绑定，支持两种入口：
+
+1. `bind-local`：接收 `grix-register` 交接参数，直接本地绑定。
+2. `create-and-bind`：在已有主密钥下先远端创建，再本地绑定。
 
 ## Base Rules
 
@@ -12,7 +15,7 @@ Map remote provisioning action to Aibot Agent API HTTP route, then hand over to 
 4. Route must pass scope middleware before service business checks.
 5. Do not ask users to provide website account/password for this flow.
 
-## Action Mapping (v1)
+## Action Mapping (create-and-bind only)
 
 | Tool | Method | Route | Required Scope |
 |---|---|---|---|
@@ -72,7 +75,7 @@ Map remote provisioning action to Aibot Agent API HTTP route, then hand over to 
 
 ## Post-Create Handover
 
-After `code=0`, continue with local OpenClaw binding via bundled script:
+After `code=0` (or when using `bind-local` mode), continue with local OpenClaw binding via bundled script:
 
 1. apply local changes directly:
    - `scripts/grix_agent_bind.py configure-local-openclaw --agent-name <agent_name> --agent-id <agent_id> --api-endpoint '<api_endpoint>' --api-key '<api_key>' --apply`
@@ -85,3 +88,19 @@ Local apply writes:
 2. `channels.grix.accounts.<agent_name>` entry
 3. `bindings` route for `channel=grix`
 4. required tools config and gateway restart
+
+## bind-local Input Contract
+
+When called from `grix-register`, `grix-admin` should accept:
+
+```json
+{
+  "mode": "bind-local",
+  "agent_name": "grix-main",
+  "agent_id": "2029786829095440384",
+  "api_endpoint": "wss://grix.dhf.pub/v1/agent-api/ws?agent_id=2029786829095440384",
+  "api_key": "ak_xxx"
+}
+```
+
+In this mode, skip remote create and execute local bind directly.

@@ -1,5 +1,11 @@
 # API Contract
 
+## Responsibility Boundary
+
+1. `grix-register` 仅负责账号鉴权与云端 `provider_type=3` Agent 参数产出。
+2. 本技能不负责本地 OpenClaw 配置。
+3. 本地配置由 `grix-admin` 接手。
+
 ## Base
 
 1. Website: `https://grix.dhf.pub/`
@@ -54,3 +60,12 @@ The bundled script lifts these fields to the top level:
 ## Common Errors
 
 1. create-agent or rotate-key returns missing `api_endpoint` or `api_key`
+
+## Handoff
+
+成功后输出这些字段，直接交给 `grix-admin`：
+
+1. `agent_id`
+2. `agent_name`
+3. `api_endpoint`
+4. `api_key`
