@@ -33,6 +33,10 @@ function normalizeNonEmpty(value: unknown): string {
   return String(value ?? "").trim();
 }
 
+function trimTrailingSlash(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
 function appendAgentIdToWsUrl(rawWsUrl: string, agentId: string): string {
   if (!rawWsUrl) {
     return "";
@@ -72,9 +76,10 @@ function resolveWsUrl(merged: GrixAccountConfig, agentId: string): string {
 }
 
 function resolveAgentAPIBaseUrl(merged: GrixAccountConfig): string {
-  const cfgBase = normalizeNonEmpty(merged.apiBaseUrl);
-  const envBase = normalizeNonEmpty(process.env.GRIX_AGENT_API_BASE);
-  return cfgBase || envBase;
+  const cfgBase = trimTrailingSlash(normalizeNonEmpty(merged.apiBaseUrl));
+  const envBase = trimTrailingSlash(normalizeNonEmpty(process.env.GRIX_AGENT_API_BASE));
+  const webBase = trimTrailingSlash(normalizeNonEmpty(process.env.GRIX_WEB_BASE_URL));
+  return cfgBase || envBase || webBase;
 }
 
 function resolveMergedAccountConfig(

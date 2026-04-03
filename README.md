@@ -183,6 +183,7 @@ openclaw skills list
 
 - `GRIX_WS_URL`
 - `GRIX_AGENT_API_BASE`
+- `GRIX_WEB_BASE_URL`
 - `GRIX_AGENT_ID`
 - `GRIX_API_KEY`
 
@@ -193,8 +194,8 @@ openclaw skills list
 说明：
 
 - `grix_query`、`grix_group`、`grix_agent_admin` 这些 HTTP 请求会优先使用 `apiBaseUrl`。
-- 如果没配 `apiBaseUrl`，会先看 `GRIX_AGENT_API_BASE`，再按 `wsUrl` 自动推导。
-- `skills/grix-register/scripts/grix_auth.py` 会优先读取 `GRIX_WEB_BASE_URL`，再回落到正式环境地址。
+- 如果没配 `apiBaseUrl`，会先看 `GRIX_AGENT_API_BASE`，再看 `GRIX_WEB_BASE_URL`，最后按 `wsUrl` 自动推导。
+- `skills/grix-register/scripts/grix_auth.py` 会优先读取 `GRIX_WEB_BASE_URL`，再回落到正式环境地址；插件运行时也会把它当作 HTTP 基地址兜底。
 - 本地开发最稳妥的写法是同时配置：
 
 ```json
