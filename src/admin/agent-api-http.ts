@@ -111,6 +111,20 @@ function resolveAgentAPIBaseInfo(account: ResolvedGrixAccount): ResolvedAgentAPI
       source: "account_api_base_url",
     };
   }
+  const normalizedWsUrl = String(account.wsUrl ?? "").trim();
+  const local = deriveLocalAgentAPIBaseFromWsUrl(normalizedWsUrl);
+  if (local) {
+    return {
+      base: local,
+      source: "local_ws_url",
+    };
+  }
+  if (normalizedWsUrl) {
+    return {
+      base: deriveAgentAPIBaseFromWsUrl(normalizedWsUrl),
+      source: "derived_from_ws_url",
+    };
+  }
   const explicit = resolveExplicitAgentAPIBase();
   if (explicit) {
     return {
@@ -118,15 +132,8 @@ function resolveAgentAPIBaseInfo(account: ResolvedGrixAccount): ResolvedAgentAPI
       source: "env_grix_agent_api_base",
     };
   }
-  const local = deriveLocalAgentAPIBaseFromWsUrl(account.wsUrl);
-  if (local) {
-    return {
-      base: local,
-      source: "local_ws_url",
-    };
-  }
   return {
-    base: deriveAgentAPIBaseFromWsUrl(account.wsUrl),
+    base: deriveAgentAPIBaseFromWsUrl(normalizedWsUrl),
     source: "derived_from_ws_url",
   };
 }

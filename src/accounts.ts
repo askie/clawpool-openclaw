@@ -97,8 +97,14 @@ function resolveWsUrl(merged: AibotAccountConfig, agentId: string): string {
 
 function resolveAgentAPIBaseUrl(merged: AibotAccountConfig): string {
   const cfgBase = normalizeNonEmpty(merged.apiBaseUrl);
+  if (cfgBase) {
+    return cfgBase;
+  }
+  if (normalizeNonEmpty(merged.wsUrl)) {
+    return "";
+  }
   const envBase = normalizeNonEmpty(process.env.GRIX_AGENT_API_BASE);
-  return cfgBase || envBase;
+  return envBase;
 }
 
 export function redactAibotWsUrl(wsUrl: string): string {

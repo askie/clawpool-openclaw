@@ -156,7 +156,7 @@ openclaw skills list
 | `accounts.<id>` | 否 | - | 多账户配置项，`<id>` 自定义（如 `ops`）。 |
 | `name` | 否 | - | 账户显示名。 |
 | `wsUrl` | 是（可用环境变量兜底） | `ws://127.0.0.1:27189/...`（当有 `agentId` 且未填时） | Grix WebSocket 地址。 |
-| `apiBaseUrl` | 否（可用环境变量兜底） | 自动从 `wsUrl` 推导；本地 `ws://127.0.0.1:27189/...` 会默认映射成 `http://127.0.0.1:27180/v1/agent-api` | Grix HTTP API 地址。开发时可单独指向本地后端。 |
+| `apiBaseUrl` | 否（可用环境变量兜底） | 优先使用显式配置；否则按同一账号的 `wsUrl` 推导；本地 `ws://127.0.0.1:27189/...` 会默认映射成 `http://127.0.0.1:27180/v1/agent-api`；只有账号自己既没配 `apiBaseUrl` 也没配 `wsUrl` 时，才回退环境变量 | Grix HTTP API 地址。开发时可单独指向本地后端。 |
 | `agentId` | 是（可用环境变量兜底） | - | Grix agent ID。 |
 | `apiKey` | 是（可用环境变量兜底） | - | Grix API Key。 |
 | `reconnectMs` | 否 | `2000` | 重连基础延迟（毫秒）。 |
@@ -193,9 +193,11 @@ openclaw skills list
 
 说明：
 
-- `grix_query`、`grix_group`、`grix_agent_admin` 这些 HTTP 请求会优先使用 `apiBaseUrl`。
-- 如果没配 `apiBaseUrl`，会先看 `GRIX_AGENT_API_BASE`，再看 `GRIX_WEB_BASE_URL`，最后按 `wsUrl` 自动推导。
+- `grix_query`、`grix_group`、`grix_agent_admin` 这些 HTTP 请求会优先使用当前账号自己的 `apiBaseUrl`。
+- 如果当前账号没配 `apiBaseUrl`，会先按当前账号自己的 `wsUrl` 自动推导。
+- 只有当前账号自己既没配 `apiBaseUrl`，也没提供可用的 `wsUrl` 时，才会回退到 `GRIX_AGENT_API_BASE` 或 `GRIX_WEB_BASE_URL`。
 - `skills/grix-register/scripts/grix_auth.py` 会优先读取 `GRIX_WEB_BASE_URL`，再回落到正式环境地址；插件运行时也会把它当作 HTTP 基地址兜底。
+- 多账号混用不同环境时，不建议设置全局 `GRIX_AGENT_API_BASE` / `GRIX_WEB_BASE_URL`，否则容易把一个账号的 HTTP 请求导到另一个环境。
 - 本地开发最稳妥的写法是同时配置：
 
 ```json

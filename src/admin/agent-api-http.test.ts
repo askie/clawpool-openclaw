@@ -38,7 +38,7 @@ test("resolveAgentAPIBase maps localhost ws port 27189 to 27180", () => {
   assert.equal(base, "http://127.0.0.1:27180/v1/agent-api");
 });
 
-test("resolveAgentAPIBase prefers explicit env override", (t) => {
+test("resolveAgentAPIBase uses explicit env override only when ws url is missing", (t) => {
   const previous = process.env.GRIX_AGENT_API_BASE;
   process.env.GRIX_AGENT_API_BASE = "https://example.com/base/";
   t.after(() => {
@@ -49,7 +49,7 @@ test("resolveAgentAPIBase prefers explicit env override", (t) => {
     process.env.GRIX_AGENT_API_BASE = previous;
   });
 
-  const base = resolveAgentAPIBase(buildAccount());
+  const base = resolveAgentAPIBase(buildAccount({ wsUrl: "" }));
   assert.equal(base, "https://example.com/base");
 });
 
@@ -61,6 +61,25 @@ test("resolveAgentAPIBase prefers account apiBaseUrl over ws url", () => {
     }),
   );
   assert.equal(base, "http://127.0.0.1:27180/v1/agent-api");
+});
+
+test("resolveAgentAPIBase prefers ws url over explicit env override", (t) => {
+  const previous = process.env.GRIX_AGENT_API_BASE;
+  process.env.GRIX_AGENT_API_BASE = "https://example.com/base/";
+  t.after(() => {
+    if (previous == null) {
+      delete process.env.GRIX_AGENT_API_BASE;
+      return;
+    }
+    process.env.GRIX_AGENT_API_BASE = previous;
+  });
+
+  const base = resolveAgentAPIBase(
+    buildAccount({
+      wsUrl: "wss://grix.dhf.pub/v1/agent-api/ws?agent_id=123",
+    }),
+  );
+  assert.equal(base, "https://grix.dhf.pub/v1/agent-api");
 });
 
 test("callAgentAPI sends bearer request and parses success payload", async (t) => {

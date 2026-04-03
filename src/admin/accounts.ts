@@ -77,9 +77,15 @@ function resolveWsUrl(merged: GrixAccountConfig, agentId: string): string {
 
 function resolveAgentAPIBaseUrl(merged: GrixAccountConfig): string {
   const cfgBase = trimTrailingSlash(normalizeNonEmpty(merged.apiBaseUrl));
+  if (cfgBase) {
+    return cfgBase;
+  }
+  if (normalizeNonEmpty(merged.wsUrl)) {
+    return "";
+  }
   const envBase = trimTrailingSlash(normalizeNonEmpty(process.env.GRIX_AGENT_API_BASE));
   const webBase = trimTrailingSlash(normalizeNonEmpty(process.env.GRIX_WEB_BASE_URL));
-  return cfgBase || envBase || webBase;
+  return envBase || webBase;
 }
 
 function resolveMergedAccountConfig(
