@@ -91,6 +91,7 @@ openclaw skills list
     "grix": {
       "enabled": true,
       "wsUrl": "wss://grix.dhf.pub/v1/agent-api/ws?agent_id=<YOUR_AGENT_ID>",
+      "apiBaseUrl": "https://grix.dhf.pub/v1/agent-api",
       "agentId": "<YOUR_AGENT_ID>",
       "apiKey": "<YOUR_API_KEY>"
     }
@@ -111,12 +112,14 @@ openclaw skills list
           "enabled": true,
           "name": "Ops",
           "wsUrl": "wss://grix.dhf.pub/v1/agent-api/ws?agent_id=<OPS_AGENT_ID>",
+          "apiBaseUrl": "http://127.0.0.1:27180/v1/agent-api",
           "agentId": "<OPS_AGENT_ID>",
           "apiKey": "<OPS_API_KEY>"
         },
         "prod": {
           "enabled": true,
           "wsUrl": "wss://grix.dhf.pub/v1/agent-api/ws?agent_id=<PROD_AGENT_ID>",
+          "apiBaseUrl": "https://grix.dhf.pub/v1/agent-api",
           "agentId": "<PROD_AGENT_ID>",
           "apiKey": "<PROD_API_KEY>"
         }
@@ -135,6 +138,7 @@ openclaw skills list
 | `accounts.<id>` | 否 | - | 多账户配置项，`<id>` 自定义（如 `ops`）。 |
 | `name` | 否 | - | 账户显示名。 |
 | `wsUrl` | 是（可用环境变量兜底） | `ws://127.0.0.1:27189/...`（当有 `agentId` 且未填时） | Grix WebSocket 地址。 |
+| `apiBaseUrl` | 否（可用环境变量兜底） | 自动从 `wsUrl` 推导；本地 `ws://127.0.0.1:27189/...` 会默认映射成 `http://127.0.0.1:27180/v1/agent-api` | Grix HTTP API 地址。开发时可单独指向本地后端。 |
 | `agentId` | 是（可用环境变量兜底） | - | Grix agent ID。 |
 | `apiKey` | 是（可用环境变量兜底） | - | Grix API Key。 |
 | `reconnectMs` | 否 | `2000` | 重连基础延迟（毫秒）。 |
@@ -160,8 +164,28 @@ openclaw skills list
 如果配置文件没填，插件会按下列环境变量读取：
 
 - `GRIX_WS_URL`
+- `GRIX_AGENT_API_BASE`
 - `GRIX_AGENT_ID`
 - `GRIX_API_KEY`
+
+说明：
+
+- `grix_query`、`grix_group`、`grix_agent_admin` 这些 HTTP 请求会优先使用 `apiBaseUrl`。
+- 如果没配 `apiBaseUrl`，会先看 `GRIX_AGENT_API_BASE`，再按 `wsUrl` 自动推导。
+- 本地开发最稳妥的写法是同时配置：
+
+```json
+{
+  "channels": {
+    "grix": {
+      "wsUrl": "ws://127.0.0.1:27189/v1/agent-api/ws?agent_id=<YOUR_AGENT_ID>",
+      "apiBaseUrl": "http://127.0.0.1:27180/v1/agent-api",
+      "agentId": "<YOUR_AGENT_ID>",
+      "apiKey": "<YOUR_API_KEY>"
+    }
+  }
+}
+```
 
 ## 工具与命令
 

@@ -71,6 +71,12 @@ function resolveWsUrl(merged: GrixAccountConfig, agentId: string): string {
   return `ws://127.0.0.1:27189/v1/agent-api/ws?agent_id=${encodeURIComponent(agentId)}`;
 }
 
+function resolveAgentAPIBaseUrl(merged: GrixAccountConfig): string {
+  const cfgBase = normalizeNonEmpty(merged.apiBaseUrl);
+  const envBase = normalizeNonEmpty(process.env.GRIX_AGENT_API_BASE);
+  return cfgBase || envBase;
+}
+
 function resolveMergedAccountConfig(
   cfg: OpenClawCoreConfig,
   accountId: string,
@@ -126,6 +132,7 @@ export function resolveGrixAccount(params: {
   const agentId = normalizeNonEmpty(merged.agentId || process.env.GRIX_AGENT_ID);
   const apiKey = normalizeNonEmpty(merged.apiKey || process.env.GRIX_API_KEY);
   const wsUrl = resolveWsUrl(merged, agentId);
+  const apiBaseUrl = resolveAgentAPIBaseUrl(merged);
   const configured = Boolean(wsUrl && agentId && apiKey);
 
   return {
@@ -134,6 +141,7 @@ export function resolveGrixAccount(params: {
     enabled,
     configured,
     wsUrl,
+    apiBaseUrl,
     agentId,
     apiKey,
     config: merged,
@@ -149,6 +157,7 @@ export function summarizeGrixAccounts(cfg: OpenClawCoreConfig): Array<Record<str
       enabled: account.enabled,
       configured: account.configured,
       wsUrl: account.wsUrl || null,
+      apiBaseUrl: account.apiBaseUrl || null,
       agentId: account.agentId || null,
     };
   });

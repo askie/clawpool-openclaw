@@ -110,6 +110,7 @@ export type AibotAccountConfig = {
   enabled?: boolean;
   name?: string;
   wsUrl?: string;
+  apiBaseUrl?: string;
   agentId?: string | number;
   apiKey?: string;
   reconnectMs?: number;
@@ -141,6 +142,7 @@ export type ResolvedAibotAccount = {
   enabled: boolean;
   configured: boolean;
   wsUrl: string;
+  apiBaseUrl: string;
   agentId: string;
   apiKey: string;
   config: AibotAccountConfig;

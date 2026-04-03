@@ -2,6 +2,7 @@ export type GrixAccountConfig = {
   enabled?: boolean;
   name?: string;
   wsUrl?: string;
+  apiBaseUrl?: string;
   agentId?: string | number;
   apiKey?: string;
 };
@@ -25,6 +26,7 @@ export type ResolvedGrixAccount = {
   enabled: boolean;
   configured: boolean;
   wsUrl: string;
+  apiBaseUrl: string;
   agentId: string;
   apiKey: string;
   config: GrixAccountConfig;

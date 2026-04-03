@@ -95,6 +95,12 @@ function resolveWsUrl(merged: AibotAccountConfig, agentId: string): string {
   return `ws://127.0.0.1:27189/v1/agent-api/ws?agent_id=${encodeURIComponent(agentId)}`;
 }
 
+function resolveAgentAPIBaseUrl(merged: AibotAccountConfig): string {
+  const cfgBase = normalizeNonEmpty(merged.apiBaseUrl);
+  const envBase = normalizeNonEmpty(process.env.GRIX_AGENT_API_BASE);
+  return cfgBase || envBase;
+}
+
 export function redactAibotWsUrl(wsUrl: string): string {
   if (!wsUrl) {
     return "";
@@ -124,6 +130,7 @@ export function resolveAibotAccount(params: {
   const agentId = normalizeAgentId(merged.agentId || process.env.GRIX_AGENT_ID);
   const apiKey = normalizeNonEmpty(merged.apiKey || process.env.GRIX_API_KEY);
   const wsUrl = resolveWsUrl(merged, agentId);
+  const apiBaseUrl = resolveAgentAPIBaseUrl(merged);
   const configured = Boolean(wsUrl && agentId && apiKey);
 
   return {
@@ -132,6 +139,7 @@ export function resolveAibotAccount(params: {
     enabled,
     configured,
     wsUrl,
+    apiBaseUrl,
     agentId,
     apiKey,
     config: merged,

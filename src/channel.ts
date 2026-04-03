@@ -155,6 +155,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
         clearBaseFields: [
           "name",
           "wsUrl",
+          "apiBaseUrl",
           "agentId",
           "apiKey",
           "reconnectMs",

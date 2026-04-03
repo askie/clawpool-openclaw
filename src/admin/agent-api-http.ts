@@ -25,9 +25,7 @@ function trimTrailingSlash(value: string): string {
 }
 
 function resolveExplicitAgentAPIBase(): string {
-  const base = String(
-    process.env.GRIX_AGENT_API_BASE ?? process.env.AIBOT_AGENT_API_BASE ?? "",
-  ).trim();
+  const base = String(process.env.GRIX_AGENT_API_BASE ?? "").trim();
   if (!base) {
     return "";
   }
@@ -87,6 +85,10 @@ function deriveLocalAgentAPIBaseFromWsUrl(wsUrl: string): string {
 }
 
 export function resolveAgentAPIBase(account: ResolvedGrixAccount): string {
+  const accountBase = trimTrailingSlash(String(account.apiBaseUrl ?? "").trim());
+  if (accountBase) {
+    return accountBase;
+  }
   const explicit = resolveExplicitAgentAPIBase();
   if (explicit) {
     return explicit;

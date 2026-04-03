@@ -37,6 +37,7 @@ test("resolveGrixAccount merges base and account-scoped config", () => {
       channels: {
         grix: {
           wsUrl: "wss://grix.dhf.pub/v1/agent-api/ws",
+          apiBaseUrl: "https://api.dev.local/v1/agent-api",
           accounts: {
             ops: {
               agentId: "1001",
@@ -52,4 +53,5 @@ test("resolveGrixAccount merges base and account-scoped config", () => {
   assert.equal(account.accountId, "ops");
   assert.equal(account.configured, true);
   assert.match(account.wsUrl, /agent_id=1001/);
+  assert.equal(account.apiBaseUrl, "https://api.dev.local/v1/agent-api");
 });

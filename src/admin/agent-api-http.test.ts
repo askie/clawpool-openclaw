@@ -12,6 +12,7 @@ function buildAccount(
     enabled: true,
     configured: true,
     wsUrl: "wss://grix.dhf.pub/v1/agent-api/ws?agent_id=9992",
+    apiBaseUrl: "",
     agentId: "9992",
     apiKey: "ak_test_xxx",
     config: {},
@@ -50,6 +51,16 @@ test("resolveAgentAPIBase prefers explicit env override", (t) => {
 
   const base = resolveAgentAPIBase(buildAccount());
   assert.equal(base, "https://example.com/base");
+});
+
+test("resolveAgentAPIBase prefers account apiBaseUrl over ws url", () => {
+  const base = resolveAgentAPIBase(
+    buildAccount({
+      wsUrl: "wss://grix.dhf.pub/v1/agent-api/ws?agent_id=123",
+      apiBaseUrl: "http://127.0.0.1:27180/v1/agent-api/",
+    }),
+  );
+  assert.equal(base, "http://127.0.0.1:27180/v1/agent-api");
 });
 
 test("callAgentAPI sends bearer request and parses success payload", async (t) => {
