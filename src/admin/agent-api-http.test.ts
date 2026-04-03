@@ -66,10 +66,16 @@ test("resolveAgentAPIBase prefers account apiBaseUrl over ws url", () => {
 test("callAgentAPI sends bearer request and parses success payload", async (t) => {
   const account = buildAccount();
   const originalFetch = globalThis.fetch;
+  const originalConsoleInfo = console.info;
   let capturedURL = "";
   let capturedMethod = "";
   let capturedAuth = "";
   let capturedBody = "";
+  const infoLogs: string[] = [];
+
+  console.info = ((message?: unknown, ...rest: unknown[]) => {
+    infoLogs.push([message, ...rest].map((item) => String(item)).join(" "));
+  }) as typeof console.info;
 
   globalThis.fetch = (async (input, init) => {
     capturedURL = String(input);
@@ -95,6 +101,7 @@ test("callAgentAPI sends bearer request and parses success payload", async (t) =
 
   t.after(() => {
     globalThis.fetch = originalFetch;
+    console.info = originalConsoleInfo;
   });
 
   const data = await callAgentAPI<{ session_id: string }>({
@@ -112,11 +119,29 @@ test("callAgentAPI sends bearer request and parses success payload", async (t) =
   assert.equal(capturedAuth, `Bearer ${account.apiKey}`);
   assert.match(capturedBody, /ops-room/);
   assert.equal(data.session_id, "task_room_1");
+  assert.equal(infoLogs.length, 2);
+  assert.match(infoLogs[0] ?? "", /\[grix:agent-api\] request action=group_create/);
+  assert.match(infoLogs[0] ?? "", /source=derived_from_ws_url/);
+  assert.match(infoLogs[0] ?? "", /url=https:\/\/grix\.dhf\.pub\/v1\/agent-api\/sessions\/create_group/);
+  assert.match(infoLogs[1] ?? "", /\[grix:agent-api\] success action=group_create/);
+  assert.match(infoLogs[1] ?? "", /status=200/);
 });
 
 test("callAgentAPI reports biz error with status and code", async (t) => {
   const account = buildAccount();
   const originalFetch = globalThis.fetch;
+  const originalConsoleInfo = console.info;
+  const originalConsoleError = console.error;
+  const infoLogs: string[] = [];
+  const errorLogs: string[] = [];
+
+  console.info = ((message?: unknown, ...rest: unknown[]) => {
+    infoLogs.push([message, ...rest].map((item) => String(item)).join(" "));
+  }) as typeof console.info;
+  console.error = ((message?: unknown, ...rest: unknown[]) => {
+    errorLogs.push([message, ...rest].map((item) => String(item)).join(" "));
+  }) as typeof console.error;
+
   globalThis.fetch = (async () =>
     new Response(
       JSON.stringify({
@@ -133,6 +158,8 @@ test("callAgentAPI reports biz error with status and code", async (t) => {
 
   t.after(() => {
     globalThis.fetch = originalFetch;
+    console.info = originalConsoleInfo;
+    console.error = originalConsoleError;
   });
 
   await assert.rejects(
@@ -146,4 +173,10 @@ test("callAgentAPI reports biz error with status and code", async (t) => {
       }),
     /status=403 code=20011 msg=agent scope forbidden/,
   );
+  assert.equal(infoLogs.length, 1);
+  assert.equal(errorLogs.length, 1);
+  assert.match(errorLogs[0] ?? "", /\[grix:agent-api\] failed action=group_create/);
+  assert.match(errorLogs[0] ?? "", /source=derived_from_ws_url/);
+  assert.match(errorLogs[0] ?? "", /url=https:\/\/grix\.dhf\.pub\/v1\/agent-api\/sessions\/create_group/);
+  assert.match(errorLogs[0] ?? "", /status=403 code=20011 msg=agent scope forbidden/);
 });

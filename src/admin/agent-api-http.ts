@@ -20,8 +20,27 @@ type AgentAPIEnvelope<TData = unknown> = {
   data?: TData;
 };
 
+type AgentAPIBaseSource =
+  | "account_api_base_url"
+  | "env_grix_agent_api_base"
+  | "local_ws_url"
+  | "derived_from_ws_url";
+
+type ResolvedAgentAPIBase = {
+  base: string;
+  source: AgentAPIBaseSource;
+};
+
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
+}
+
+function logAgentAPIInfo(message: string): void {
+  console.info(`[grix:agent-api] ${message}`);
+}
+
+function logAgentAPIError(message: string): void {
+  console.error(`[grix:agent-api] ${message}`);
 }
 
 function resolveExplicitAgentAPIBase(): string {
@@ -84,20 +103,36 @@ function deriveLocalAgentAPIBaseFromWsUrl(wsUrl: string): string {
   return trimTrailingSlash(`${protocol}//${parsed.hostname}:${apiPort}`) + "/v1/agent-api";
 }
 
-export function resolveAgentAPIBase(account: ResolvedGrixAccount): string {
+function resolveAgentAPIBaseInfo(account: ResolvedGrixAccount): ResolvedAgentAPIBase {
   const accountBase = trimTrailingSlash(String(account.apiBaseUrl ?? "").trim());
   if (accountBase) {
-    return accountBase;
+    return {
+      base: accountBase,
+      source: "account_api_base_url",
+    };
   }
   const explicit = resolveExplicitAgentAPIBase();
   if (explicit) {
-    return explicit;
+    return {
+      base: explicit,
+      source: "env_grix_agent_api_base",
+    };
   }
   const local = deriveLocalAgentAPIBaseFromWsUrl(account.wsUrl);
   if (local) {
-    return local;
+    return {
+      base: local,
+      source: "local_ws_url",
+    };
   }
-  return deriveAgentAPIBaseFromWsUrl(account.wsUrl);
+  return {
+    base: deriveAgentAPIBaseFromWsUrl(account.wsUrl),
+    source: "derived_from_ws_url",
+  };
+}
+
+export function resolveAgentAPIBase(account: ResolvedGrixAccount): string {
+  return resolveAgentAPIBaseInfo(account).base;
 }
 
 function buildRequestURL(base: string, path: string, query?: Record<string, string>): string {
@@ -147,11 +182,15 @@ function extractNetworkErrorMessage(error: unknown): string {
 }
 
 export async function callAgentAPI<TData = unknown>(params: CallAgentAPIParams): Promise<TData> {
-  const base = resolveAgentAPIBase(params.account);
-  const url = buildRequestURL(base, params.path, params.query);
+  const resolvedBase = resolveAgentAPIBaseInfo(params.account);
+  const url = buildRequestURL(resolvedBase.base, params.path, params.query);
   const timeoutMs = Number.isFinite(params.timeoutMs)
     ? Math.max(1_000, Math.floor(params.timeoutMs as number))
     : DEFAULT_HTTP_TIMEOUT_MS;
+
+  logAgentAPIInfo(
+    `request action=${params.actionName} account=${params.account.accountId} method=${params.method} source=${resolvedBase.source} url=${url}`,
+  );
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -169,6 +208,9 @@ export async function callAgentAPI<TData = unknown>(params: CallAgentAPIParams):
     });
   } catch (error) {
     clearTimeout(timer);
+    logAgentAPIError(
+      `network_error action=${params.actionName} account=${params.account.accountId} method=${params.method} source=${resolvedBase.source} url=${url} error=${extractNetworkErrorMessage(error)}`,
+    );
     throw new Error(
       `Grix ${params.actionName} network error: ${extractNetworkErrorMessage(error)}`,
     );
@@ -182,6 +224,9 @@ export async function callAgentAPI<TData = unknown>(params: CallAgentAPIParams):
   try {
     envelope = JSON.parse(rawBody) as AgentAPIEnvelope<TData>;
   } catch {
+    logAgentAPIError(
+      `invalid_response action=${params.actionName} account=${params.account.accountId} method=${params.method} source=${resolvedBase.source} url=${url} status=${status}`,
+    );
     throw new Error(
       `Grix ${params.actionName} invalid response: status=${status} body=${rawBody.slice(0, 256)}`,
     );
@@ -190,10 +235,17 @@ export async function callAgentAPI<TData = unknown>(params: CallAgentAPIParams):
   const bizCode = normalizeBizCode(envelope.code);
   if (!resp.ok || bizCode !== 0) {
     const message = normalizeMessage(envelope.msg);
+    logAgentAPIError(
+      `failed action=${params.actionName} account=${params.account.accountId} method=${params.method} source=${resolvedBase.source} url=${url} status=${status} code=${bizCode} msg=${message}`,
+    );
     throw new Error(
       `Grix ${params.actionName} failed: status=${status} code=${bizCode} msg=${message}`,
     );
   }
+
+  logAgentAPIInfo(
+    `success action=${params.actionName} account=${params.account.accountId} method=${params.method} source=${resolvedBase.source} url=${url} status=${status}`,
+  );
 
   return envelope.data as TData;
 }
