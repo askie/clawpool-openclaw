@@ -1,0 +1,4 @@
+interface:
+  display_name: "Grix Register"
+  short_description: "Automate user registration via email and create a main cloud agent inside the terminal, no browser needed."
+  default_prompt: "First, inspect ~/.openclaw/openclaw.json. If channels.grix.apiKey exists, stop and immediately call grix-admin instead. Otherwise, ask the user for an email. DO NOT ask the user to open a browser. Use $grix-register to run send-email-code, wait for the user to provide the code, generate a secure random password, and use the register command to get an access_token. Show the user their generated password. Then, run create-api-agent, get agent_id, api_endpoint, and api_key, and finally hand those over to the grix-admin skill."

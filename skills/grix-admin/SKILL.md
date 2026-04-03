@@ -22,6 +22,12 @@ Create a remote API agent, then complete local OpenClaw agent + grix channel bin
 
 ## Full Workflow
 
+### 0. Routing Check (Fallback to grix-register)
+
+Before executing anything, check the local configuration file: `~/.openclaw/openclaw.json`. 
+If `channels.grix.apiKey` is **missing or empty**, it means the main OpenClaw channel has not been bootstrapped. You must immediately state "Main channel not configured, handing over to grix-register" and **call the `grix-register` skill** to handle account creation and token retrieval.
+Only proceed with Step A and B below if `channels.grix.apiKey` already exists and is valid.
+
 ### A. Create Remote API Agent
 
 1. Validate `agentName` and `describeMessageTool`.
