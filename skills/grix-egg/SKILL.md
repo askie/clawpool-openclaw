@@ -1,6 +1,6 @@
 ---
 name: grix-egg
-description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 OpenClaw agent 收到包含 install_id、egg、install、main_agent 的安装上下文时，负责与用户多轮确认、执行 persona.zip 到 OpenClaw agent 或 skill.zip 到 Claude agent 的正规安装流程，并在当前私聊里持续回报进度、失败原因和最终结果。
+description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 OpenClaw agent 收到包含 install_id、egg、install、main_agent 的安装上下文时，按 install.route 指定的路线执行安装：把 persona/openclaw 包安装到 OpenClaw agent，或把 skill.zip 安装到 Claude agent，并在当前私聊里持续回报进度、失败原因和最终结果。
 ---
 
 # Egg Install
@@ -11,17 +11,23 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 
 - `install_id` — 安装单唯一 ID，所有状态指令必须使用原值
 - `egg` — egg 包标识，格式为 `<name>@<version>` 或带完整下载 URL 的对象
-- `install` — 安装模式，枚举值：`create_new`（新建目标 agent）或 `existing_agent`（安装到已有 agent）
+- `install.mode` — 安装模式，枚举值：`create_new`（新建目标 agent）或 `existing_agent`（安装到已有 agent）
+- `install.route` — 当前实际路线，优先使用它判断要走哪条分支。当前可见值：
+  - `openclaw_create_new`
+  - `openclaw_existing`
+  - `claude_existing`
+- `install.target_client_type` — 本次目标类型，通常为 `openclaw` 或 `claude`
+- `install.artifact_package` — 本次应安装的包类型，通常为 `persona_zip` 或 `skill_zip`
 - `main_agent` — 发起安装的主 OpenClaw agent ID，安装完成后如需通知或回调，使用该 ID
 
 你的职责不是返回隐藏协议结果，而是直接在当前私聊里把安装流程做完。
 
 ## 工作方式
 
-1. 先读完整个 JSON 上下文，确认 egg、版本、安装模式和目标类型。
+1. 先读完整个 JSON 上下文，优先确认 `install.route`、`install.target_client_type`、`install.artifact_package`。
 2. 在真正动手前，先在当前私聊里和用户确认关键目标。
-3. `create_new` 时，先确认新 agent 的命名和用途，再继续创建。
-4. `existing_agent` 时，只能操作上下文里指定的目标 agent，不要私自换目标。
+3. `openclaw_create_new` 时，先确认新 OpenClaw agent 的命名和用途，再继续创建。
+4. `openclaw_existing` / `claude_existing` 时，只能操作上下文里指定的目标 agent，不要私自换目标。
 5. 安装过程中，每完成一个关键动作就用自然语言回报一次进度。
 6. 在"包下载完成"和"安装内容落位完成待校验"两个节点，各额外发送一条 `status=running` 的**独立安装状态指令消息**。
 7. 最终成功或失败时，必须发送一条 `status=success` 或 `status=failed` 的**独立安装状态指令消息**。
@@ -36,8 +42,9 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 - 所有远端 API 通讯都必须走统一工具入口：`grix_query` / `grix_group` / `grix_agent_admin`，禁止在对话里自行发 HTTP 请求。
 - 禁止使用 `curl`、`fetch`、`axios` 或临时脚本直连 `/v1/agent-api`。
 - 单个业务动作只调用一次对应工具，失败后先说明原因，不要静默重试。
-- `persona.zip` 只能面向 OpenClaw 目标。
-- `skill.zip` 只能面向 Claude 目标。
+- 必须以 `install.route` 为准执行，不要自己重新选路线。
+- `openclaw_create_new` / `openclaw_existing` 只能安装 persona/openclaw 包。
+- `claude_existing` 只能安装 skill.zip。
 - 不要自动新建 Claude 目标 agent。
 - 没完成校验前，绝不能宣称安装成功。
 - 如果新建目标后又失败了，能安全回滚就先回滚；不能回滚就如实告诉用户当前残留状态。
@@ -66,7 +73,8 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 2. `status` 只能是 `running`、`success`、`failed`。
 3. `summary`、`detail_text`、`error_msg` 如果有空格、中文或特殊字符，按 URI component 编码。
 4. 这条指令只负责状态收口；如果要跟用户解释原因，另发一条正常文字消息。
-5. `create_new` 成功时，必须尽量带 `target_agent_id`，否则 server 可能无法通过最终校验。
+5. `openclaw_create_new` 成功时，必须尽量带 `target_agent_id`，否则 server 可能无法通过最终校验。
+6. 如果上下文缺少 `install.route` 但仍有 `install.mode` 和目标 agent 信息，先按上下文能明确推出的路线执行；若仍有歧义，先在当前私聊里确认，再继续。
 
 ## 统一 API 请求机制
 
@@ -84,24 +92,24 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 
 ## 推荐流程
 
-### `persona.zip` -> OpenClaw
+### `openclaw_create_new` / `openclaw_existing`
 
-1. 读取上下文，确认是 `create_new` 还是 `existing_agent`。
+1. 读取上下文，确认 route 是 `openclaw_create_new` 还是 `openclaw_existing`。
 2. 和用户确认目标 agent 或新 agent 命名；**用户拒绝则发 `failed/user_cancelled` 指令后结束**。
-3. 如果需要新建远端 API agent，用 `grix_agent_admin` 创建。
+3. 如果 route=`openclaw_create_new`，需要新建远端 API agent，用 `grix_agent_admin` 创建。
 4. 用 OpenClaw 正规步骤准备本地目标目录和配置。
-5. 下载 egg 包，并校验 hash / manifest（如果上下文提供）。
+5. 下载 persona/openclaw 包，并校验 hash / manifest（如果上下文提供）。
 6. 发送 `status=running`、`step=downloaded` 状态指令。
-7. 安装 persona 内容。
+7. 安装 persona/openclaw 内容。
 8. 发送 `status=running`、`step=installed` 状态指令。
 9. 按需刷新或重启本地运行时。
 10. 校验目标 agent 仍然可用。
     - 校验失败 → 尝试回滚（含步骤3新建的远端 agent），无法回滚则如实告知残留状态 → 发 `failed` 指令后结束。
 11. 发送 `status=success` 状态指令（带 `target_agent_id`），再向用户汇报完成。
 
-### `skill.zip` -> Claude
+### `claude_existing`
 
-1. 确认上下文指定的 Claude 目标 agent 存在；**不存在则发 `failed/target_not_found` 指令后结束**。
+1. 确认上下文 route 为 `claude_existing`，且指定的 Claude 目标 agent 存在；**不存在则发 `failed/target_not_found` 指令后结束**。
 2. 和用户确认目标 agent；**用户拒绝则发 `failed/user_cancelled` 指令后结束**。
 3. 下载 skill 包，并校验 hash / manifest（如果上下文提供）。
 4. 发送 `status=running`、`step=downloaded` 状态指令。
@@ -119,6 +127,7 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 - hash / manifest 校验通过（如果提供）
 - 安装内容已经落到目标位置
 - 目标 agent 安装后仍然可用
+- 实际安装路线没有偏离 `install.route`
 
 ## 指令示例
 
