@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildAibotOutboundEnvelope } from "./outbound-envelope.ts";
+import { buildAibotOutboundEnvelope, buildAibotOutboundTextEnvelope } from "./outbound-envelope.ts";
 
 test("buildAibotOutboundEnvelope returns exec approval fallback text for structured payload", () => {
   const envelope = buildAibotOutboundEnvelope({
@@ -63,4 +63,43 @@ test("buildAibotOutboundEnvelope recognizes structured user profile card payload
 
   assert.equal(envelope.cardKind, "user_profile");
   assert.equal(envelope.text, "[Profile Card] Ops Agent");
+});
+
+test("buildAibotOutboundTextEnvelope recognizes egg install status payload text", () => {
+  const envelope = buildAibotOutboundTextEnvelope(
+    '{"text":"已下载并验证安装包","channelData":{"grix":{"eggInstall":{"install_id":"eggins_9","status":"running","step":"downloaded","summary":"已下载并验证安装包"}}}}',
+  );
+
+  assert.equal(envelope.cardKind, "egg_install_status");
+  assert.equal(envelope.text, "[Egg Install] 已下载并验证安装包");
+  assert.deepEqual(envelope.extra, {
+    biz_card: {
+      version: 1,
+      type: "egg_install_status",
+      payload: {
+        install_id: "eggins_9",
+        status: "running",
+        step: "downloaded",
+        summary: "已下载并验证安装包",
+      },
+    },
+    channel_data: {
+      grix: {
+        eggInstall: {
+          install_id: "eggins_9",
+          status: "running",
+          step: "downloaded",
+          summary: "已下载并验证安装包",
+        },
+      },
+    },
+  });
+});
+
+test("buildAibotOutboundTextEnvelope keeps plain text unchanged", () => {
+  const envelope = buildAibotOutboundTextEnvelope("普通文本消息");
+
+  assert.equal(envelope.cardKind, undefined);
+  assert.equal(envelope.text, "普通文本消息");
+  assert.equal(envelope.extra, undefined);
 });

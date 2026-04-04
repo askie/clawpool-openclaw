@@ -9,7 +9,7 @@ import { resolveAibotAccount, listAibotAccountIds, resolveDefaultAibotAccountId,
 import { grixExecApprovalAdapter } from "./channel-exec-approvals.js";
 import { getActiveAibotClient, requireActiveAibotClient } from "./client.js";
 import { monitorAibotProvider } from "./monitor.js";
-import { buildAibotOutboundEnvelope } from "./outbound-envelope.ts";
+import { buildAibotOutboundEnvelope, buildAibotOutboundTextEnvelope } from "./outbound-envelope.ts";
 import { DEFAULT_OUTBOUND_TEXT_CHUNK_LIMIT } from "./protocol-text.js";
 import { applySetupAccountConfig, resolveSetupValues } from "./setup-config.js";
 import {
@@ -305,14 +305,16 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
       }
       const sessionId = resolvedTarget.sessionId;
       const quotedMessageId = normalizeQuotedMessageId(replyToId);
+      const envelope = buildAibotOutboundTextEnvelope(text);
       logAibotOutboundAdapter(
-        `sendText accountId=${account.accountId} rawTarget=${rawTarget} normalizedTarget=${resolvedTarget.normalizedTarget} resolvedSessionId=${sessionId} resolveSource=${resolvedTarget.resolveSource} textLen=${text.length} quotedMessageId=${quotedMessageId ?? "-"}`,
+        `sendText accountId=${account.accountId} rawTarget=${rawTarget} normalizedTarget=${resolvedTarget.normalizedTarget} resolvedSessionId=${sessionId} resolveSource=${resolvedTarget.resolveSource} textLen=${envelope.text.length} quotedMessageId=${quotedMessageId ?? "-"} cardKind=${envelope.cardKind ?? "none"}`,
       );
-      const ack = await client.sendText(sessionId, text, {
+      const ack = await client.sendText(sessionId, envelope.text, {
         quotedMessageId,
+        extra: envelope.extra,
       });
       logAibotOutboundAdapter(
-        `sendText ack accountId=${account.accountId} resolvedSessionId=${sessionId} messageId=${String(ack.msg_id ?? ack.client_msg_id ?? "-")}`,
+        `sendText ack accountId=${account.accountId} resolvedSessionId=${sessionId} messageId=${String(ack.msg_id ?? ack.client_msg_id ?? "-")} cardKind=${envelope.cardKind ?? "none"}`,
       );
       return {
         channel: "grix",

@@ -15,6 +15,10 @@ export type AibotOutboundEnvelope = {
   execApprovalDiagnostic: ExecApprovalCardDiagnostic;
 };
 
+export function buildAibotOutboundTextEnvelope(text: string): AibotOutboundEnvelope {
+  return buildAibotOutboundEnvelope({ text });
+}
+
 export function buildAibotOutboundEnvelope(payload: OutboundReplyPayload): AibotOutboundEnvelope {
   const execApprovalDiagnostic = diagnoseExecApprovalPayload(payload);
   const execApprovalCard = buildExecApprovalCardEnvelope(payload);
