@@ -5,7 +5,6 @@ import os
 import shlex
 import subprocess
 import sys
-import uuid
 
 
 DEFAULT_OPENCLAW_CONFIG_PATH = "~/.openclaw/openclaw.json"
@@ -55,19 +54,6 @@ def load_json_file(path: str):
     return json.loads(raw)
 
 
-def write_json_file_with_backup(path: str, payload):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    backup_path = ""
-    if os.path.exists(path):
-        backup_path = f"{path}.bak.{uuid.uuid4().hex[:8]}"
-        with open(path, "rb") as src, open(backup_path, "wb") as dst:
-            dst.write(src.read())
-    with open(path, "w", encoding="utf-8") as handle:
-        json.dump(payload, handle, ensure_ascii=False, indent=2)
-        handle.write("\n")
-    return backup_path
-
-
 def normalize_string_list(values):
     if not isinstance(values, list):
         return []
@@ -100,14 +86,23 @@ def redact_channel_account(account):
     return payload
 
 
+def redact_accounts_map(accounts):
+    if not isinstance(accounts, dict):
+        return {}
+    return {
+        str(key): redact_channel_account(value if isinstance(value, dict) else {})
+        for key, value in accounts.items()
+    }
+
+
 def shell_command(cmd):
     return " ".join(shlex.quote(part) for part in cmd)
 
 
-def run_command_capture(cmd):
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+def run_command_capture(cmd, env=None, display_command=None):
+    proc = subprocess.run(cmd, capture_output=True, text=True, env=env)
     return {
-        "command": shell_command(cmd),
+        "command": display_command or shell_command(cmd),
         "returncode": proc.returncode,
         "stdout": proc.stdout.strip(),
         "stderr": proc.stderr.strip(),
@@ -122,8 +117,28 @@ def build_openclaw_base_cmd(args):
     return base_cmd
 
 
-def build_gateway_restart_command(args):
-    return build_openclaw_base_cmd(args) + ["gateway", "restart"]
+def build_openclaw_env(args):
+    env = os.environ.copy()
+    env["OPENCLAW_CONFIG_PATH"] = resolve_config_path(args)
+    return env
+
+
+def build_openclaw_config_set_command(args, path: str, value):
+    return build_openclaw_base_cmd(args) + [
+        "config",
+        "set",
+        path,
+        json.dumps(value, ensure_ascii=False),
+        "--strict-json",
+    ]
+
+
+def build_openclaw_config_validate_command(args):
+    return build_openclaw_base_cmd(args) + ["config", "validate"]
+
+
+def build_openclaw_config_unset_command(args, path: str):
+    return build_openclaw_base_cmd(args) + ["config", "unset", path]
 
 
 def ensure_agent_entry(cfg, target_agent):
@@ -255,6 +270,172 @@ def ensure_required_tools(cfg):
 
     next_cfg["tools"] = tools
     return next_cfg, changed
+
+
+def resolve_reload_mode(cfg):
+    gateway = cfg.get("gateway") if isinstance(cfg, dict) else {}
+    if not isinstance(gateway, dict):
+        return ""
+    reload_cfg = gateway.get("reload")
+    if not isinstance(reload_cfg, dict):
+        return ""
+    return str(reload_cfg.get("mode", "")).strip()
+
+
+def build_local_config_operations(next_cfg, change_flags, agent_name: str, target_account):
+    operations = []
+
+    if bool(change_flags.get("channel_account_updated")):
+        channels = next_cfg.get("channels") if isinstance(next_cfg, dict) else {}
+        grix = channels.get("grix") if isinstance(channels, dict) else {}
+        accounts = grix.get("accounts") if isinstance(grix, dict) else {}
+        operations.append(
+            {
+                "path": "channels.grix.enabled",
+                "value": bool(grix.get("enabled", True)),
+            }
+        )
+        operations.append(
+            {
+                "path": "channels.grix.accounts",
+                "value": dict(accounts or {}),
+                "display_value": redact_accounts_map(accounts or {}),
+            }
+        )
+
+    if bool(change_flags.get("agent_entry_updated")):
+        agents = next_cfg.get("agents") if isinstance(next_cfg, dict) else {}
+        operations.append(
+            {
+                "path": "agents.list",
+                "value": list(agents.get("list") or []),
+            }
+        )
+
+    if bool(change_flags.get("route_binding_updated")):
+        operations.append(
+            {
+                "path": "bindings",
+                "value": list(next_cfg.get("bindings") or []),
+            }
+        )
+
+    if bool(change_flags.get("tools_updated")):
+        tools = next_cfg.get("tools") if isinstance(next_cfg, dict) else {}
+        if not isinstance(tools, dict):
+            tools = {}
+        sessions = tools.get("sessions") if isinstance(tools.get("sessions"), dict) else {}
+        operations.extend(
+            [
+                {
+                    "path": "tools.profile",
+                    "value": str(tools.get("profile", "")).strip(),
+                },
+                {
+                    "path": "tools.alsoAllow",
+                    "value": normalize_string_list(tools.get("alsoAllow")),
+                },
+                {
+                    "path": "tools.sessions.visibility",
+                    "value": str(sessions.get("visibility", "")).strip(),
+                },
+            ]
+        )
+
+    return operations
+
+
+def wrap_with_hot_reload_guard(cfg, operations):
+    if not operations:
+        return operations, {"before": resolve_reload_mode(cfg), "temporary_hot_mode": False}
+
+    previous_mode = resolve_reload_mode(cfg)
+    if previous_mode == "hot":
+        return operations, {"before": previous_mode, "temporary_hot_mode": False}
+
+    guarded_operations = [
+        {
+            "kind": "set",
+            "path": "gateway.reload.mode",
+            "value": "hot",
+        }
+    ]
+    guarded_operations.extend(operations)
+    if previous_mode:
+        guarded_operations.append(
+            {
+                "kind": "set",
+                "path": "gateway.reload.mode",
+                "value": previous_mode,
+            }
+        )
+    else:
+        guarded_operations.append(
+            {
+                "kind": "unset",
+                "path": "gateway.reload.mode",
+            }
+        )
+    return guarded_operations, {"before": previous_mode, "temporary_hot_mode": True}
+
+
+def build_local_config_plan(args, operations):
+    plan = []
+    for operation in operations:
+        kind = str(operation.get("kind") or "set").strip() or "set"
+        path = str(operation.get("path") or "").strip()
+        if kind == "unset":
+            command = build_openclaw_config_unset_command(args, path)
+            plan.append(shell_command(command))
+            continue
+        display_value = operation.get("display_value", operation.get("value"))
+        command = build_openclaw_config_set_command(args, path, display_value)
+        plan.append(shell_command(command))
+    plan.append(shell_command(build_openclaw_config_validate_command(args)))
+    return plan
+
+
+def apply_local_config_operations(args, operations):
+    env = build_openclaw_env(args)
+    command_results = []
+
+    for operation in operations:
+        kind = str(operation.get("kind") or "set").strip() or "set"
+        path = str(operation.get("path") or "").strip()
+        if kind == "unset":
+            command = build_openclaw_config_unset_command(args, path)
+            display_command = shell_command(command)
+            result = run_command_capture(command, env=env, display_command=display_command)
+            command_results.append(result)
+            if result["returncode"] != 0:
+                raise BindError(
+                    f"openclaw config unset failed for {path}",
+                    payload={"command_results": command_results},
+                )
+            continue
+
+        value = operation.get("value")
+        display_value = operation.get("display_value", value)
+        command = build_openclaw_config_set_command(args, path, value)
+        display_command = shell_command(build_openclaw_config_set_command(args, path, display_value))
+        result = run_command_capture(command, env=env, display_command=display_command)
+        command_results.append(result)
+        if result["returncode"] != 0:
+            raise BindError(
+                f"openclaw config set failed for {path}",
+                payload={"command_results": command_results},
+            )
+
+    validate_command = build_openclaw_config_validate_command(args)
+    validate_result = run_command_capture(validate_command, env=env)
+    command_results.append(validate_result)
+    if validate_result["returncode"] != 0:
+        raise BindError(
+            "openclaw config validate failed",
+            payload={"command_results": command_results},
+        )
+
+    return command_results
 
 
 def resolve_default_model(cfg, current_agent):
@@ -449,6 +630,10 @@ def handle_configure_local(args):
         change_flags["tools_updated"] = changed
 
     needs_update = any(bool(value) for value in change_flags.values())
+    base_apply_operations = build_local_config_operations(
+        next_cfg, change_flags, agent_name, target_account
+    )
+    apply_operations, reload_guard = wrap_with_hot_reload_guard(cfg, base_apply_operations)
 
     payload = {
         "ok": True,
@@ -483,23 +668,33 @@ def handle_configure_local(args):
                 },
             },
         },
-        "planned_apply_commands": [] if bool(args.skip_gateway_restart) else [shell_command(build_gateway_restart_command(args))],
+        "planned_apply_commands": build_local_config_plan(args, apply_operations),
+        "runtime_reload": {
+            "mode": "guarded_hot_reload",
+            "previous_mode": reload_guard.get("before") or "default",
+            "temporary_hot_mode": bool(reload_guard.get("temporary_hot_mode")),
+            "summary": "The script temporarily switches gateway.reload.mode to hot while applying config so the active install chat is not interrupted by an automatic restart.",
+        },
     }
 
     if args.apply:
-        backup_path = ""
-        if needs_update:
-            backup_path = write_json_file_with_backup(config_path, next_cfg)
         created_paths = []
         created_paths.extend(build_workspace_files(workspace, agent_name))
         os.makedirs(agent_dir, exist_ok=True)
 
         command_results = []
-        if not bool(args.skip_gateway_restart):
-            command_results.append(run_command_capture(build_gateway_restart_command(args)))
+        if needs_update:
+            command_results = apply_local_config_operations(args, apply_operations)
+        else:
+            command_results = [
+                run_command_capture(
+                    build_openclaw_config_validate_command(args),
+                    env=build_openclaw_env(args),
+                )
+            ]
             if command_results[-1]["returncode"] != 0:
                 raise BindError(
-                    "openclaw gateway restart failed",
+                    "openclaw config validate failed",
                     payload={"command_results": command_results},
                 )
 
@@ -507,10 +702,15 @@ def handle_configure_local(args):
         applied_state = extract_current_state(applied_cfg, agent_name)
         payload["config_write"] = {
             "changed": needs_update,
-            "backup_path": backup_path,
+            "mode": "openclaw config set",
+            "applied_paths": [item.get("path") for item in apply_operations],
         }
         payload["created_workspace_files"] = created_paths
         payload["command_results"] = command_results
+        payload["runtime_reload"]["restart_hint_detected"] = any(
+            "restart the gateway to apply" in f"{item.get('stdout', '')} {item.get('stderr', '')}".lower()
+            for item in command_results
+        )
         payload["applied_state"] = {
             "agent_entry": (applied_state or {}).get("agent_entry"),
             "channel_account": redact_channel_account((applied_state or {}).get("channel_account") or {}),
@@ -550,7 +750,6 @@ def build_parser():
     configure_local.add_argument("--workspace", default="")
     configure_local.add_argument("--agent-dir", default="")
     configure_local.add_argument("--skip-tools-update", action="store_true")
-    configure_local.add_argument("--skip-gateway-restart", action="store_true")
     configure_local.add_argument("--apply", action="store_true")
     configure_local.set_defaults(handler=handle_configure_local)
 

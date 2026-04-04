@@ -79,15 +79,20 @@ After `code=0` (or when using `bind-local` mode), continue with local OpenClaw b
 
 1. apply local changes directly:
    - `scripts/grix_agent_bind.py configure-local-openclaw --agent-name <agent_name> --agent-id <agent_id> --api-endpoint '<api_endpoint>' --api-key '<api_key>' --apply`
-2. optionally run inspect after apply when you need state verification:
+2. inspect after apply and use the result as the success gate:
    - `scripts/grix_agent_bind.py inspect-local-openclaw --agent-name <agent_name>`
+3. read `runtime_reload` from the apply result:
+   - `temporary_hot_mode=true` means the script temporarily guarded the write with `gateway.reload.mode=hot`
+   - `restart_hint_detected=true` means the running OpenClaw build still wants a later manual restart before the new config becomes live
 
-Local apply writes:
+Local apply writes and validates:
 
 1. `agents.list` entry
 2. `channels.grix.accounts.<agent_name>` entry
 3. `bindings` route for `channel=grix`
-4. required tools config and gateway restart
+4. required tools config
+5. the script temporarily guards the apply with `gateway.reload.mode=hot` so the install chat is not interrupted by auto-restart
+6. if `restart_hint_detected=true`, do not run `openclaw gateway restart` inside the install chat; tell the user the config is staged and needs a later manual restart to become live
 
 ## bind-local Input Contract
 

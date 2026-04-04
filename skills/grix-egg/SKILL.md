@@ -53,6 +53,7 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 - 没完成校验前，绝不能宣称安装成功。
 - 如果新建目标后又失败了，能安全回滚就先回滚；不能回滚就如实告诉用户当前残留状态。
 - 上下文已经给出 `install.target_agent_id` 或 `install.suggested_agent_name` 时，直接继续执行，不要再向用户确认目标、命名或用途；只有信息缺失、冲突或执行阻塞时才提问。
+- 安装私聊进行中时，禁止执行 `openclaw gateway restart`；本流程涉及的 `channels.*`、`agents`、`bindings`、`tools` 配置必须先切到 `gateway.reload.mode=hot` 再写入，避免自动重启打断当前任务。
 - 最终成功或失败时，必须发送一条独立的结构化安装状态消息。
 - 安装成功后，必须按顺序继续发送：目标 agent 的结构化资料卡消息，然后再发一条普通文字的下一步指引。
 - 结构化安装状态消息必须单独发送，不要和自然语言解释混在同一条里。
@@ -130,9 +131,10 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 8. 发送 `status=running`、`step=downloaded` 结构化状态消息。
 9. 安装 persona/openclaw 内容。
 10. 发送 `status=running`、`step=installed` 结构化状态消息。
-11. 按需刷新或重启本地运行时。
+11. 用 OpenClaw 正规配置方式落地本地变更：优先执行 `scripts/grix_agent_bind.py configure-local-openclaw --apply`。该脚本会在写入前临时把 `gateway.reload.mode` 切到 `hot`，避免当前安装对话被自动重启打断；不要手工改完 `openclaw.json` 后再重启 gateway。
 12. 校验目标 agent 仍然可用。
-    - 校验失败 → 尝试回滚（含步骤4新建的远端 agent），无法回滚则如实告知残留状态 → 发 `failed` 结构化状态消息后结束。
+    - 如果绑定脚本结果里 `runtime_reload.restart_hint_detected=true`，说明当前 OpenClaw 版本仍要求后续重启才能真正启用新配置。此时不要自动重启；如实告诉用户“配置已写入，等待空闲时手动重启生效”，并发 `status=failed`、`error_code=manual_restart_required` 的结构化状态消息后结束。
+    - 其他校验失败 → 尝试回滚（含步骤4新建的远端 agent），无法回滚则如实告知残留状态 → 发 `failed` 结构化状态消息后结束。
 13. 发送 `status=success` 结构化状态消息（带 `target_agent_id`）。
 14. 单独发送目标 agent 的结构化资料卡消息。
 15. 再发一条普通文字，告诉用户可以点开资料卡查看 agent 资料，并从资料页继续与它对话。
@@ -145,9 +147,10 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 4. 发送 `status=running`、`step=downloaded` 结构化状态消息。
 5. 用 Claude 正规步骤安装 skill 包。
 6. 发送 `status=running`、`step=installed` 结构化状态消息。
-7. 按需刷新配置或重载运行时。
+7. 如需写 OpenClaw 配置，只能走“先切 `gateway.reload.mode=hot` 再写入”的路径；不要在安装对话中执行 `openclaw gateway restart`。
 8. 校验目标 agent 仍然可用。
-    - 校验失败 → 如实告知用户 → 发 `failed` 结构化状态消息后结束。
+    - 如果绑定脚本结果里 `runtime_reload.restart_hint_detected=true`，说明当前版本仍需要后续手动重启才能生效。不要自动重启；明确告诉用户配置已写入但待空闲时生效，并发 `failed/manual_restart_required` 结构化状态消息后结束。
+    - 其他校验失败 → 如实告知用户 → 发 `failed` 结构化状态消息后结束。
 9. 发送 `status=success` 结构化状态消息（带 `target_agent_id`）。
 10. 单独发送目标 agent 的结构化资料卡消息。
 11. 再发一条普通文字，告诉用户可以点开资料卡查看 agent 资料，并从资料页继续与它对话。

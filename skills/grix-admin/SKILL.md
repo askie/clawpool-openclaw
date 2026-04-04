@@ -30,7 +30,8 @@ scripts/grix_agent_bind.py configure-local-openclaw \
   --apply
 ```
 
-2. 可选执行检查：
+2. 绑定脚本会通过 `openclaw config set` 落配置，并在写入前临时把 `gateway.reload.mode` 切到 `hot`，避免当前安装对话被自动重启打断；不要在这条安装对话里追加 `openclaw gateway restart`。
+3. 执行完后必须再做一次检查：
 
 ```bash
 scripts/grix_agent_bind.py inspect-local-openclaw --agent-name <agent_name>
@@ -51,6 +52,7 @@ scripts/grix_agent_bind.py inspect-local-openclaw --agent-name <agent_name>
 2. 若缺失或为空，说明主通道还没完成，不做本模式，立刻切回 `grix-register`。
 3. 若已存在，再调用 `grix_agent_admin` 创建远端 agent（仅一次，不自动重试）。
 4. 创建成功后，执行本地绑定命令（同 Mode A）。
+5. 整个 `create-and-bind` 流程里不要执行 `openclaw gateway restart`；优先让绑定脚本用 `gateway.reload.mode=hot` 保护当前会话不被自动重启打断。
 
 ## Guardrails（两种模式都适用）
 
@@ -59,6 +61,8 @@ scripts/grix_agent_bind.py inspect-local-openclaw --agent-name <agent_name>
 3. 远端创建（Mode B）视为非幂等，不确认不自动重试。
 4. 完整 `api_key` 仅一次性回传，不要重复明文回显。
 5. 本地 `--apply` 没成功前，不得宣称配置完成。
+6. 安装私聊进行中时，禁止手工修改 `openclaw.json` 后再执行 `openclaw gateway restart`。
+7. 如果绑定脚本输出 `runtime_reload.restart_hint_detected=true`，说明当前 OpenClaw 版本仍提示“需要重启才生效”；此时不要自动重启，只能明确告诉用户“配置已写入，等待空闲时手动重启生效”。
 
 ## Error Handling Rules
 

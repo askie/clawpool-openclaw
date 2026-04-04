@@ -24,6 +24,8 @@ Use only these entry points for remote communication:
 Local binding remains a local operation via bundled script:
 
 - `scripts/grix_agent_bind.py configure-local-openclaw ... --apply`
+- 该脚本会先临时切换 `gateway.reload.mode=hot`，再通过 `openclaw config set` 落配置，避免安装私聊被自动重启打断
+- 如果脚本结果里 `runtime_reload.restart_hint_detected=true`，说明当前版本仍要求后续手动重启才能真正生效；安装私聊里不要执行 `openclaw gateway restart`
 
 ## Prohibited Paths
 

@@ -21,4 +21,4 @@
 1. `mode` 固定为 `bind-local`。
 2. `agent_name`、`agent_id`、`api_endpoint`、`api_key` 必填。
 3. `grix-register` 只负责生成以上参数，不执行本地配置命令。
-4. 本地写入、插件处理、工具权限、gateway 重启都由 `grix-admin` 负责。
+4. 本地写入、插件处理、工具权限、热加载校验都由 `grix-admin` 负责。

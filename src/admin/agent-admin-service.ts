@@ -111,7 +111,8 @@ export async function createGrixApiAgent(params: {
               agentId,
               apiKeyPlaceholder: "<NEW_AGENT_API_KEY>",
             })}\``,
-            "Restart the gateway after adding the channel: `openclaw gateway restart`.",
+            "After binding the channel, apply agents/bindings/tools changes through `openclaw config set` or the bundled `grix_agent_bind.py configure-local-openclaw --apply` flow.",
+            "Do not run `openclaw gateway restart` during an active install chat. Prefer a guarded apply flow that temporarily uses `gateway.reload.mode=hot` so the current conversation is not interrupted.",
           ]
         : [],
   };
