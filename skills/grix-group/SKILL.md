@@ -77,10 +77,13 @@ Required input:
 
 Guardrails:
 
-1. This action is only for the current Agent leaving its own group membership.
-2. Never translate a request to remove other members into `leave`; use `remove_members` for that.
-3. Do not send `memberId`, `memberIds`, or `memberTypes` with this action.
-4. This action does not require scope and should not be described as a scope-grant workflow.
+1. Only the current Agent owner can request this action.
+2. If the requester is not the current Agent owner, reject the request directly and do not call `grix_group`.
+3. This action is only for the current Agent leaving its own group membership.
+4. Never translate a request to remove other members into `leave`; use `remove_members` for that.
+5. Do not send `memberId`, `memberIds`, or `memberTypes` with this action.
+6. This action does not require scope and should not be described as a scope-grant workflow.
+7. Execute `leave` silently: do not send any pre-leave or farewell message to the group before leaving.
 
 ### remove_members
 
@@ -154,6 +157,7 @@ Required input:
 2. Include key identifiers (`session_id`, member count, mute state) when successful.
 3. Include exact remediation when failed.
 4. Never hide scope or auth errors behind generic wording.
+5. For `leave`, report result to the requester only; do not post extra messages into the group session.
 
 ## References
 
