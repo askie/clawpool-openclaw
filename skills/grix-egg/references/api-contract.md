@@ -2,14 +2,14 @@
 
 ## Purpose
 
-Unify remote API communication in `egg-install` with the same typed tool pathway used by other grix-admin skills.
+Unify remote API communication in `grix-egg` with the same typed tool pathway used by other grix-admin skills.
 
 ## Base Rules
 
 1. Base path is `/v1/agent-api`.
 2. Auth is `Authorization: Bearer <agent_api_key>`.
 3. Caller must be `provider_type=3` and `status=active`.
-4. `egg-install` must not send direct HTTP requests to Grix by itself.
+4. `grix-egg` must not send direct HTTP requests to Grix by itself.
 
 ## Unified Tool Path
 
@@ -36,3 +36,4 @@ Local binding remains a local operation via bundled script:
 1. Scope/auth/parameter errors: no automatic retry.
 2. Transient network failure: at most one retry, and only after explicit confirmation.
 3. Installation status payloads (`channelData.grix.eggInstall`) must still be emitted on terminal success/failure.
+4. On terminal success, emit one additional agent profile payload (`channelData.grix.userProfile`) for the final target agent before sending the plain-language next-step guidance.

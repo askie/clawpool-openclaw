@@ -6,11 +6,12 @@ import {
 } from "./exec-approval-card.ts";
 import { buildEggInstallStatusCardEnvelope } from "./egg-install-status-card.ts";
 import { buildExecStatusCardEnvelope } from "./exec-status-card.ts";
+import { buildUserProfileCardEnvelope } from "./user-profile-card.ts";
 
 export type AibotOutboundEnvelope = {
   text: string;
   extra?: Record<string, unknown>;
-  cardKind?: "exec_approval" | "exec_status" | "egg_install_status";
+  cardKind?: "exec_approval" | "exec_status" | "egg_install_status" | "user_profile";
   execApprovalDiagnostic: ExecApprovalCardDiagnostic;
 };
 
@@ -20,7 +21,12 @@ export function buildAibotOutboundEnvelope(payload: OutboundReplyPayload): Aibot
   const execStatusCard = execApprovalCard ? undefined : buildExecStatusCardEnvelope(payload);
   const eggInstallStatusCard =
     execApprovalCard || execStatusCard ? undefined : buildEggInstallStatusCardEnvelope(payload);
-  const envelope = execApprovalCard ?? execStatusCard ?? eggInstallStatusCard;
+  const userProfileCard =
+    execApprovalCard || execStatusCard || eggInstallStatusCard
+      ? undefined
+      : buildUserProfileCardEnvelope(payload);
+  const envelope =
+    execApprovalCard ?? execStatusCard ?? eggInstallStatusCard ?? userProfileCard;
 
   return {
     text: envelope?.fallbackText ?? String(payload.text ?? ""),
@@ -31,6 +37,8 @@ export function buildAibotOutboundEnvelope(payload: OutboundReplyPayload): Aibot
         ? "exec_status"
         : eggInstallStatusCard
           ? "egg_install_status"
+          : userProfileCard
+            ? "user_profile"
           : undefined,
     execApprovalDiagnostic,
   };

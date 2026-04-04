@@ -46,3 +46,21 @@ test("buildAibotOutboundEnvelope recognizes egg install status reply payload tex
   assert.equal(envelope.cardKind, "egg_install_status");
   assert.equal(envelope.text, "[Egg Install] 已下载并验证安装包");
 });
+
+test("buildAibotOutboundEnvelope recognizes structured user profile card payload", () => {
+  const envelope = buildAibotOutboundEnvelope({
+    text: "查看 Agent 资料",
+    channelData: {
+      grix: {
+        userProfile: {
+          user_id: "agent-9",
+          peer_type: 2,
+          nickname: "Ops Agent",
+        },
+      },
+    },
+  });
+
+  assert.equal(envelope.cardKind, "user_profile");
+  assert.equal(envelope.text, "[Profile Card] Ops Agent");
+});

@@ -29,10 +29,13 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 3. `openclaw_create_new` 时，先确认新 OpenClaw agent 的命名和用途，再继续创建。
 4. `openclaw_existing` / `claude_existing` 时，只能操作上下文里指定的目标 agent，不要私自换目标。
 5. 安装过程中，每完成一个关键动作就用自然语言回报一次进度。
-6. 在"包下载完成"和"安装内容落位完成待校验"两个节点，各额外发送一条 `status=running` 的**独立结构化安装状态消息**。
-7. 最终成功或失败时，必须发送一条 `status=success` 或 `status=failed` 的**独立结构化安装状态消息**。
-8. 出错时，直接说明失败点、影响和下一步建议，不要模糊带过。
-9. 最终明确告诉用户：装到了哪个 agent、结果成功还是失败、后续是否还要继续操作。
+6. `openclaw_create_new` 路线在"远端 agent 创建完成"后，必须额外发送一条 `status=running`、`step=agent_created` 的**独立结构化安装状态消息**。
+7. 在"包下载完成"和"安装内容落位完成待校验"两个节点，各额外发送一条 `status=running` 的**独立结构化安装状态消息**。
+8. 最终成功或失败时，必须发送一条 `status=success` 或 `status=failed` 的**独立结构化安装状态消息**。
+9. 安装成功后，必须再单独发送一条目标 agent 的**结构化资料卡消息**，并且 `peer_type=2`。
+10. 发送完资料卡后，再发一条普通文字，明确告诉用户可以点开资料卡查看 agent 资料，并从资料页继续与它对话。
+11. 出错时，直接说明失败点、影响和下一步建议，不要模糊带过。
+12. 最终明确告诉用户：装到了哪个 agent、结果成功还是失败、后续是否还要继续操作。
 
 ## 绝对规则
 
@@ -49,6 +52,7 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 - 没完成校验前，绝不能宣称安装成功。
 - 如果新建目标后又失败了，能安全回滚就先回滚；不能回滚就如实告诉用户当前残留状态。
 - 最终成功或失败时，必须发送一条独立的结构化安装状态消息。
+- 安装成功后，必须按顺序继续发送：目标 agent 的结构化资料卡消息，然后再发一条普通文字的下一步指引。
 - 结构化安装状态消息必须单独发送，不要和自然语言解释混在同一条里。
 - 用户拒绝确认或主动取消时，必须发送 `status=failed`、`error_code=user_cancelled` 的结构化状态消息后再结束。
 
@@ -76,8 +80,25 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 5. 这条消息只负责状态收口；如果要跟用户解释原因，另发一条正常文字消息。
 6. 顶层只放 `text` 和 `channelData`，不要自己拼前端内部 `biz_card`。
 7. 这条 JSON 必须单独发送，不要前后夹带自然语言。
-5. `openclaw_create_new` 成功时，必须尽量带 `target_agent_id`，否则 server 可能无法通过最终校验。
-6. 如果上下文缺少 `install.route` 但仍有 `install.mode` 和目标 agent 信息，先按上下文能明确推出的路线执行；若仍有歧义，先在当前私聊里确认，再继续。
+8. `openclaw_create_new` 成功时，必须尽量带 `target_agent_id`，否则 server 可能无法通过最终校验。
+9. 如果上下文缺少 `install.route` 但仍有 `install.mode` 和目标 agent 信息，先按上下文能明确推出的路线执行；若仍有歧义，先在当前私聊里确认，再继续。
+
+## Agent 资料卡消息（OpenClaw ReplyPayload 风格）
+
+安装成功后，必须再单独发送一条 agent 资料卡消息，格式如下：
+
+```json
+{"text":"查看 Agent 资料","channelData":{"grix":{"userProfile":{"user_id":"<TARGET_AGENT_ID>","peer_type":2,"nickname":"<AGENT_NAME>","avatar_url":"<可选>"}}}}
+```
+
+规则：
+
+1. `user_id` 必须使用最终目标 agent 的 ID。
+2. `peer_type` 必须固定为 `2`。
+3. `nickname` 必须使用目标 agent 的显示名称。
+4. `avatar_url` 有就带，没有可以省略。
+5. 这条 JSON 也必须单独发送，不要和解释文字混在一起。
+6. 发完资料卡后，再补一条普通文字，告诉用户可以点开资料卡查看资料，并从资料页继续与该 agent 对话。
 
 ## 统一 API 请求机制
 
@@ -100,15 +121,18 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 1. 读取上下文，确认 route 是 `openclaw_create_new` 还是 `openclaw_existing`。
 2. 和用户确认目标 agent 或新 agent 命名；**用户拒绝则发 `failed/user_cancelled` 结构化状态消息后结束**。
 3. 如果 route=`openclaw_create_new`，需要新建远端 API agent，用 `grix_agent_admin` 创建。
-4. 用 OpenClaw 正规步骤准备本地目标目录和配置。
-5. 下载 persona/openclaw 包，并校验 hash / manifest（如果上下文提供）。
-6. 发送 `status=running`、`step=downloaded` 结构化状态消息。
-7. 安装 persona/openclaw 内容。
-8. 发送 `status=running`、`step=installed` 结构化状态消息。
-9. 按需刷新或重启本地运行时。
-10. 校验目标 agent 仍然可用。
+4. 如果 route=`openclaw_create_new` 且远端 agent 已创建成功，立即发送 `status=running`、`step=agent_created` 结构化状态消息。
+5. 用 OpenClaw 正规步骤准备本地目标目录和配置。
+6. 下载 persona/openclaw 包，并校验 hash / manifest（如果上下文提供）。
+7. 发送 `status=running`、`step=downloaded` 结构化状态消息。
+8. 安装 persona/openclaw 内容。
+9. 发送 `status=running`、`step=installed` 结构化状态消息。
+10. 按需刷新或重启本地运行时。
+11. 校验目标 agent 仍然可用。
     - 校验失败 → 尝试回滚（含步骤3新建的远端 agent），无法回滚则如实告知残留状态 → 发 `failed` 结构化状态消息后结束。
-11. 发送 `status=success` 结构化状态消息（带 `target_agent_id`），再向用户汇报完成。
+12. 发送 `status=success` 结构化状态消息（带 `target_agent_id`）。
+13. 单独发送目标 agent 的结构化资料卡消息。
+14. 再发一条普通文字，告诉用户可以点开资料卡查看 agent 资料，并从资料页继续与它对话。
 
 ### `claude_existing`
 
@@ -121,7 +145,9 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 7. 按需刷新配置或重载运行时。
 8. 校验目标 agent 仍然可用。
     - 校验失败 → 如实告知用户 → 发 `failed` 结构化状态消息后结束。
-9. 发送 `status=success` 结构化状态消息（带 `target_agent_id`），再向用户汇报完成。
+9. 发送 `status=success` 结构化状态消息（带 `target_agent_id`）。
+10. 单独发送目标 agent 的结构化资料卡消息。
+11. 再发一条普通文字，告诉用户可以点开资料卡查看 agent 资料，并从资料页继续与它对话。
 
 ## 每次安装至少校验这些点
 
@@ -133,6 +159,12 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 - 实际安装路线没有偏离 `install.route`
 
 ## 消息示例
+
+进行中（远端 agent 创建完成）：
+
+```json
+{"text":"已创建远端 Agent","channelData":{"grix":{"eggInstall":{"install_id":"eggins_20370001","status":"running","step":"agent_created","summary":"已创建远端 Agent"}}}}
+```
 
 进行中（下载完成）：
 
@@ -150,6 +182,12 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 
 ```json
 {"text":"已完成安装","channelData":{"grix":{"eggInstall":{"install_id":"eggins_20370001","status":"success","step":"completed","target_agent_id":"2035123456789012345","summary":"已完成安装"}}}}
+```
+
+成功后的资料卡：
+
+```json
+{"text":"查看 Agent 资料","channelData":{"grix":{"userProfile":{"user_id":"2035123456789012345","peer_type":2,"nickname":"writer-openclaw"}}}}
 ```
 
 失败（用户取消）：

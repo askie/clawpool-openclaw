@@ -1,0 +1,80 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
+import { buildUserProfileCardEnvelope } from "./user-profile-card.ts";
+
+function buildPayload(overrides: Partial<OutboundReplyPayload> = {}): OutboundReplyPayload {
+  return {
+    text: "",
+    ...overrides,
+  };
+}
+
+test("buildUserProfileCardEnvelope maps structured grix profile payload to biz_card", () => {
+  const envelope = buildUserProfileCardEnvelope(
+    buildPayload({
+      channelData: {
+        grix: {
+          userProfile: {
+            user_id: "agent-9",
+            peer_type: 2,
+            nickname: "Ops Agent",
+            avatar_url: "https://example.com/avatar/agent-9.png",
+          },
+        },
+      },
+    }),
+  );
+
+  assert.ok(envelope);
+  assert.equal(envelope?.fallbackText, "[Profile Card] Ops Agent");
+  assert.deepEqual((envelope?.extra.biz_card as { payload?: unknown })?.payload, {
+    user_id: "agent-9",
+    peer_type: 2,
+    nickname: "Ops Agent",
+    avatar_url: "https://example.com/avatar/agent-9.png",
+  });
+  assert.deepEqual((envelope?.extra.channel_data as { grix?: unknown })?.grix, {
+    userProfile: {
+      user_id: "agent-9",
+      peer_type: 2,
+      nickname: "Ops Agent",
+      avatar_url: "https://example.com/avatar/agent-9.png",
+    },
+  });
+});
+
+test("buildUserProfileCardEnvelope parses embedded reply payload text", () => {
+  const envelope = buildUserProfileCardEnvelope(
+    buildPayload({
+      text:
+        '{"text":"查看 Agent 资料","channelData":{"grix":{"userProfile":{"user_id":"agent-10","peer_type":"2","nickname":"Planner Agent"}}}}',
+    }),
+  );
+
+  assert.ok(envelope);
+  assert.equal(envelope?.fallbackText, "[Profile Card] Planner Agent");
+  assert.deepEqual((envelope?.extra.biz_card as { payload?: unknown })?.payload, {
+    user_id: "agent-10",
+    peer_type: 2,
+    nickname: "Planner Agent",
+  });
+});
+
+test("buildUserProfileCardEnvelope ignores unsupported peer type", () => {
+  const envelope = buildUserProfileCardEnvelope(
+    buildPayload({
+      channelData: {
+        grix: {
+          userProfile: {
+            user_id: "agent-11",
+            peer_type: 3,
+            nickname: "Broken Agent",
+          },
+        },
+      },
+    }),
+  );
+
+  assert.equal(envelope, undefined);
+});
