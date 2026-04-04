@@ -2,6 +2,7 @@ import type { ResolvedGrixAccount } from "./types.js";
 
 const DEFAULT_HTTP_TIMEOUT_MS = 15_000;
 const MAX_LOG_KEYS = 8;
+const MAX_LOG_PAYLOAD_CHARS = 1_200;
 
 type AgentAPIHTTPMethod = "GET" | "POST";
 
@@ -227,6 +228,60 @@ function summarizePayloadBytes(payload: unknown): string {
   }
 }
 
+function isSensitiveLogKey(key: string): boolean {
+  const normalized = String(key ?? "").trim().toLowerCase();
+  return (
+    normalized.includes("api_key") ||
+    normalized.includes("apikey") ||
+    normalized.includes("token") ||
+    normalized.includes("authorization") ||
+    normalized.includes("password") ||
+    normalized.includes("secret")
+  );
+}
+
+function sanitizePayloadForLog(payload: unknown, depth = 0): unknown {
+  if (depth >= 5) {
+    return "[max-depth]";
+  }
+  if (payload == null) {
+    return payload;
+  }
+  if (typeof payload === "string" || typeof payload === "number" || typeof payload === "boolean") {
+    return payload;
+  }
+  if (Array.isArray(payload)) {
+    return payload.map((item) => sanitizePayloadForLog(item, depth + 1));
+  }
+  if (typeof payload === "object") {
+    const raw = payload as Record<string, unknown>;
+    const sanitized: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(raw)) {
+      sanitized[key] = isSensitiveLogKey(key)
+        ? "<redacted>"
+        : sanitizePayloadForLog(value, depth + 1);
+    }
+    return sanitized;
+  }
+  return String(payload);
+}
+
+function stringifyPayloadForLog(payload: unknown): string {
+  let json = "";
+  try {
+    json = JSON.stringify(sanitizePayloadForLog(payload));
+  } catch {
+    return '"[unserializable]"';
+  }
+  if (!json) {
+    return "{}";
+  }
+  if (json.length <= MAX_LOG_PAYLOAD_CHARS) {
+    return json;
+  }
+  return `${json.slice(0, MAX_LOG_PAYLOAD_CHARS)}...(truncated,len=${json.length})`;
+}
+
 function buildRequestLogContext(params: CallAgentAPIParams, context: {
   resolvedBase: ResolvedAgentAPIBase;
   url: string;
@@ -244,7 +299,9 @@ function buildRequestLogContext(params: CallAgentAPIParams, context: {
     `timeout_ms=${context.timeoutMs}`,
     `api_key=${buildAPIKeyState(params.account.apiKey)}`,
     `query_keys=${summarizePayloadKeys(queryPayload)}`,
+    `query_payload=${JSON.stringify(stringifyPayloadForLog(queryPayload))}`,
     `body_keys=${summarizePayloadKeys(bodyPayload)}`,
+    `body_payload=${JSON.stringify(stringifyPayloadForLog(bodyPayload))}`,
     `body_bytes=${summarizePayloadBytes(bodyPayload)}`,
   ].join(" ");
 }
