@@ -10,11 +10,11 @@ function buildPayload(overrides: Partial<OutboundReplyPayload> = {}): OutboundRe
   };
 }
 
-test("buildEggInstallStatusCardEnvelope parses directive text into channel_data", () => {
+test("buildEggInstallStatusCardEnvelope parses reply payload text into channel_data", () => {
   const envelope = buildEggInstallStatusCardEnvelope(
     buildPayload({
       text:
-        "[[egg-install-status|install_id=eggins_1|status=success|step=completed|summary=%E5%B7%B2%E5%AE%8C%E6%88%90%E5%AE%89%E8%A3%85|target_agent_id=203001]]",
+        '{"text":"已完成安装","channelData":{"grix":{"eggInstall":{"install_id":"eggins_1","status":"success","step":"completed","target_agent_id":"203001"}}}}',
     }),
   );
 
@@ -59,7 +59,7 @@ test("buildEggInstallStatusCardEnvelope keeps structured channel data when alrea
   });
 });
 
-test("buildEggInstallStatusCardEnvelope ignores non-directive plain text", () => {
+test("buildEggInstallStatusCardEnvelope ignores non-structured plain text", () => {
   const envelope = buildEggInstallStatusCardEnvelope(
     buildPayload({
       text: "安装已经完成，稍后我再告诉你细节。",

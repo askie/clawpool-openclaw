@@ -35,4 +35,4 @@ Local binding remains a local operation via bundled script:
 
 1. Scope/auth/parameter errors: no automatic retry.
 2. Transient network failure: at most one retry, and only after explicit confirmation.
-3. Installation status directives (`egg-install-status`) must still be emitted on terminal success/failure.
+3. Installation status payloads (`channelData.grix.eggInstall`) must still be emitted on terminal success/failure.

@@ -9,7 +9,7 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 
 这类会话通常会先收到一条系统代发的安装请求，正文里会带一个 JSON 上下文块，至少包含：
 
-- `install_id` — 安装单唯一 ID，所有状态指令必须使用原值
+- `install_id` — 安装单唯一 ID，所有状态消息必须使用原值
 - `egg` — egg 包标识，格式为 `<name>@<version>` 或带完整下载 URL 的对象
 - `install.mode` — 安装模式，枚举值：`create_new`（新建目标 agent）或 `existing_agent`（安装到已有 agent）
 - `install.route` — 当前实际路线，优先使用它判断要走哪条分支。当前可见值：
@@ -29,8 +29,8 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 3. `openclaw_create_new` 时，先确认新 OpenClaw agent 的命名和用途，再继续创建。
 4. `openclaw_existing` / `claude_existing` 时，只能操作上下文里指定的目标 agent，不要私自换目标。
 5. 安装过程中，每完成一个关键动作就用自然语言回报一次进度。
-6. 在"包下载完成"和"安装内容落位完成待校验"两个节点，各额外发送一条 `status=running` 的**独立安装状态指令消息**。
-7. 最终成功或失败时，必须发送一条 `status=success` 或 `status=failed` 的**独立安装状态指令消息**。
+6. 在"包下载完成"和"安装内容落位完成待校验"两个节点，各额外发送一条 `status=running` 的**独立结构化安装状态消息**。
+7. 最终成功或失败时，必须发送一条 `status=success` 或 `status=failed` 的**独立结构化安装状态消息**。
 8. 出错时，直接说明失败点、影响和下一步建议，不要模糊带过。
 9. 最终明确告诉用户：装到了哪个 agent、结果成功还是失败、后续是否还要继续操作。
 
@@ -48,31 +48,34 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 - 不要自动新建 Claude 目标 agent。
 - 没完成校验前，绝不能宣称安装成功。
 - 如果新建目标后又失败了，能安全回滚就先回滚；不能回滚就如实告诉用户当前残留状态。
-- 最终成功或失败时，必须发送一条独立的 `egg-install-status` 指令消息。
-- 状态指令消息必须单独发送，不要和自然语言解释混在同一条里。
-- 用户拒绝确认或主动取消时，必须发送 `status=failed`、`error_code=user_cancelled` 的状态指令后再结束。
+- 最终成功或失败时，必须发送一条独立的结构化安装状态消息。
+- 结构化安装状态消息必须单独发送，不要和自然语言解释混在同一条里。
+- 用户拒绝确认或主动取消时，必须发送 `status=failed`、`error_code=user_cancelled` 的结构化状态消息后再结束。
 
-## 安装状态指令
+## 安装状态消息（OpenClaw ReplyPayload 风格）
 
-server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败"，你必须发送这类单行消息：
+server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败"，你必须单独发送一条**单行 JSON**，格式参考 OpenClaw 的 ReplyPayload：
 
-```text
-[[egg-install-status|install_id=<INSTALL_ID>|status=<running|success|failed>|step=<STEP>|summary=<URI_ENCODED_SUMMARY>]]
+```json
+{"text":"<给用户看的摘要>","channelData":{"grix":{"eggInstall":{"install_id":"<INSTALL_ID>","status":"<running|success|failed>","step":"<STEP>","summary":"<与 text 一致或更精确的摘要>"}}}}
 ```
 
 常用可选字段：
 
-- `target_agent_id=<AGENT_ID>`：成功时尽量带上，尤其是 `create_new`。
-- `detail_text=<URI_ENCODED_DETAIL>`：补充更长说明。
-- `error_code=<ERROR_CODE>`：失败时建议带上。
-- `error_msg=<URI_ENCODED_ERROR_MSG>`：失败时建议带上。
+- `target_agent_id`：成功时尽量带上，尤其是 `create_new`。
+- `detail_text`：补充更长说明。
+- `error_code`：失败时建议带上。
+- `error_msg`：失败时建议带上。
 
 规则：
 
 1. `install_id` 必须使用上下文里的原值。
 2. `status` 只能是 `running`、`success`、`failed`。
-3. `summary`、`detail_text`、`error_msg` 如果有空格、中文或特殊字符，按 URI component 编码。
-4. 这条指令只负责状态收口；如果要跟用户解释原因，另发一条正常文字消息。
+3. `text` 必须是给用户看的简短摘要；`summary` 应与 `text` 一致，或在不冲突的前提下更精确。
+4. 不要做 URI 编码；直接输出合法 JSON 字符串。
+5. 这条消息只负责状态收口；如果要跟用户解释原因，另发一条正常文字消息。
+6. 顶层只放 `text` 和 `channelData`，不要自己拼前端内部 `biz_card`。
+7. 这条 JSON 必须单独发送，不要前后夹带自然语言。
 5. `openclaw_create_new` 成功时，必须尽量带 `target_agent_id`，否则 server 可能无法通过最终校验。
 6. 如果上下文缺少 `install.route` 但仍有 `install.mode` 和目标 agent 信息，先按上下文能明确推出的路线执行；若仍有歧义，先在当前私聊里确认，再继续。
 
@@ -95,30 +98,30 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 ### `openclaw_create_new` / `openclaw_existing`
 
 1. 读取上下文，确认 route 是 `openclaw_create_new` 还是 `openclaw_existing`。
-2. 和用户确认目标 agent 或新 agent 命名；**用户拒绝则发 `failed/user_cancelled` 指令后结束**。
+2. 和用户确认目标 agent 或新 agent 命名；**用户拒绝则发 `failed/user_cancelled` 结构化状态消息后结束**。
 3. 如果 route=`openclaw_create_new`，需要新建远端 API agent，用 `grix_agent_admin` 创建。
 4. 用 OpenClaw 正规步骤准备本地目标目录和配置。
 5. 下载 persona/openclaw 包，并校验 hash / manifest（如果上下文提供）。
-6. 发送 `status=running`、`step=downloaded` 状态指令。
+6. 发送 `status=running`、`step=downloaded` 结构化状态消息。
 7. 安装 persona/openclaw 内容。
-8. 发送 `status=running`、`step=installed` 状态指令。
+8. 发送 `status=running`、`step=installed` 结构化状态消息。
 9. 按需刷新或重启本地运行时。
 10. 校验目标 agent 仍然可用。
-    - 校验失败 → 尝试回滚（含步骤3新建的远端 agent），无法回滚则如实告知残留状态 → 发 `failed` 指令后结束。
-11. 发送 `status=success` 状态指令（带 `target_agent_id`），再向用户汇报完成。
+    - 校验失败 → 尝试回滚（含步骤3新建的远端 agent），无法回滚则如实告知残留状态 → 发 `failed` 结构化状态消息后结束。
+11. 发送 `status=success` 结构化状态消息（带 `target_agent_id`），再向用户汇报完成。
 
 ### `claude_existing`
 
-1. 确认上下文 route 为 `claude_existing`，且指定的 Claude 目标 agent 存在；**不存在则发 `failed/target_not_found` 指令后结束**。
-2. 和用户确认目标 agent；**用户拒绝则发 `failed/user_cancelled` 指令后结束**。
+1. 确认上下文 route 为 `claude_existing`，且指定的 Claude 目标 agent 存在；**不存在则发 `failed/target_not_found` 结构化状态消息后结束**。
+2. 和用户确认目标 agent；**用户拒绝则发 `failed/user_cancelled` 结构化状态消息后结束**。
 3. 下载 skill 包，并校验 hash / manifest（如果上下文提供）。
-4. 发送 `status=running`、`step=downloaded` 状态指令。
+4. 发送 `status=running`、`step=downloaded` 结构化状态消息。
 5. 用 Claude 正规步骤安装 skill 包。
-6. 发送 `status=running`、`step=installed` 状态指令。
+6. 发送 `status=running`、`step=installed` 结构化状态消息。
 7. 按需刷新配置或重载运行时。
 8. 校验目标 agent 仍然可用。
-    - 校验失败 → 如实告知用户 → 发 `failed` 指令后结束。
-9. 发送 `status=success` 状态指令（带 `target_agent_id`），再向用户汇报完成。
+    - 校验失败 → 如实告知用户 → 发 `failed` 结构化状态消息后结束。
+9. 发送 `status=success` 结构化状态消息（带 `target_agent_id`），再向用户汇报完成。
 
 ## 每次安装至少校验这些点
 
@@ -129,42 +132,42 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 - 目标 agent 安装后仍然可用
 - 实际安装路线没有偏离 `install.route`
 
-## 指令示例
+## 消息示例
 
 进行中（下载完成）：
 
-```text
-[[egg-install-status|install_id=eggins_20370001|status=running|step=downloaded|summary=%E5%B7%B2%E4%B8%8B%E8%BD%BD%E5%B9%B6%E9%AA%8C%E8%AF%81%E5%AE%89%E8%A3%85%E5%8C%85]]
+```json
+{"text":"已下载并验证安装包","channelData":{"grix":{"eggInstall":{"install_id":"eggins_20370001","status":"running","step":"downloaded","summary":"已下载并验证安装包"}}}}
 ```
 
 进行中（安装落位完成）：
 
-```text
-[[egg-install-status|install_id=eggins_20370001|status=running|step=installed|summary=%E5%AE%89%E8%A3%85%E5%86%85%E5%AE%B9%E5%B7%B2%E8%90%BD%E4%BD%8D%EF%BC%8C%E6%A0%A1%E9%AA%8C%E4%B8%AD]]
+```json
+{"text":"安装内容已落位，校验中","channelData":{"grix":{"eggInstall":{"install_id":"eggins_20370001","status":"running","step":"installed","summary":"安装内容已落位，校验中"}}}}
 ```
 
 成功：
 
-```text
-[[egg-install-status|install_id=eggins_20370001|status=success|step=completed|target_agent_id=2035123456789012345|summary=%E5%B7%B2%E5%AE%8C%E6%88%90%E5%AE%89%E8%A3%85]]
+```json
+{"text":"已完成安装","channelData":{"grix":{"eggInstall":{"install_id":"eggins_20370001","status":"success","step":"completed","target_agent_id":"2035123456789012345","summary":"已完成安装"}}}}
 ```
 
 失败（用户取消）：
 
-```text
-[[egg-install-status|install_id=eggins_20370001|status=failed|step=user_cancelled|error_code=user_cancelled|summary=%E7%94%A8%E6%88%B7%E5%8F%96%E6%B6%88%E5%AE%89%E8%A3%85]]
+```json
+{"text":"用户取消安装","channelData":{"grix":{"eggInstall":{"install_id":"eggins_20370001","status":"failed","step":"user_cancelled","error_code":"user_cancelled","summary":"用户取消安装"}}}}
 ```
 
 失败（目标不存在）：
 
-```text
-[[egg-install-status|install_id=eggins_20370001|status=failed|step=target_not_found|error_code=target_not_found|error_msg=%E6%8C%87%E5%AE%9A%E7%9A%84%20Claude%20agent%20%E4%B8%8D%E5%AD%98%E5%9C%A8|summary=%E5%AE%89%E8%A3%85%E5%A4%B1%E8%B4%A5]]
+```json
+{"text":"安装失败","channelData":{"grix":{"eggInstall":{"install_id":"eggins_20370001","status":"failed","step":"target_not_found","error_code":"target_not_found","error_msg":"指定的 Claude agent 不存在","summary":"安装失败"}}}}
 ```
 
 失败（下载失败）：
 
-```text
-[[egg-install-status|install_id=eggins_20370001|status=failed|step=download_failed|error_code=download_failed|error_msg=%E4%B8%8B%E8%BD%BD%E5%AE%89%E8%A3%85%E5%8C%85%E5%A4%B1%E8%B4%A5|summary=%E5%AE%89%E8%A3%85%E5%A4%B1%E8%B4%A5]]
+```json
+{"text":"安装失败","channelData":{"grix":{"eggInstall":{"install_id":"eggins_20370001","status":"failed","step":"download_failed","error_code":"download_failed","error_msg":"下载安装包失败","summary":"安装失败"}}}}
 ```
 
 ## 回复风格
