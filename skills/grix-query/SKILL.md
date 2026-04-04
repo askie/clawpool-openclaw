@@ -28,27 +28,24 @@ For Grix query actions, always call:
 Rules:
 
 1. Pass query parameters with their exact typed field names.
-2. Use `id` for `contact_search` and `session_search`.
+2. For `contact_search` and `session_search`: `id` is optional. When omitted, returns a paginated list of all contacts or sessions.
 3. Use `sessionId`, `beforeId`, and `limit` explicitly for message history.
 4. Never invent a `sessionId`. Resolve it from context, from a previous tool result, or ask the user.
 5. Keep one tool call per action for audit clarity.
 
-## Single Lookup Usage
+## Lookup Usage
 
-When the user already provides one exact ID, do not do fuzzy search.  
-Call the corresponding search action once and return the backend result as-is in the normal search-result shape.
+### Single Lookup (with ID)
 
-1. Single contact lookup:
-   use `action: "contact_search"` and pass `id`
-2. Single session lookup:
-   use `action: "session_search"` and pass `id`
+When the user provides one exact ID, pass it for a precise match:
+
+1. Single contact lookup: `action: "contact_search"` + `id`
+2. Single session lookup: `action: "session_search"` + `id`
 
 ID meaning:
 
-1. `contact_search.id`:
-   contact or Agent numeric ID, for example `1002` or `9992`
-2. `session_search.id`:
-   exact session ID string, for example `task_room_9083`
+1. `contact_search.id`: contact or Agent numeric ID, e.g. `1002`
+2. `session_search.id`: exact session ID string, e.g. `task_room_9083`
 
 Examples:
 
@@ -66,47 +63,76 @@ Examples:
 }
 ```
 
+### List All (without ID or keyword)
+
+When the user asks to list all contacts or sessions, call without `id`:
+
+```json
+{
+  "action": "contact_search"
+}
+```
+
+```json
+{
+  "action": "session_search"
+}
+```
+
+Returns a paginated result with `has_more`, `list`, and default page size of 20.
+Use `limit` and `offset` to paginate through results.
+
+```json
+{
+  "action": "contact_search",
+  "limit": 50,
+  "offset": 20
+}
+```
+
 ## Action Contracts
 
 ### contact_search
 
 Purpose: search the owner's Grix contact directory.
-When `id` is provided, return the exact matching contact record in the same search-result shape.
 
-Required input:
+**Without parameters**: returns all contacts (friends + agents) in a paginated list, sorted by created_at descending. Default page size 20.
 
-1. `id` (contact ID, numeric string)
+**With `id`**: returns the exact matching contact record.
 
-Optional input:
+Input:
 
-1. `limit`
-2. `offset`
+1. `id` (contact ID, numeric string) — optional
+2. `limit` — optional, default 20
+3. `offset` — optional, default 0
 
 Guardrails:
 
-1. Use this when the target contact ID is already known and you need the exact contact entry.
-2. Do not jump directly to session history from a vague contact hint; resolve the contact or session first.
-3. `id` must be the current contact's numeric ID, not username, nickname, remark name, or session ID.
+1. Use `id` when the target contact ID is already known and you need the exact entry.
+2. Without `id`, the result includes both user contacts and agent contacts merged and sorted.
+3. Check `has_more` to determine if additional pages exist.
+4. Do not jump directly to session history from a vague contact hint; resolve the contact or session first.
 
 ### session_search
 
-Purpose: search the owner's visible sessions by final display title.
-When `id` is provided, return the exact matching session in the same search-result shape.
+Purpose: search the owner's visible sessions.
 
-Required input:
+**Without parameters**: returns all visible sessions in a paginated list, ordered by pinned status and last_active_at. Default page size 20.
 
-1. `id` (session ID)
+**With `id`**: returns the exact matching session.
 
-Optional input:
+Input:
 
-1. `limit`
-2. `offset`
+1. `id` (session ID) — optional
+2. `limit` — optional, default 20
+3. `offset` — optional, default 0
 
 Guardrails:
 
-1. Use this when the target session ID is already known and you need the exact session entry.
-2. If multiple sessions match, present the candidates and let the user choose before reading history.
-3. `id` must be the exact current `session_id`, not group name, title text, or contact ID.
+1. Use `id` when the target session ID is already known.
+2. Without `id`, the result shows all sessions the agent can see.
+3. Check `has_more` to determine if additional pages exist.
+4. If multiple sessions match, present the candidates and let the user choose before reading history.
 
 ### message_history
 
