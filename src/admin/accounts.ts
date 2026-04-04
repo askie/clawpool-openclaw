@@ -37,6 +37,19 @@ function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
 }
 
+function summarizeEndpoint(value: string): string {
+  const normalized = normalizeNonEmpty(value);
+  if (!normalized) {
+    return "-";
+  }
+  try {
+    const parsed = new URL(normalized);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return normalized.slice(0, 128);
+  }
+}
+
 function appendAgentIdToWsUrl(rawWsUrl: string, agentId: string): string {
   if (!rawWsUrl) {
     return "";
@@ -95,16 +108,26 @@ function resolveStrictAccountConfig(
   const grixCfg = rawGrixConfig(cfg);
   const accounts = grixCfg.accounts;
   if (!accounts || typeof accounts !== "object") {
+    console.error(
+      `[grix:account] strict lookup failed account=${accountId} reason=accounts_map_missing`,
+    );
     throw new Error(
       `Grix account "${accountId}" is not configured under channels.grix.accounts.`,
     );
   }
+  const configuredIds = Object.keys(accounts).filter(Boolean).sort();
   const account = accounts[accountId];
   if (!account || typeof account !== "object") {
+    console.error(
+      `[grix:account] strict lookup failed account=${accountId} reason=account_missing configured_accounts=${configuredIds.join(",") || "none"}`,
+    );
     throw new Error(
       `Grix account "${accountId}" is missing under channels.grix.accounts.${accountId}.`,
     );
   }
+  console.info(
+    `[grix:account] strict lookup account=${accountId} configured_accounts=${configuredIds.join(",") || "none"} has_ws=${normalizeNonEmpty(account.wsUrl) ? "yes" : "no"} has_api_base=${normalizeNonEmpty(account.apiBaseUrl) ? "yes" : "no"} has_agent_id=${normalizeNonEmpty(account.agentId) ? "yes" : "no"} has_api_key=${normalizeNonEmpty(account.apiKey) ? "yes" : "no"}`,
+  );
   return account;
 }
 
@@ -151,11 +174,12 @@ export function resolveGrixAccount(params: {
   accountId?: string | null;
   strictAccountScope?: boolean;
 }): ResolvedGrixAccount {
+  const strictScope = Boolean(params.strictAccountScope);
   const accountId =
     params.accountId == null || String(params.accountId).trim() === ""
       ? resolveDefaultGrixAccountId(params.cfg)
       : normalizeAccountId(params.accountId);
-  const merged = params.strictAccountScope
+  const merged = strictScope
     ? resolveStrictAccountConfig(params.cfg, accountId)
     : resolveMergedAccountConfig(params.cfg, accountId);
 
@@ -163,19 +187,24 @@ export function resolveGrixAccount(params: {
   const accountEnabled = merged.enabled !== false;
   const enabled = baseEnabled && accountEnabled;
 
-  const agentId = params.strictAccountScope
+  const agentId = strictScope
     ? normalizeNonEmpty(merged.agentId)
     : normalizeNonEmpty(merged.agentId || process.env.GRIX_AGENT_ID);
-  const apiKey = params.strictAccountScope
+  const apiKey = strictScope
     ? normalizeNonEmpty(merged.apiKey)
     : normalizeNonEmpty(merged.apiKey || process.env.GRIX_API_KEY);
-  const wsUrl = params.strictAccountScope
+  const wsUrl = strictScope
     ? appendAgentIdToWsUrl(normalizeNonEmpty(merged.wsUrl), agentId)
     : resolveWsUrl(merged, agentId);
-  const apiBaseUrl = params.strictAccountScope
+  const apiBaseUrl = strictScope
     ? trimTrailingSlash(normalizeNonEmpty(merged.apiBaseUrl))
     : resolveAgentAPIBaseUrl(merged);
   const configured = Boolean(wsUrl && agentId && apiKey);
+  if (strictScope) {
+    console.info(
+      `[grix:account] strict resolved account=${accountId} enabled=${enabled} configured=${configured} ws_endpoint=${summarizeEndpoint(wsUrl)} api_base_endpoint=${summarizeEndpoint(apiBaseUrl)} agent_id=${agentId || "-"} api_key=${apiKey ? "present" : "empty"}`,
+    );
+  }
 
   return {
     accountId,
