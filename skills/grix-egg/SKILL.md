@@ -18,6 +18,7 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
   - `claude_existing`
 - `install.target_client_type` — 本次目标类型，通常为 `openclaw` 或 `claude`
 - `install.artifact_package` — 本次应安装的包类型，通常为 `persona_zip` 或 `skill_zip`
+- `install.suggested_agent_name` — `openclaw_create_new` 时优先使用的默认短名字；若缺失，再按 egg 标题或 egg ID 自行取一个简短名字继续，不要回头追问用户命名和用途
 - `main_agent` — 发起安装的主 OpenClaw agent ID，安装完成后如需通知或回调，使用该 ID
 
 你的职责不是返回隐藏协议结果，而是直接在当前私聊里把安装流程做完。
@@ -25,9 +26,9 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 ## 工作方式
 
 1. 先读完整个 JSON 上下文，优先确认 `install.route`、`install.target_client_type`、`install.artifact_package`。
-2. 在真正动手前，先在当前私聊里和用户确认关键目标。
-3. `openclaw_create_new` 时，先确认新 OpenClaw agent 的命名和用途，再继续创建。
-4. `openclaw_existing` / `claude_existing` 时，只能操作上下文里指定的目标 agent，不要私自换目标。
+2. 默认直接按上下文执行；只有缺少关键信息、上下文互相冲突或执行被阻塞时，才在当前私聊里向用户确认。
+3. `openclaw_create_new` 时，优先使用 `install.suggested_agent_name` 作为新 OpenClaw agent 的默认短名字；若缺失，再按 egg 标题或 egg ID 自行取一个简短名字继续创建，不要回头追问用户命名和用途。
+4. `openclaw_existing` / `claude_existing` 时，只能操作上下文里指定的目标 agent，不要私自换目标；如果目标已经明确，就直接继续，不要重复确认。
 5. 安装过程中，每完成一个关键动作就用自然语言回报一次进度。
 6. `openclaw_create_new` 路线在"远端 agent 创建完成"后，必须额外发送一条 `status=running`、`step=agent_created` 的**独立结构化安装状态消息**。
 7. 在"包下载完成"和"安装内容落位完成待校验"两个节点，各额外发送一条 `status=running` 的**独立结构化安装状态消息**。
@@ -51,6 +52,7 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 - 不要自动新建 Claude 目标 agent。
 - 没完成校验前，绝不能宣称安装成功。
 - 如果新建目标后又失败了，能安全回滚就先回滚；不能回滚就如实告诉用户当前残留状态。
+- 上下文已经给出 `install.target_agent_id` 或 `install.suggested_agent_name` 时，直接继续执行，不要再向用户确认目标、命名或用途；只有信息缺失、冲突或执行阻塞时才提问。
 - 最终成功或失败时，必须发送一条独立的结构化安装状态消息。
 - 安装成功后，必须按顺序继续发送：目标 agent 的结构化资料卡消息，然后再发一条普通文字的下一步指引。
 - 结构化安装状态消息必须单独发送，不要和自然语言解释混在同一条里。
@@ -119,25 +121,26 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 ### `openclaw_create_new` / `openclaw_existing`
 
 1. 读取上下文，确认 route 是 `openclaw_create_new` 还是 `openclaw_existing`。
-2. 和用户确认目标 agent 或新 agent 命名；**用户拒绝则发 `failed/user_cancelled` 结构化状态消息后结束**。
-3. 如果 route=`openclaw_create_new`，需要新建远端 API agent，用 `grix_agent_admin` 创建。
-4. 如果 route=`openclaw_create_new` 且远端 agent 已创建成功，立即发送 `status=running`、`step=agent_created` 结构化状态消息。
-5. 用 OpenClaw 正规步骤准备本地目标目录和配置。
-6. 下载 persona/openclaw 包，并校验 hash / manifest（如果上下文提供）。
-7. 发送 `status=running`、`step=downloaded` 结构化状态消息。
-8. 安装 persona/openclaw 内容。
-9. 发送 `status=running`、`step=installed` 结构化状态消息。
-10. 按需刷新或重启本地运行时。
-11. 校验目标 agent 仍然可用。
-    - 校验失败 → 尝试回滚（含步骤3新建的远端 agent），无法回滚则如实告知残留状态 → 发 `failed` 结构化状态消息后结束。
-12. 发送 `status=success` 结构化状态消息（带 `target_agent_id`）。
-13. 单独发送目标 agent 的结构化资料卡消息。
-14. 再发一条普通文字，告诉用户可以点开资料卡查看 agent 资料，并从资料页继续与它对话。
+2. 如果 route=`openclaw_create_new`，直接使用 `install.suggested_agent_name` 作为默认短名字；若缺失，再按 egg 标题或 egg ID 自行取一个简短名字继续。只有名字或目标信息真的缺失、冲突或执行被阻塞时，才向用户确认；**用户主动取消时发 `failed/user_cancelled` 结构化状态消息后结束**。
+3. 如果 route=`openclaw_existing`，直接使用 `install.target_agent_id` 指定的目标 agent 继续，不要重复确认目标。
+4. 如果 route=`openclaw_create_new`，需要新建远端 API agent，用 `grix_agent_admin` 创建。
+5. 如果 route=`openclaw_create_new` 且远端 agent 已创建成功，立即发送 `status=running`、`step=agent_created` 结构化状态消息。
+6. 用 OpenClaw 正规步骤准备本地目标目录和配置。
+7. 下载 persona/openclaw 包，并校验 hash / manifest（如果上下文提供）。
+8. 发送 `status=running`、`step=downloaded` 结构化状态消息。
+9. 安装 persona/openclaw 内容。
+10. 发送 `status=running`、`step=installed` 结构化状态消息。
+11. 按需刷新或重启本地运行时。
+12. 校验目标 agent 仍然可用。
+    - 校验失败 → 尝试回滚（含步骤4新建的远端 agent），无法回滚则如实告知残留状态 → 发 `failed` 结构化状态消息后结束。
+13. 发送 `status=success` 结构化状态消息（带 `target_agent_id`）。
+14. 单独发送目标 agent 的结构化资料卡消息。
+15. 再发一条普通文字，告诉用户可以点开资料卡查看 agent 资料，并从资料页继续与它对话。
 
 ### `claude_existing`
 
 1. 确认上下文 route 为 `claude_existing`，且指定的 Claude 目标 agent 存在；**不存在则发 `failed/target_not_found` 结构化状态消息后结束**。
-2. 和用户确认目标 agent；**用户拒绝则发 `failed/user_cancelled` 结构化状态消息后结束**。
+2. 直接使用 `install.target_agent_id` 指定的 Claude 目标 agent 继续安装，不要重复确认目标；只有目标信息缺失、冲突或执行被阻塞时，才向用户确认。**用户主动取消时发 `failed/user_cancelled` 结构化状态消息后结束**。
 3. 下载 skill 包，并校验 hash / manifest（如果上下文提供）。
 4. 发送 `status=running`、`step=downloaded` 结构化状态消息。
 5. 用 Claude 正规步骤安装 skill 包。
