@@ -1,4 +1,4 @@
-import type { AnyAgentTool, OpenClawPluginApi } from "openclaw/plugin-sdk/core";
+import type { AnyAgentTool, OpenClawPluginApi, OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import { createGrixApiAgent } from "./agent-admin-service.js";
 import { jsonToolResult } from "./json-result.js";
 
@@ -62,10 +62,11 @@ export const GrixAgentAdminToolSchema = {
       required: ["actions"],
     },
   },
-  required: ["agentName", "describeMessageTool"],
+  required: ["accountId", "agentName", "describeMessageTool"],
 } as const;
 
-export function createGrixAgentAdminTool(api: OpenClawPluginApi) {
+export function createGrixAgentAdminTool(api: OpenClawPluginApi, ctx?: OpenClawPluginToolContext) {
+  const contextAccountId = ctx?.agentAccountId;
   return {
     name: "grix_agent_admin",
     label: "Grix Agent Admin",
@@ -78,6 +79,7 @@ export function createGrixAgentAdminTool(api: OpenClawPluginApi) {
           await createGrixApiAgent({
             cfg: api.config as Record<string, unknown>,
             toolParams: params,
+            contextAccountId,
           }),
         );
       } catch (err) {

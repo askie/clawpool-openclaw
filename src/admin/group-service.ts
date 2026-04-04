@@ -1,5 +1,6 @@
 import { buildAgentHTTPRequest } from "./agent-api-actions.js";
 import { callAgentAPI } from "./agent-api-http.js";
+import { resolveStrictToolAccountId } from "./account-binding.js";
 import { resolveGrixAccount } from "./accounts.js";
 import type { OpenClawCoreConfig } from "./types.js";
 
@@ -19,7 +20,7 @@ export type GrixGroupToolAction = (typeof GRIX_GROUP_TOOL_ACTIONS)[number];
 
 export type GrixGroupToolParams = {
   action: GrixGroupToolAction;
-  accountId?: string;
+  accountId: string;
   name?: string;
   sessionId?: string;
   memberIds?: string[];
@@ -61,10 +62,16 @@ function mapGroupActionToRequestAction(action: GrixGroupToolAction) {
 export async function runGrixGroupAction(params: {
   cfg: OpenClawCoreConfig;
   toolParams: GrixGroupToolParams;
+  contextAccountId?: string;
 }) {
+  const accountId = resolveStrictToolAccountId({
+    toolName: "grix_group",
+    toolAccountId: params.toolParams.accountId,
+    contextAccountId: params.contextAccountId,
+  });
   const account = resolveGrixAccount({
     cfg: params.cfg,
-    accountId: params.toolParams.accountId,
+    accountId,
   });
   if (!account.enabled) {
     throw new Error(`Grix account "${account.accountId}" is disabled.`);
@@ -83,6 +90,14 @@ export async function runGrixGroupAction(params: {
     query: request.query,
     body: request.body,
   });
+
+  if (params.toolParams.action === "leave") {
+    const d = data as Record<string, unknown> | null | undefined;
+    const left = d != null && typeof d === "object" ? d["left"] : undefined;
+    console.info(
+      `[grix:group] leave result account=${account.accountId} agent=${account.agentId} session=${String(params.toolParams.sessionId ?? "")} left=${left}`,
+    );
+  }
 
   return {
     ok: true,

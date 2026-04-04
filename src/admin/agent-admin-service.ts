@@ -1,10 +1,11 @@
 import { buildAgentHTTPRequest } from "./agent-api-actions.js";
 import { callAgentAPI } from "./agent-api-http.js";
+import { resolveStrictToolAccountId } from "./account-binding.js";
 import { resolveGrixAccount, summarizeGrixAccounts } from "./accounts.js";
 import type { OpenClawCoreConfig } from "./types.js";
 
 export type GrixAgentAdminToolParams = {
-  accountId?: string;
+  accountId: string;
   agentName: string;
   avatarUrl?: string;
   describeMessageTool: Record<string, unknown>;
@@ -51,10 +52,16 @@ function sanitizeCreatedAgentData(data: Record<string, unknown>): Record<string,
 export async function createGrixApiAgent(params: {
   cfg: OpenClawCoreConfig;
   toolParams: GrixAgentAdminToolParams;
+  contextAccountId?: string;
 }) {
+  const accountId = resolveStrictToolAccountId({
+    toolName: "grix_agent_admin",
+    toolAccountId: params.toolParams.accountId,
+    contextAccountId: params.contextAccountId,
+  });
   const account = resolveGrixAccount({
     cfg: params.cfg,
-    accountId: params.toolParams.accountId,
+    accountId,
   });
   if (!account.enabled) {
     throw new Error(`Grix account "${account.accountId}" is disabled.`);

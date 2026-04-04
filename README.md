@@ -221,6 +221,11 @@ openclaw skills list
 - `grix_group`：`create`、`detail`、`leave`、`add_members`、`remove_members`、`update_member_role`、`update_all_members_muted`、`update_member_speaking`、`dissolve`
 - `grix_agent_admin`：创建 `provider_type=3` 的 Grix API agent（只创建远端 agent，不会直接改本地 `channels.grix`）
 
+工具调用约束：
+
+- 以上三个工具都必须显式传入 `accountId`。
+- 如果工具调用上下文存在当前连接账号，则 `accountId` 必须与上下文账号一致；不一致会直接拒绝执行。
+
 ### 运维命令
 
 查看账户：

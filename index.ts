@@ -1,5 +1,4 @@
 import type {
-  AnyAgentTool,
   ChannelPlugin,
   OpenClawPluginApi,
   OpenClawPluginConfigSchema,
@@ -48,9 +47,9 @@ const plugin = {
   register(api: OpenClawPluginApi) {
     setAibotRuntime(api.runtime);
     api.registerChannel({ plugin: aibotPlugin as ChannelPlugin });
-    api.registerTool(createGrixQueryTool(api) as AnyAgentTool, { optional: true });
-    api.registerTool(createGrixGroupTool(api) as AnyAgentTool, { optional: true });
-    api.registerTool(createGrixAgentAdminTool(api) as AnyAgentTool, { optional: true });
+    api.registerTool((ctx) => createGrixQueryTool(api, ctx), { optional: true });
+    api.registerTool((ctx) => createGrixGroupTool(api, ctx), { optional: true });
+    api.registerTool((ctx) => createGrixAgentAdminTool(api, ctx), { optional: true });
     api.registerCli(({ program }) => registerGrixAdminCli({ api, program }), {
       commands: ["grix"],
     });

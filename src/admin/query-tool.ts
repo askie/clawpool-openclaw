@@ -1,4 +1,4 @@
-import type { AnyAgentTool, OpenClawPluginApi } from "openclaw/plugin-sdk/core";
+import type { AnyAgentTool, OpenClawPluginApi, OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import { jsonToolResult } from "./json-result.js";
 import { runGrixQueryAction } from "./query-service.js";
 
@@ -14,7 +14,7 @@ export const GrixQueryToolSchema = {
         limit: { type: "integer", minimum: 1 },
         offset: { type: "integer", minimum: 0 },
       },
-      required: ["action", "id"],
+      required: ["action", "accountId", "id"],
     },
     {
       type: "object",
@@ -26,7 +26,7 @@ export const GrixQueryToolSchema = {
         limit: { type: "integer", minimum: 1 },
         offset: { type: "integer", minimum: 0 },
       },
-      required: ["action", "id"],
+      required: ["action", "accountId", "id"],
     },
     {
       type: "object",
@@ -38,12 +38,13 @@ export const GrixQueryToolSchema = {
         beforeId: { type: "string", pattern: "^[0-9]+$" },
         limit: { type: "integer", minimum: 1 },
       },
-      required: ["action", "sessionId"],
+      required: ["action", "accountId", "sessionId"],
     },
   ],
 } as const;
 
-export function createGrixQueryTool(api: OpenClawPluginApi) {
+export function createGrixQueryTool(api: OpenClawPluginApi, ctx?: OpenClawPluginToolContext) {
+  const contextAccountId = ctx?.agentAccountId;
   return {
     name: "grix_query",
     label: "Grix Query",
@@ -56,6 +57,7 @@ export function createGrixQueryTool(api: OpenClawPluginApi) {
           await runGrixQueryAction({
             cfg: api.config as Record<string, unknown>,
             toolParams: params as never,
+            contextAccountId,
           }),
         );
       } catch (err) {

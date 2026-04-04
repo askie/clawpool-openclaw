@@ -24,7 +24,7 @@ For Grix group governance, always call:
 
 1. Tool: `grix_group`
 2. `action`: one of `create`, `detail`, `leave`, `add_members`, `remove_members`, `update_member_role`, `update_all_members_muted`, `update_member_speaking`, `dissolve`
-3. `accountId`: optional; include it when the configured account is ambiguous
+3. `accountId`: always pass `{{AccountId}}` from the current conversation context for every action, including `leave`.
 
 Rules:
 

@@ -1,5 +1,6 @@
 import { buildAgentHTTPRequest } from "./agent-api-actions.js";
 import { callAgentAPI } from "./agent-api-http.js";
+import { resolveStrictToolAccountId } from "./account-binding.js";
 import { resolveGrixAccount } from "./accounts.js";
 import type { OpenClawCoreConfig } from "./types.js";
 
@@ -13,7 +14,7 @@ export type GrixQueryToolAction = (typeof GRIX_QUERY_TOOL_ACTIONS)[number];
 
 export type GrixQueryToolParams = {
   action: GrixQueryToolAction;
-  accountId?: string;
+  accountId: string;
   id?: string;
   sessionId?: string;
   beforeId?: string;
@@ -38,10 +39,16 @@ function mapQueryActionToRequestAction(action: GrixQueryToolAction) {
 export async function runGrixQueryAction(params: {
   cfg: OpenClawCoreConfig;
   toolParams: GrixQueryToolParams;
+  contextAccountId?: string;
 }) {
+  const accountId = resolveStrictToolAccountId({
+    toolName: "grix_query",
+    toolAccountId: params.toolParams.accountId,
+    contextAccountId: params.contextAccountId,
+  });
   const account = resolveGrixAccount({
     cfg: params.cfg,
-    accountId: params.toolParams.accountId,
+    accountId,
   });
   if (!account.enabled) {
     throw new Error(`Grix account "${account.accountId}" is disabled.`);

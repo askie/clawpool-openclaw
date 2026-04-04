@@ -1,4 +1,4 @@
-import type { AnyAgentTool, OpenClawPluginApi } from "openclaw/plugin-sdk/core";
+import type { AnyAgentTool, OpenClawPluginApi, OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import { jsonToolResult } from "./json-result.js";
 import { runGrixGroupAction } from "./group-service.js";
 
@@ -19,7 +19,7 @@ export const GrixGroupToolSchema = {
         memberIds: { type: "array", items: numericIdSchema },
         memberTypes: { type: "array", items: { type: "integer", enum: [1, 2] } },
       },
-      required: ["action", "name"],
+      required: ["action", "accountId", "name"],
     },
     {
       type: "object",
@@ -29,7 +29,7 @@ export const GrixGroupToolSchema = {
         accountId: { type: "string", minLength: 1 },
         sessionId: { type: "string", minLength: 1 },
       },
-      required: ["action", "sessionId"],
+      required: ["action", "accountId", "sessionId"],
     },
     {
       type: "object",
@@ -39,7 +39,7 @@ export const GrixGroupToolSchema = {
         accountId: { type: "string", minLength: 1 },
         sessionId: { type: "string", minLength: 1 },
       },
-      required: ["action", "sessionId"],
+      required: ["action", "accountId", "sessionId"],
     },
     {
       type: "object",
@@ -51,7 +51,7 @@ export const GrixGroupToolSchema = {
         memberIds: { type: "array", items: numericIdSchema, minItems: 1 },
         memberTypes: { type: "array", items: { type: "integer", enum: [1, 2] } },
       },
-      required: ["action", "sessionId", "memberIds"],
+      required: ["action", "accountId", "sessionId", "memberIds"],
     },
     {
       type: "object",
@@ -63,7 +63,7 @@ export const GrixGroupToolSchema = {
         memberIds: { type: "array", items: numericIdSchema, minItems: 1 },
         memberTypes: { type: "array", items: { type: "integer", enum: [1, 2] } },
       },
-      required: ["action", "sessionId", "memberIds"],
+      required: ["action", "accountId", "sessionId", "memberIds"],
     },
     {
       type: "object",
@@ -76,7 +76,7 @@ export const GrixGroupToolSchema = {
         memberType: { type: "integer", enum: [1] },
         role: { type: "integer", enum: [1, 2] },
       },
-      required: ["action", "sessionId", "memberId", "role"],
+      required: ["action", "accountId", "sessionId", "memberId", "role"],
     },
     {
       type: "object",
@@ -87,7 +87,7 @@ export const GrixGroupToolSchema = {
         sessionId: { type: "string", minLength: 1 },
         allMembersMuted: { type: "boolean" },
       },
-      required: ["action", "sessionId", "allMembersMuted"],
+      required: ["action", "accountId", "sessionId", "allMembersMuted"],
     },
     {
       type: "object",
@@ -101,7 +101,7 @@ export const GrixGroupToolSchema = {
         isSpeakMuted: { type: "boolean" },
         canSpeakWhenAllMuted: { type: "boolean" },
       },
-      required: ["action", "sessionId", "memberId"],
+      required: ["action", "accountId", "sessionId", "memberId"],
       anyOf: [
         { required: ["isSpeakMuted"] },
         { required: ["canSpeakWhenAllMuted"] },
@@ -115,12 +115,13 @@ export const GrixGroupToolSchema = {
         accountId: { type: "string", minLength: 1 },
         sessionId: { type: "string", minLength: 1 },
       },
-      required: ["action", "sessionId"],
+      required: ["action", "accountId", "sessionId"],
     },
   ],
 } as const;
 
-export function createGrixGroupTool(api: OpenClawPluginApi) {
+export function createGrixGroupTool(api: OpenClawPluginApi, ctx?: OpenClawPluginToolContext) {
+  const contextAccountId = ctx?.agentAccountId;
   return {
     name: "grix_group",
     label: "Grix Group",
@@ -133,6 +134,7 @@ export function createGrixGroupTool(api: OpenClawPluginApi) {
           await runGrixGroupAction({
             cfg: api.config as Record<string, unknown>,
             toolParams: params as never,
+            contextAccountId,
           }),
         );
       } catch (err) {
