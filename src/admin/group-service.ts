@@ -72,6 +72,7 @@ export async function runGrixGroupAction(params: {
   const account = resolveGrixAccount({
     cfg: params.cfg,
     accountId,
+    strictAccountScope: true,
   });
   if (!account.enabled) {
     throw new Error(`Grix account "${account.accountId}" is disabled.`);

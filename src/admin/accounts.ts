@@ -88,6 +88,26 @@ function resolveAgentAPIBaseUrl(merged: GrixAccountConfig): string {
   return envBase || webBase;
 }
 
+function resolveStrictAccountConfig(
+  cfg: OpenClawCoreConfig,
+  accountId: string,
+): GrixAccountConfig {
+  const grixCfg = rawGrixConfig(cfg);
+  const accounts = grixCfg.accounts;
+  if (!accounts || typeof accounts !== "object") {
+    throw new Error(
+      `Grix account "${accountId}" is not configured under channels.grix.accounts.`,
+    );
+  }
+  const account = accounts[accountId];
+  if (!account || typeof account !== "object") {
+    throw new Error(
+      `Grix account "${accountId}" is missing under channels.grix.accounts.${accountId}.`,
+    );
+  }
+  return account;
+}
+
 function resolveMergedAccountConfig(
   cfg: OpenClawCoreConfig,
   accountId: string,
@@ -129,21 +149,32 @@ export function resolveDefaultGrixAccountId(cfg: OpenClawCoreConfig): string {
 export function resolveGrixAccount(params: {
   cfg: OpenClawCoreConfig;
   accountId?: string | null;
+  strictAccountScope?: boolean;
 }): ResolvedGrixAccount {
   const accountId =
     params.accountId == null || String(params.accountId).trim() === ""
       ? resolveDefaultGrixAccountId(params.cfg)
       : normalizeAccountId(params.accountId);
-  const merged = resolveMergedAccountConfig(params.cfg, accountId);
+  const merged = params.strictAccountScope
+    ? resolveStrictAccountConfig(params.cfg, accountId)
+    : resolveMergedAccountConfig(params.cfg, accountId);
 
   const baseEnabled = rawGrixConfig(params.cfg).enabled !== false;
   const accountEnabled = merged.enabled !== false;
   const enabled = baseEnabled && accountEnabled;
 
-  const agentId = normalizeNonEmpty(merged.agentId || process.env.GRIX_AGENT_ID);
-  const apiKey = normalizeNonEmpty(merged.apiKey || process.env.GRIX_API_KEY);
-  const wsUrl = resolveWsUrl(merged, agentId);
-  const apiBaseUrl = resolveAgentAPIBaseUrl(merged);
+  const agentId = params.strictAccountScope
+    ? normalizeNonEmpty(merged.agentId)
+    : normalizeNonEmpty(merged.agentId || process.env.GRIX_AGENT_ID);
+  const apiKey = params.strictAccountScope
+    ? normalizeNonEmpty(merged.apiKey)
+    : normalizeNonEmpty(merged.apiKey || process.env.GRIX_API_KEY);
+  const wsUrl = params.strictAccountScope
+    ? appendAgentIdToWsUrl(normalizeNonEmpty(merged.wsUrl), agentId)
+    : resolveWsUrl(merged, agentId);
+  const apiBaseUrl = params.strictAccountScope
+    ? trimTrailingSlash(normalizeNonEmpty(merged.apiBaseUrl))
+    : resolveAgentAPIBaseUrl(merged);
   const configured = Boolean(wsUrl && agentId && apiKey);
 
   return {
