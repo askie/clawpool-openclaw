@@ -215,6 +215,139 @@ openclaw skills list
 
 ## 工具与命令
 
+## 空闲续聊与会话记忆
+
+从 `0.4.16` 开始，插件支持在 Grix 会话长时间静默后，自动给下一轮对话补一段简短续聊摘要。这个能力只负责“续上刚才在聊什么”，不会改动你现有的一人多会话设计。
+
+如果你要的是“像人一样先回忆最近重点，细节不够时再翻原话或搜旧记录，而且平时不额外吃很多 token”，需要同时打开下面几层能力：
+
+- `plugins.entries.grix.config.resumeContext`
+  作用：打开 Grix 插件自己的“空闲后续聊摘要”
+- `agents.defaults.compaction.memoryFlush`
+  作用：打开 OpenClaw 的压缩前长期沉淀
+- `agents.defaults.memorySearch.experimental.sessionMemory` + `sources: ["memory", "sessions"]`
+  作用：把旧会话也纳入搜索范围
+- `tools.profile: "coding"` 或显式放开 `group:sessions` / `group:memory`
+  作用：允许 agent 自己翻原话和搜旧记录
+- 不要把 `plugins.entries.grix.hooks.allowPromptInjection` 设成 `false`
+  作用：否则插件的续聊摘要不会生效
+
+### 插件侧开关
+
+可选配置：
+
+```json
+{
+  "plugins": {
+    "entries": {
+      "grix": {
+        "enabled": true,
+        "config": {
+          "resumeContext": {
+            "enabled": true,
+            "idleMinutes": 120,
+            "recentMessages": 6,
+            "recentToolResults": 2,
+            "maxCharsPerItem": 220
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+字段说明：
+
+- `enabled`：是否启用空闲后续聊摘要。
+- `idleMinutes`：静默多久后，下次开口时自动补摘要。
+- `recentMessages`：摘要里保留多少条最近的用户/助手结论。
+- `recentToolResults`：摘要里额外保留多少条最近工具结果。
+- `maxCharsPerItem`：每条摘要的最大长度。
+
+前提：
+
+- `plugins.entries.grix.hooks.allowPromptInjection` 不要设成 `false`。
+- 这层只负责“少量续聊提示”，不会替代长期记忆或旧会话检索。
+
+### OpenClaw 侧推荐配置
+
+如果你希望同时得到“会话压缩”“长期沉淀”“可回头搜旧会话”这三件事，还要把 OpenClaw 自身的能力一起打开：
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "compaction": {
+        "mode": "safeguard",
+        "memoryFlush": {
+          "enabled": true,
+          "softThresholdTokens": 4000
+        }
+      },
+      "memorySearch": {
+        "enabled": true,
+        "provider": "ollama",
+        "remote": {
+          "baseUrl": "http://127.0.0.1:11434"
+        },
+        "model": "nomic-embed-text",
+        "experimental": {
+          "sessionMemory": true
+        },
+        "sources": [
+          "memory",
+          "sessions"
+        ],
+        "sync": {
+          "watch": true
+        }
+      }
+    }
+  },
+  "tools": {
+    "profile": "coding"
+  }
+}
+```
+
+每一项配置分别打开什么功能：
+
+- `compaction.mode = "safeguard"`
+  作用：允许 OpenClaw 在上下文逼近上限时做会话压缩
+- `compaction.memoryFlush.enabled = true`
+  作用：在压缩前先把重要信息沉淀到长期记忆
+- `memorySearch.enabled = true`
+  作用：打开记忆搜索
+- `memorySearch.experimental.sessionMemory = true`
+  作用：把会话记录也纳入索引
+- `memorySearch.sources = ["memory", "sessions"]`
+  作用：同时搜索长期记忆和旧会话
+- `memorySearch.sync.watch = true`
+  作用：记忆文件更新后自动进索引
+- `tools.profile = "coding"`
+  作用：直接包含 `group:sessions` 和 `group:memory`，让 agent 能用 `sessions_history`、`memory_search`、`memory_get`
+
+如果你不用 `coding` / `full`，至少要显式放开这些工具：
+
+```json
+{
+  "tools": {
+    "allow": [
+      "group:sessions",
+      "group:memory"
+    ]
+  }
+}
+```
+
+最终效果是四层一起工作：
+
+- Grix 插件只在静默后给一小段续聊摘要，平时不额外灌很多历史
+- OpenClaw 在长对话快压缩前先把长期要记的内容沉淀下来
+- OpenClaw 压缩后保留可延续的摘要，不需要每轮都带整段聊天
+- 需要细节时，agent 再自己翻 `sessions_history` 或用 `memory_search` 搜旧记录
+
 ### Agent 可调用工具
 
 - `grix_query`：`contact_search`、`session_search`、`message_history`
