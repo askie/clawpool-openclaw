@@ -23,6 +23,12 @@ import { enqueueRevokeSystemEvent } from "./revoke-event.js";
 import { shouldTreatDispatchAsRespondedWithoutVisibleOutput } from "./reply-dispatch-outcome.js";
 import { consumeSilentUnsendCompleted } from "./silent-unsend-completion.js";
 import { deliverAibotPayload } from "./aibot-payload-delivery.ts";
+import {
+  buildGrixGroupSystemPrompt,
+  resolveGrixDispatchResolution,
+  resolveGrixInboundSemantics,
+  resolveGrixMentionFallbackText,
+} from "./group-semantics.js";
 
 type MarkdownTableMode = Parameters<PluginRuntime["channel"]["text"]["convertMarkdownTables"]>[1];
 
@@ -436,8 +442,10 @@ async function processEvent(params: {
   const bodyForAgent = buildBodyWithQuotedReplyId(rawBody, quotedMessageId);
 
   const senderId = toStringId(event.sender_id);
-  const isGroup = Number(event.session_type ?? 0) === 2 || String(event.event_type ?? "").startsWith("group_");
+  const semantics = resolveGrixInboundSemantics(event);
+  const isGroup = semantics.isGroup;
   const chatType = isGroup ? "group" : "direct";
+  const groupSystemPrompt = buildGrixGroupSystemPrompt(semantics);
   const createdAt = toTimestampMs(event.created_at);
   const baseLogContext = buildEventLogContext({
     eventId,
@@ -473,7 +481,7 @@ async function processEvent(params: {
     return;
   }
   runtime.log(
-    `[grix:${account.accountId}] inbound event ${baseLogContext} chatType=${chatType} bodyLen=${rawBody.length} quotedMessageId=${quotedMessageId || "-"}`,
+    `[grix:${account.accountId}] inbound event ${baseLogContext} chatType=${chatType} eventType=${semantics.eventType || "-"} wasMentioned=${semantics.wasMentioned ? "true" : "false"} mentionsOther=${semantics.mentionsOther ? "true" : "false"} bodyLen=${rawBody.length} quotedMessageId=${quotedMessageId || "-"}`,
   );
 
   let inboundEventAccepted = false;
@@ -593,6 +601,7 @@ async function processEvent(params: {
       SessionKey: route.sessionKey,
       AccountId: route.accountId,
       ChatType: chatType,
+      GroupSystemPrompt: groupSystemPrompt,
       ConversationLabel: fromLabel,
       SenderName: senderId || undefined,
       SenderId: senderId || undefined,
@@ -603,6 +612,7 @@ async function processEvent(params: {
       // This field carries the inbound quoted message id from end user (event.quoted_message_id).
       // It is not the outbound reply anchor used when plugin sends replies back to Aibot.
       ReplyToMessageSid: quotedMessageId,
+      WasMentioned: isGroup ? semantics.wasMentioned : undefined,
       OriginatingChannel: "grix",
       OriginatingTo: to,
     });
@@ -995,6 +1005,52 @@ async function processEvent(params: {
           });
           attemptHasOutbound = attemptHasOutbound || didSendMessage;
           if (didSendMessage) {
+            markVisibleOutputSent();
+          }
+        }
+
+        const dispatchResolution = resolveGrixDispatchResolution({
+          semantics,
+          visibleOutputSent,
+          eventResultReported,
+        });
+
+        if (dispatchResolution.shouldCompleteSilently) {
+          runtime.log(
+            `[grix:${account.accountId}] group dispatch completed silently ${baseLogContext} attempt=${attemptLabel} wasMentioned=${semantics.wasMentioned ? "true" : "false"}`,
+          );
+          reportEventResult("responded");
+        }
+
+        if (dispatchResolution.shouldSendMentionFallback) {
+          outboundCounter++;
+          const stableClientMsgId = `reply_${messageSid}_${outboundCounter}`;
+          runtime.log(
+            `[grix:${account.accountId}] explicit mention fallback reply ${buildEventLogContext({
+              eventId,
+              sessionId,
+              messageSid,
+              clientMsgId: stableClientMsgId,
+              outboundCounter,
+            })}`,
+          );
+          const didSendFallback = await deliverAibotMessage({
+            payload: {
+              text: resolveGrixMentionFallbackText(),
+            },
+            client,
+            account,
+            sessionId,
+            abortSignal: runAbortController.signal,
+            eventId,
+            quotedMessageId: outboundQuotedMessageId,
+            runtime,
+            statusSink,
+            stableClientMsgId,
+            tableMode,
+          });
+          attemptHasOutbound = attemptHasOutbound || didSendFallback;
+          if (didSendFallback) {
             markVisibleOutputSent();
           }
         }
