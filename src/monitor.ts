@@ -22,6 +22,7 @@ import { handleExecApprovalCommand } from "./exec-approvals.ts";
 import { enqueueRevokeSystemEvent } from "./revoke-event.js";
 import { shouldTreatDispatchAsRespondedWithoutVisibleOutput } from "./reply-dispatch-outcome.js";
 import { consumeSilentUnsendCompleted } from "./silent-unsend-completion.js";
+import { shouldSkipFinalReplyAfterStreamedBlock } from "./final-streamed-reply-policy.ts";
 import { deliverAibotPayload } from "./aibot-payload-delivery.ts";
 import {
   buildGrixGroupSystemPrompt,
@@ -846,6 +847,8 @@ async function processEvent(params: {
                 outboundCounter,
               });
               const isStreamBlock = info.kind === "block" && !guardedText && !hasMedia && text.length > 0;
+              const finalOutboundEnvelope =
+                info.kind === "final" ? buildAibotOutboundEnvelope(normalizedPayload) : undefined;
               if (!isStreamBlock) {
                 runtime.log(
                   `[grix:${account.accountId}] deliver ${deliverContext} kind=${info.kind} textLen=${text.length} hasMedia=${hasMedia} streamedBefore=${streamedTextAlreadyVisible}`,
@@ -903,7 +906,15 @@ async function processEvent(params: {
 
               await finishStreamIfNeeded();
 
-              if (info.kind === "final" && streamedTextAlreadyVisible && !hasMedia && text) {
+              if (
+                shouldSkipFinalReplyAfterStreamedBlock({
+                  kind: info.kind,
+                  streamedTextAlreadyVisible,
+                  hasMedia,
+                  text,
+                  hasStructuredCard: Boolean(finalOutboundEnvelope?.cardKind),
+                })
+              ) {
                 runtime.log(
                   `[grix:${account.accountId}] skip final text after streamed block ${deliverContext} textLen=${text.length}`,
                 );
