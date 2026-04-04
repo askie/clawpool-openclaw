@@ -3,7 +3,6 @@ import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
 const BIZ_CARD_EXTRA_KEY = "biz_card";
 const BIZ_CARD_VERSION = 1;
 const EGG_INSTALL_STATUS_CARD_TYPE = "egg_install_status";
-const DIRECTIVE_REGEX = /^\s*\[\[egg-install-status\|(.+?)\]\]\s*$/i;
 
 type EggInstallStatusKind = "running" | "success" | "failed";
 
@@ -35,21 +34,6 @@ function normalizeStatus(value: unknown): EggInstallStatusKind | undefined {
     return normalized;
   }
   return undefined;
-}
-
-function decodeDirectiveValue(rawValue: string): string | undefined {
-  const normalized = rawValue.trim();
-  if (!normalized) {
-    return undefined;
-  }
-  if (!normalized.includes("%")) {
-    return normalized;
-  }
-  try {
-    return decodeURIComponent(normalized);
-  } catch {
-    return normalized;
-  }
 }
 
 function stripUndefinedFields<T extends Record<string, unknown>>(record: T): T {
@@ -127,8 +111,7 @@ function finalizeParsed(
   return next;
 }
 
-function parseStructuredEggInstall(payload: OutboundReplyPayload): ParsedEggInstallStatusCard | null {
-  const channelData = payload.channelData;
+function extractEggInstallRecord(channelData: unknown): Record<string, unknown> | null {
   if (!channelData || typeof channelData !== "object" || Array.isArray(channelData)) {
     return null;
   }
@@ -143,7 +126,15 @@ function parseStructuredEggInstall(payload: OutboundReplyPayload): ParsedEggInst
     return null;
   }
 
-  const record = eggInstall as Record<string, unknown>;
+  return eggInstall as Record<string, unknown>;
+}
+
+function parseStructuredEggInstall(payload: OutboundReplyPayload): ParsedEggInstallStatusCard | null {
+  const record = extractEggInstallRecord(payload.channelData);
+  if (!record) {
+    return null;
+  }
+
   return finalizeParsed({
     install_id: record.install_id,
     status: record.status,
@@ -156,52 +147,46 @@ function parseStructuredEggInstall(payload: OutboundReplyPayload): ParsedEggInst
   });
 }
 
-function parseDirectiveEggInstall(payload: OutboundReplyPayload): ParsedEggInstallStatusCard | null {
-  const rawText = String(payload.text ?? "");
-  const match = DIRECTIVE_REGEX.exec(rawText);
-  if (!match) {
+function parseEmbeddedReplyPayloadEggInstall(
+  payload: OutboundReplyPayload,
+): ParsedEggInstallStatusCard | null {
+  const rawText = normalizeText(payload.text);
+  if (!rawText || !/^[{\[]/.test(rawText)) {
     return null;
   }
 
-  const body = String(match[1] ?? "").trim();
-  if (!body) {
+  let embeddedReply: unknown;
+  try {
+    embeddedReply = JSON.parse(rawText);
+  } catch {
+    return null;
+  }
+  if (!embeddedReply || typeof embeddedReply !== "object" || Array.isArray(embeddedReply)) {
     return null;
   }
 
-  const fields = new Map<string, string>();
-  for (const segment of body.split("|")) {
-    const normalizedSegment = segment.trim();
-    if (!normalizedSegment) {
-      return null;
-    }
-    const separatorIndex = normalizedSegment.indexOf("=");
-    if (separatorIndex <= 0 || separatorIndex >= normalizedSegment.length - 1) {
-      return null;
-    }
-    const key = normalizedSegment.slice(0, separatorIndex).trim();
-    const decoded = decodeDirectiveValue(normalizedSegment.slice(separatorIndex + 1));
-    if (!key || !decoded) {
-      return null;
-    }
-    fields.set(key, decoded);
+  const record = embeddedReply as Record<string, unknown>;
+  const eggInstall = extractEggInstallRecord(record.channelData);
+  if (!eggInstall) {
+    return null;
   }
 
   return finalizeParsed({
-    install_id: fields.get("install_id"),
-    status: fields.get("status"),
-    step: fields.get("step"),
-    summary: fields.get("summary"),
-    detail_text: fields.get("detail_text"),
-    target_agent_id: fields.get("target_agent_id"),
-    error_code: fields.get("error_code"),
-    error_msg: fields.get("error_msg"),
+    install_id: eggInstall.install_id,
+    status: eggInstall.status,
+    step: eggInstall.step,
+    summary: eggInstall.summary ?? record.text,
+    detail_text: eggInstall.detail_text,
+    target_agent_id: eggInstall.target_agent_id,
+    error_code: eggInstall.error_code,
+    error_msg: eggInstall.error_msg,
   });
 }
 
 export function buildEggInstallStatusCardEnvelope(
   payload: OutboundReplyPayload,
 ): EggInstallStatusCardEnvelope | undefined {
-  const parsed = parseStructuredEggInstall(payload) ?? parseDirectiveEggInstall(payload);
+  const parsed = parseStructuredEggInstall(payload) ?? parseEmbeddedReplyPayloadEggInstall(payload);
   if (!parsed) {
     return undefined;
   }
