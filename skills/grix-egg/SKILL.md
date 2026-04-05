@@ -53,7 +53,7 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 - 没完成校验前，绝不能宣称安装成功。
 - 如果新建目标后又失败了，能安全回滚就先回滚；不能回滚就如实告诉用户当前残留状态。
 - 上下文已经给出 `install.target_agent_id` 或 `install.suggested_agent_name` 时，直接继续执行，不要再向用户确认目标、命名或用途；只有信息缺失、冲突或执行阻塞时才提问。
-- 安装私聊进行中时，禁止执行 `openclaw gateway restart`；本流程涉及的本地 OpenClaw 配置必须通过 `openclaw config set` 逐项写入，让 OpenClaw 自己热重载。典型写入项是 `channels.grix.accounts.<agent_name>`、`agents.list`、`bindings`；禁止调用会直接改 `openclaw.json` 的脚本，也不要手工编辑 JSON。
+- 安装私聊进行中时，禁止执行 `openclaw gateway restart`；本流程涉及的本地 OpenClaw 配置必须通过官方 CLI 写入并让 OpenClaw 自己热重载：`channels.grix.accounts.<agent_name>`、`agents.list`、`tools.*` 继续使用 `openclaw config set`，Grix 绑定使用 `openclaw agents bind`；禁止调用会直接改 `openclaw.json` 的脚本，也不要手工编辑 JSON。
 - 最终成功或失败时，必须发送一条独立的结构化安装状态消息。
 - 安装成功后，必须按顺序继续发送：目标 agent 的结构化资料卡消息，然后再发一条普通文字的下一步指引。
 - 结构化安装状态消息必须单独发送，不要和自然语言解释混在同一条里。
@@ -131,16 +131,16 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 8. 发送 `status=running`、`step=downloaded` 结构化状态消息。
 9. 安装 persona/openclaw 内容。
 10. 发送 `status=running`、`step=installed` 结构化状态消息。
-11. 先用 `openclaw config get --json` 读取当前 `channels.grix.accounts`、`agents.list`、`bindings`、`tools.profile`、`tools.alsoAllow`、`tools.sessions.visibility`；若个别路径不存在，按空对象 / 空数组处理，在现有值基础上合并本次目标项，不要覆盖掉其他已有配置。
-12. 用 `openclaw config set ... --strict-json` 逐项写入本地变更，推荐顺序如下：
+11. 先用 `openclaw config get --json` 读取当前 `channels.grix.accounts`、`agents.list`、`tools.profile`、`tools.alsoAllow`、`tools.sessions.visibility`；若个别路径不存在，按空对象 / 空数组处理，在现有值基础上合并本次目标项，不要覆盖掉其他已有配置；如果需要确认已有 Grix 绑定，额外用 `openclaw agents bindings --agent <agent_name> --json` 查看当前绑定列表。
+12. 用官方 CLI 逐项写入本地变更，推荐顺序如下：
     - `openclaw config set channels.grix.accounts.<agent_name> '<ACCOUNT_JSON>' --strict-json`
     - `openclaw config set agents.list '<NEXT_AGENTS_LIST_JSON>' --strict-json`
-    - `openclaw config set bindings '<NEXT_BINDINGS_JSON>' --strict-json`
+    - `openclaw agents bind --agent <agent_name> --bind grix:<agent_name>`
     - `openclaw config set tools.profile '"coding"' --strict-json`
     - `openclaw config set tools.alsoAllow '["message","grix_query","grix_group","grix_agent_admin"]' --strict-json`
     - `openclaw config set tools.sessions.visibility '"agent"' --strict-json`
     - 不要调用 `grix_agent_bind.py`，也不要直接编辑 `~/.openclaw/openclaw.json`
-13. 执行 `openclaw config validate`，再用 `openclaw config get --json` 检查刚写入的 account / agent / binding / tools 都已存在且值正确。
+13. 执行 `openclaw config validate`，再用 `openclaw config get --json` 检查刚写入的 account / agent / tools 都已存在且值正确，并用 `openclaw agents bindings --agent <agent_name> --json` 确认目标绑定已经存在。
 14. 校验目标 agent 仍然可用。
     - 任一 `openclaw config get` / `set` / `validate` 失败 → 尝试回滚（含步骤4新建的远端 agent），无法回滚则如实告知残留状态 → 发 `failed` 结构化状态消息后结束。
     - 其他校验失败 → 尝试回滚（含步骤4新建的远端 agent），无法回滚则如实告知残留状态 → 发 `failed` 结构化状态消息后结束。
@@ -172,7 +172,7 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 - hash / manifest 校验通过（如果提供）
 - 安装内容已经落到目标位置
 - 涉及 OpenClaw 配置时，`openclaw config validate` 已通过
-- 涉及 OpenClaw 配置时，`channels.grix.accounts.<agent_name>`、`agents.list`、`bindings` 已包含目标项
+- 涉及 OpenClaw 配置时，`channels.grix.accounts.<agent_name>`、`agents.list` 已包含目标项，且 `openclaw agents bindings --agent <agent_name> --json` 能看到目标绑定
 - 涉及 OpenClaw 配置时，`tools.profile="coding"`、`tools.alsoAllow`、`tools.sessions.visibility="agent"` 已符合预期
 - 目标 agent 安装后仍然可用
 - 实际安装路线没有偏离 `install.route`

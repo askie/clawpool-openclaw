@@ -21,18 +21,18 @@ Use only these entry points for remote communication:
 | Group lifecycle and membership ops | `grix_group` | Governance operations |
 | Create remote API agent | `grix_agent_admin` | Returns `id`, `agent_name`, `api_endpoint`, `api_key`, `api_key_hint` |
 
-Local OpenClaw binding remains a local CLI operation via `openclaw config`:
+Local OpenClaw binding remains a local CLI operation via the official `openclaw` commands:
 
-1. 先用 `openclaw config get --json channels.grix.accounts`、`openclaw config get --json agents.list`、`openclaw config get --json bindings`、`openclaw config get --json tools.profile`、`openclaw config get --json tools.alsoAllow`、`openclaw config get --json tools.sessions.visibility` 读取当前值；若路径不存在，按空对象 / 空数组处理，再合并本次目标项。
+1. 先用 `openclaw config get --json channels.grix.accounts`、`openclaw config get --json agents.list`、`openclaw config get --json tools.profile`、`openclaw config get --json tools.alsoAllow`、`openclaw config get --json tools.sessions.visibility` 读取当前值；若路径不存在，按空对象 / 空数组处理，再合并本次目标项；如需确认已有 Grix 绑定，额外用 `openclaw agents bindings --agent <agent_name> --json` 查看。
 2. 再逐项写入：
    - `openclaw config set channels.grix.accounts.<agent_name> '<ACCOUNT_JSON>' --strict-json`
    - `openclaw config set agents.list '<NEXT_AGENTS_LIST_JSON>' --strict-json`
-   - `openclaw config set bindings '<NEXT_BINDINGS_JSON>' --strict-json`
+   - `openclaw agents bind --agent <agent_name> --bind grix:<agent_name>`
    - `openclaw config set tools.profile '"coding"' --strict-json`
    - `openclaw config set tools.alsoAllow '["message","grix_query","grix_group","grix_agent_admin"]' --strict-json`
    - `openclaw config set tools.sessions.visibility '"agent"' --strict-json`
-3. 写完后执行 `openclaw config validate`，并用 `openclaw config get --json` 确认目标项已经存在。
-4. `openclaw config set` 会走 OpenClaw 自己的配置管理并触发热重载；不要用 `grix_agent_bind.py` 或手工改 `openclaw.json` 替代它。
+3. 写完后执行 `openclaw config validate`，并用 `openclaw config get --json` 确认 account / agent / tools 目标项已经存在，再用 `openclaw agents bindings --agent <agent_name> --json` 确认目标绑定已经存在。
+4. `openclaw config set` 和 `openclaw agents bind` 都会走 OpenClaw 自己的配置管理并触发热重载；不要用 `grix_agent_bind.py` 或手工改 `openclaw.json` 替代它。
 
 ## Prohibited Paths
 

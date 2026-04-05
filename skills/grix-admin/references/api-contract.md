@@ -75,7 +75,7 @@
 
 ## Post-Create Handover
 
-After `code=0` (or when using `bind-local` mode), continue with local OpenClaw binding through official CLI config commands:
+After `code=0` (or when using `bind-local` mode), continue with local OpenClaw binding through official CLI commands:
 
 1. prepare local paths first:
    - `workspace=~/.openclaw/workspace-<agent_name>`
@@ -88,14 +88,14 @@ After `code=0` (or when using `bind-local` mode), continue with local OpenClaw b
 3. read current values; when a path is absent, treat it as empty object / empty array before merging:
    - `channels.grix.accounts`
    - `agents.list`
-   - `bindings`
    - `tools.profile`
    - `tools.alsoAllow`
    - `tools.sessions.visibility`
-4. write merged config back with `openclaw config set ... --strict-json`:
+   - if needed, inspect existing bindings with `openclaw agents bindings --agent <agent_name> --json`
+4. write merged config back with official CLI commands:
    - `channels.grix.accounts.<agent_name>`
    - `agents.list`
-   - `bindings`
+   - `openclaw agents bind --agent <agent_name> --bind grix:<agent_name>`
    - `tools.profile`
    - `tools.alsoAllow`
    - `tools.sessions.visibility`
@@ -104,8 +104,8 @@ After `code=0` (or when using `bind-local` mode), continue with local OpenClaw b
    - `openclaw config validate`
    - `openclaw config get --json channels.grix.accounts.<agent_name>`
    - `openclaw config get --json agents.list`
-   - `openclaw config get --json bindings`
-6. do not run `openclaw gateway restart` inside an active install chat; `openclaw config set` should hot-reload the config immediately
+   - `openclaw agents bindings --agent <agent_name> --json`
+6. do not run `openclaw gateway restart` inside an active install chat; `openclaw config set` and `openclaw agents bind` should hot-reload the config immediately
 
 ## bind-local Input Contract
 

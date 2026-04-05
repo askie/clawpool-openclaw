@@ -27,14 +27,14 @@ description: 负责 OpenClaw 本地配置与后续 agent 管理；支持接收 g
 3. 读取现有配置；若路径不存在，按空对象 / 空数组处理：
    - `channels.grix.accounts`
    - `agents.list`
-   - `bindings`
    - `tools.profile`
    - `tools.alsoAllow`
    - `tools.sessions.visibility`
+   - 如需确认已有 Grix 绑定，额外用 `openclaw agents bindings --agent <agent_name> --json` 查看当前绑定列表
 4. 计算本次目标值：
    - `channels.grix.accounts.<agent_name>`：写入 `name`、`enabled=true`、`apiKey`、`wsUrl`、`agentId`
    - `agents.list`：确保存在 `id=<agent_name>`、`name=<agent_name>`、`workspace`、`agentDir`、`model`
-   - `bindings`：确保存在 `{ "type": "route", "agentId": "<agent_name>", "match": { "channel": "grix", "accountId": "<agent_name>" } }`
+   - Grix 绑定：确保目标 agent 最终绑定到 `grix:<agent_name>`
    - `tools.profile`：设为 `"coding"`
    - `tools.alsoAllow`：至少包含 `message`、`grix_query`、`grix_group`、`grix_agent_admin`
    - `tools.sessions.visibility`：设为 `"agent"`
@@ -43,10 +43,10 @@ description: 负责 OpenClaw 本地配置与后续 agent 管理；支持接收 g
    - 先复用该本地 agent 现有条目的 `model`
    - 如果现有条目没有，再用 `agents.defaults.model.primary`
    - 如果仍然拿不到，明确说明缺少 model，停止执行，不要瞎猜
-6. 用 `openclaw config set ... --strict-json` 逐项写入，不要整份覆盖配置：
+6. 用官方 CLI 逐项写入，不要整份覆盖配置：
    - `openclaw config set channels.grix.accounts.<agent_name> '<ACCOUNT_JSON>' --strict-json`
    - `openclaw config set agents.list '<NEXT_AGENTS_LIST_JSON>' --strict-json`
-   - `openclaw config set bindings '<NEXT_BINDINGS_JSON>' --strict-json`
+   - `openclaw agents bind --agent <agent_name> --bind grix:<agent_name>`
    - `openclaw config set tools.profile '"coding"' --strict-json`
    - `openclaw config set tools.alsoAllow '["message","grix_query","grix_group","grix_agent_admin"]' --strict-json`
    - `openclaw config set tools.sessions.visibility '"agent"' --strict-json`
@@ -55,8 +55,8 @@ description: 负责 OpenClaw 本地配置与后续 agent 管理；支持接收 g
    - `openclaw config validate`
    - `openclaw config get --json channels.grix.accounts.<agent_name>`
    - `openclaw config get --json agents.list`
-   - `openclaw config get --json bindings`
-8. 安装私聊进行中时不要执行 `openclaw gateway restart`；`openclaw config set` 的热重载应当让配置立即生效。
+   - `openclaw agents bindings --agent <agent_name> --json`
+8. 安装私聊进行中时不要执行 `openclaw gateway restart`；`openclaw config set` 和 `openclaw agents bind` 的热重载应当让配置立即生效。
 
 ## Mode B: create-and-bind（已有主密钥时的后续管理）
 
