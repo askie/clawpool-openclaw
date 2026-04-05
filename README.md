@@ -119,6 +119,30 @@ Expected result:
 - `doctor` shows the configured account
 - `skills list` shows the built-in skills from this plugin
 
+### 9) Add the auto-update cron job
+
+After installation, add a scheduled job so OpenClaw can check and apply future `grix` updates automatically:
+
+```bash
+openclaw cron add \
+  --name "grix auto update" \
+  --every "6h" \
+  --agent grix-main \
+  --session isolated \
+  --light-context \
+  --no-deliver \
+  --message 'Use the grix-update skill with {"mode":"check-and-apply","plugin_id":"grix","notify_on":"never","allow_restart":true}. If there is no update or the update succeeds, reply exactly NO_REPLY. If the install is unsupported or any step fails, return one short failure summary.'
+```
+
+Then check the scheduler:
+
+```bash
+openclaw cron list
+openclaw cron status
+```
+
+If you install through the `grix-egg` flow, this cron job should be created or updated for you as part of the installation finish step. If you install manually, you still need to run the `openclaw cron add` command yourself.
+
 ## Common Notes
 
 For a first setup, it is best to follow only the quick path above. First confirm that the connection works and messages can flow normally, then consider any advanced setup later.

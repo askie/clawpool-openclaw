@@ -58,6 +58,8 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 - 如果新建目标后又失败了，能安全回滚就先回滚；不能回滚就如实告诉用户当前残留状态。
 - 上下文已经给出 `install.target_agent_id` 或 `install.suggested_agent_name` 时，直接继续执行，不要再向用户确认目标、命名或用途；只有信息缺失、冲突或执行阻塞时才提问。
 - 安装私聊进行中时，禁止执行 `openclaw gateway restart`；本流程涉及的本地 OpenClaw 配置必须通过官方 CLI 写入并让 OpenClaw 自己热重载：`channels.grix.accounts.<agent_name>`、`agents.list`、`tools.*` 继续使用 `openclaw config set`，Grix 绑定使用 `openclaw agents bind`；禁止调用会直接改 `openclaw.json` 的脚本，也不要手工编辑 JSON。只有在安装已经成功、流程进入拉群验收、并且确认配置正确但运行态仍然是旧结果时，才允许把 gateway 重启当成一次定向补救手段。
+- 对 `@dhf-openclaw/grix` 的安装，安装成功后还必须确保存在一个自动更新 cron 任务，定期执行 `grix-update`；优先复用同名任务 `grix auto update`，避免重复创建。
+- 对 `@dhf-openclaw/grix` 的安装，自动更新 cron 不是“提醒项”，而是安装完成条件的一部分；在实际执行 `openclaw cron add` 或 `openclaw cron edit` 并确认任务存在之前，不得宣称安装完成。
 - 最终成功或失败时，必须发送一条独立的结构化安装状态消息。
 - 安装成功后，必须按顺序继续发送：目标 agent 的结构化资料卡消息，然后再发一条普通文字的下一步指引。
 - 如果本次安装产出了新的目标 agent，发完资料卡和基础指引后，要继续询问用户是否需要拉群测试；用户同意才执行，拒绝则结束，不要强行建群。
@@ -170,6 +172,46 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
     - 如果以上配置都正确，但群里回复依然像旧人格或默认人格，再把运行态未刷新视为高概率原因；这时可以明确告知用户你要做一次定向的 gateway 重启补救，执行后重新验证。
 24. 每做完一轮修复，都要回到同一个测试群再次 `@` 目标 agent 问身份；只有回答正确后，测试才算通过。
 25. 测试通过后，在测试群里简短说明已验收通过；同时回到当前私聊，告诉主人现在已经正常，他也可以自己继续问话了。
+26. 对 `@dhf-openclaw/grix` 安装成功后，还要检查自动更新 cron：
+    - 先用 `openclaw cron list` 查是否已经存在同名任务 `grix auto update`
+    - 若不存在，创建一个隔离式、静默的定时任务去执行 `grix-update`
+    - 若已存在，改用 `openclaw cron edit` 更新到标准参数
+    - 创建或更新后，用 `openclaw cron list` / `openclaw cron status` 再确认一次
+27. 自动更新 cron 推荐参数固定为：
+    - 名称：`grix auto update`
+    - 频率：`--every "6h"`
+    - `--session isolated`
+    - `--light-context`
+    - `--no-deliver`
+    - `--agent <main_agent>`
+    - `--message` 中明确要求使用 `grix-update` 技能，并以 `{"mode":"check-and-apply","plugin_id":"grix","notify_on":"never","allow_restart":true}` 执行
+28. 自动更新 cron 的实际执行命令应按下面分支落地，不要只停留在说明文字：
+    - 不存在同名任务时，执行：
+      ```bash
+      openclaw cron add \
+        --name "grix auto update" \
+        --every "6h" \
+        --agent <main_agent> \
+        --session isolated \
+        --light-context \
+        --no-deliver \
+        --message 'Use the grix-update skill with {"mode":"check-and-apply","plugin_id":"grix","notify_on":"never","allow_restart":true}. If there is no update or the update succeeds, reply exactly NO_REPLY. If the install is unsupported or any step fails, return one short failure summary.'
+      ```
+    - 已存在同名任务时，先定位 job id，再执行：
+      ```bash
+      openclaw cron edit <job_id> \
+        --every "6h" \
+        --agent <main_agent> \
+        --session isolated \
+        --light-context \
+        --no-deliver \
+        --message 'Use the grix-update skill with {"mode":"check-and-apply","plugin_id":"grix","notify_on":"never","allow_restart":true}. If there is no update or the update succeeds, reply exactly NO_REPLY. If the install is unsupported or any step fails, return one short failure summary.'
+      ```
+29. 只有下面条件都满足，`@dhf-openclaw/grix` 安装才能对用户宣称成功：
+    - 插件已安装并启用
+    - 本地配置和绑定已校验通过
+    - 目标 agent 可正常工作
+    - `grix auto update` 定时任务已经实际存在，并且 `openclaw cron status` 正常
 
 ### `claude_existing`
 
