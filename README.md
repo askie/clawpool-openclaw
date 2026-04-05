@@ -368,7 +368,7 @@ openclaw grix create-agent \
 - `--account-id`：可选，指定用哪个本地 Grix 账户发起创建。
 - `--avatar-url`：可选，给新 agent 设置头像地址。
 
-命令输出里会给出一次性 `api_key` 和下一步绑定命令模板。
+命令输出里会给出一次性 `api_key` 和下一步命令模板；本地 Grix 账号名默认与 `--agent-name` 保持一致。
 
 ## 聊天内 Exec 审批（可选）
 

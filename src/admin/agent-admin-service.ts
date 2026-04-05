@@ -1,5 +1,6 @@
 import { buildAgentHTTPRequest } from "./agent-api-actions.js";
 import { callAgentAPI } from "./agent-api-http.js";
+import { buildCreateAgentNextSteps } from "./agent-admin-next-steps.js";
 import { resolveStrictToolAccountId } from "./account-binding.js";
 import { resolveGrixAccount, summarizeGrixAccounts } from "./accounts.js";
 import type { OpenClawCoreConfig } from "./types.js";
@@ -10,22 +11,6 @@ export type GrixAgentAdminToolParams = {
   avatarUrl?: string;
   describeMessageTool: Record<string, unknown>;
 };
-
-function buildAccountConfigSetCommand(params: {
-  accountId: string;
-  apiEndpoint: string;
-  agentId: string;
-  apiKeyPlaceholder: string;
-}): string {
-  const payload = {
-    name: params.accountId,
-    enabled: true,
-    apiKey: params.apiKeyPlaceholder,
-    wsUrl: params.apiEndpoint,
-    agentId: params.agentId,
-  };
-  return `openclaw config set channels.grix.accounts.${params.accountId} '${JSON.stringify(payload)}' --strict-json`;
-}
 
 function maskSecret(value: string): string {
   const normalized = String(value ?? "").trim();
@@ -102,20 +87,12 @@ export async function createGrixApiAgent(params: {
     data: sanitizeCreatedAgentData(data),
     nextSteps:
       agentName && apiEndpoint && agentId && apiKey
-        ? [
-            "Install and enable the channel plugin if it is not installed yet: `openclaw plugins install @dhf-openclaw/grix && openclaw plugins enable grix`.",
-            "Use the one-time `createdAgent.api_key` from this result as `<NEW_AGENT_API_KEY>` for the binding command, then stop sharing it in chat.",
-            `Bind the new API agent to OpenClaw with: \`${buildAccountConfigSetCommand({
-              accountId: `grix-${agentName}`,
-              apiEndpoint,
-              agentId,
-              apiKeyPlaceholder: "<NEW_AGENT_API_KEY>",
-            })}\``,
-            `Prepare local paths for the new agent: workspace \`~/.openclaw/workspace-${agentName}\` and agentDir \`~/.openclaw/agents/${agentName}/agent\`; create minimal \`AGENTS.md\`, \`MEMORY.md\`, and \`USER.md\` if they are missing.`,
-            'Merge and write the local agent config with `openclaw config set ... --strict-json`: update `agents.list`, `bindings`, `tools.profile`, `tools.alsoAllow`, and `tools.sessions.visibility`; keep existing entries instead of overwriting unrelated agents.',
-            'Set tool access to include `message`, `grix_query`, `grix_group`, and `grix_agent_admin`, then run `openclaw config validate` and re-read the written paths to confirm they exist.',
-            "Do not run `openclaw gateway restart` during an active install chat; the official config commands should hot-reload the changes.",
-          ]
+        ? buildCreateAgentNextSteps({
+            agentName,
+            apiEndpoint,
+            agentId,
+            apiKeyPlaceholder: "<NEW_AGENT_API_KEY>",
+          })
         : [],
   };
 }
