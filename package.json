@@ -28,7 +28,10 @@
     "README.md",
     "openclaw.plugin.json",
     "dist/index.js",
-    "skills"
+    "skills",
+    "!skills/**/__pycache__",
+    "!skills/**/__pycache__/**",
+    "!skills/**/*.pyc"
   ],
   "publishConfig": {
     "access": "public",

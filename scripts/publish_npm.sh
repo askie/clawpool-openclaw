@@ -289,7 +289,9 @@ const forbidden = files.filter((path) =>
   path.startsWith("src/") ||
   path.endsWith(".test.ts") ||
   path === "PUBLISH_CHECKLIST.md" ||
-  path.startsWith("scripts/")
+  path.startsWith("scripts/") ||
+  path.includes("/__pycache__/") ||
+  path.endsWith(".pyc")
 );
 if (missing.length || forbidden.length) {
   if (missing.length) {
