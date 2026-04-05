@@ -75,24 +75,37 @@
 
 ## Post-Create Handover
 
-After `code=0` (or when using `bind-local` mode), continue with local OpenClaw binding via bundled script:
+After `code=0` (or when using `bind-local` mode), continue with local OpenClaw binding through official CLI config commands:
 
-1. apply local changes directly:
-   - `scripts/grix_agent_bind.py configure-local-openclaw --agent-name <agent_name> --agent-id <agent_id> --api-endpoint '<api_endpoint>' --api-key '<api_key>' --apply`
-2. inspect after apply and use the result as the success gate:
-   - `scripts/grix_agent_bind.py inspect-local-openclaw --agent-name <agent_name>`
-3. read `runtime_reload` from the apply result:
-   - `temporary_hot_mode=true` means the script temporarily guarded the write with `gateway.reload.mode=hot`
-   - `restart_hint_detected=true` means the running OpenClaw build still wants a later manual restart before the new config becomes live
-
-Local apply writes and validates:
-
-1. `agents.list` entry
-2. `channels.grix.accounts.<agent_name>` entry
-3. `bindings` route for `channel=grix`
-4. required tools config
-5. the script temporarily guards the apply with `gateway.reload.mode=hot` so the install chat is not interrupted by auto-restart
-6. if `restart_hint_detected=true`, do not run `openclaw gateway restart` inside the install chat; tell the user the config is staged and needs a later manual restart to become live
+1. prepare local paths first:
+   - `workspace=~/.openclaw/workspace-<agent_name>`
+   - `agentDir=~/.openclaw/agents/<agent_name>/agent`
+   - create minimal `AGENTS.md` / `MEMORY.md` / `USER.md` when missing
+2. resolve `model` in this order:
+   - existing local agent entry's `model`
+   - `agents.defaults.model.primary`
+   - if still empty, stop and report missing model explicitly
+3. read current values; when a path is absent, treat it as empty object / empty array before merging:
+   - `channels.grix.accounts`
+   - `agents.list`
+   - `bindings`
+   - `tools.profile`
+   - `tools.alsoAllow`
+   - `tools.sessions.visibility`
+4. write merged config back with `openclaw config set ... --strict-json`:
+   - `channels.grix.accounts.<agent_name>`
+   - `agents.list`
+   - `bindings`
+   - `tools.profile`
+   - `tools.alsoAllow`
+   - `tools.sessions.visibility`
+   - if `channels.grix.enabled=false`, set it back to `true`
+5. validate after write:
+   - `openclaw config validate`
+   - `openclaw config get --json channels.grix.accounts.<agent_name>`
+   - `openclaw config get --json agents.list`
+   - `openclaw config get --json bindings`
+6. do not run `openclaw gateway restart` inside an active install chat; `openclaw config set` should hot-reload the config immediately
 
 ## bind-local Input Contract
 

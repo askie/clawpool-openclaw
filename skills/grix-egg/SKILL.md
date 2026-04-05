@@ -53,7 +53,7 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 - 没完成校验前，绝不能宣称安装成功。
 - 如果新建目标后又失败了，能安全回滚就先回滚；不能回滚就如实告诉用户当前残留状态。
 - 上下文已经给出 `install.target_agent_id` 或 `install.suggested_agent_name` 时，直接继续执行，不要再向用户确认目标、命名或用途；只有信息缺失、冲突或执行阻塞时才提问。
-- 安装私聊进行中时，禁止执行 `openclaw gateway restart`；本流程涉及的 `channels.*`、`agents`、`bindings`、`tools` 配置必须先切到 `gateway.reload.mode=hot` 再写入，避免自动重启打断当前任务。
+- 安装私聊进行中时，禁止执行 `openclaw gateway restart`；本流程涉及的本地 OpenClaw 配置必须通过 `openclaw config set` 逐项写入，让 OpenClaw 自己热重载。典型写入项是 `channels.grix.accounts.<agent_name>`、`agents.list`、`bindings`；禁止调用会直接改 `openclaw.json` 的脚本，也不要手工编辑 JSON。
 - 最终成功或失败时，必须发送一条独立的结构化安装状态消息。
 - 安装成功后，必须按顺序继续发送：目标 agent 的结构化资料卡消息，然后再发一条普通文字的下一步指引。
 - 结构化安装状态消息必须单独发送，不要和自然语言解释混在同一条里。
@@ -131,13 +131,22 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 8. 发送 `status=running`、`step=downloaded` 结构化状态消息。
 9. 安装 persona/openclaw 内容。
 10. 发送 `status=running`、`step=installed` 结构化状态消息。
-11. 用 OpenClaw 正规配置方式落地本地变更：优先执行 `scripts/grix_agent_bind.py configure-local-openclaw --apply`。该脚本会在写入前临时把 `gateway.reload.mode` 切到 `hot`，避免当前安装对话被自动重启打断；不要手工改完 `openclaw.json` 后再重启 gateway。
-12. 校验目标 agent 仍然可用。
-    - 如果绑定脚本结果里 `runtime_reload.restart_hint_detected=true`，说明当前 OpenClaw 版本仍要求后续重启才能真正启用新配置。此时不要自动重启；如实告诉用户“配置已写入，等待空闲时手动重启生效”，并发 `status=failed`、`error_code=manual_restart_required` 的结构化状态消息后结束。
+11. 先用 `openclaw config get --json` 读取当前 `channels.grix.accounts`、`agents.list`、`bindings`、`tools.profile`、`tools.alsoAllow`、`tools.sessions.visibility`；若个别路径不存在，按空对象 / 空数组处理，在现有值基础上合并本次目标项，不要覆盖掉其他已有配置。
+12. 用 `openclaw config set ... --strict-json` 逐项写入本地变更，推荐顺序如下：
+    - `openclaw config set channels.grix.accounts.<agent_name> '<ACCOUNT_JSON>' --strict-json`
+    - `openclaw config set agents.list '<NEXT_AGENTS_LIST_JSON>' --strict-json`
+    - `openclaw config set bindings '<NEXT_BINDINGS_JSON>' --strict-json`
+    - `openclaw config set tools.profile '"coding"' --strict-json`
+    - `openclaw config set tools.alsoAllow '["message","grix_query","grix_group","grix_agent_admin"]' --strict-json`
+    - `openclaw config set tools.sessions.visibility '"agent"' --strict-json`
+    - 不要调用 `grix_agent_bind.py`，也不要直接编辑 `~/.openclaw/openclaw.json`
+13. 执行 `openclaw config validate`，再用 `openclaw config get --json` 检查刚写入的 account / agent / binding / tools 都已存在且值正确。
+14. 校验目标 agent 仍然可用。
+    - 任一 `openclaw config get` / `set` / `validate` 失败 → 尝试回滚（含步骤4新建的远端 agent），无法回滚则如实告知残留状态 → 发 `failed` 结构化状态消息后结束。
     - 其他校验失败 → 尝试回滚（含步骤4新建的远端 agent），无法回滚则如实告知残留状态 → 发 `failed` 结构化状态消息后结束。
-13. 发送 `status=success` 结构化状态消息（带 `target_agent_id`）。
-14. 单独发送目标 agent 的结构化资料卡消息。
-15. 再发一条普通文字，告诉用户可以点开资料卡查看 agent 资料，并从资料页继续与它对话。
+15. 发送 `status=success` 结构化状态消息（带 `target_agent_id`）。
+16. 单独发送目标 agent 的结构化资料卡消息。
+17. 再发一条普通文字，告诉用户可以点开资料卡查看 agent 资料，并从资料页继续与它对话。
 
 ### `claude_existing`
 
@@ -147,13 +156,14 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 4. 发送 `status=running`、`step=downloaded` 结构化状态消息。
 5. 用 Claude 正规步骤安装 skill 包。
 6. 发送 `status=running`、`step=installed` 结构化状态消息。
-7. 如需写 OpenClaw 配置，只能走“先切 `gateway.reload.mode=hot` 再写入”的路径；不要在安装对话中执行 `openclaw gateway restart`。
-8. 校验目标 agent 仍然可用。
-    - 如果绑定脚本结果里 `runtime_reload.restart_hint_detected=true`，说明当前版本仍需要后续手动重启才能生效。不要自动重启；明确告诉用户配置已写入但待空闲时生效，并发 `failed/manual_restart_required` 结构化状态消息后结束。
+7. 如需写 OpenClaw 配置，先 `openclaw config get --json` 读取当前值，再用 `openclaw config set ... --strict-json` 写回；不要调用 `grix_agent_bind.py`，也不要直接编辑 `~/.openclaw/openclaw.json`。
+8. 如果写了 OpenClaw 配置，执行 `openclaw config validate`，并用 `openclaw config get --json` 检查目标项已存在；若涉及工具权限，同步检查 `tools.profile`、`tools.alsoAllow`、`tools.sessions.visibility`；不要在安装对话中执行 `openclaw gateway restart`。
+9. 校验目标 agent 仍然可用。
+    - 任一配置写入或校验失败 → 如实告知用户 → 发 `failed` 结构化状态消息后结束。
     - 其他校验失败 → 如实告知用户 → 发 `failed` 结构化状态消息后结束。
-9. 发送 `status=success` 结构化状态消息（带 `target_agent_id`）。
-10. 单独发送目标 agent 的结构化资料卡消息。
-11. 再发一条普通文字，告诉用户可以点开资料卡查看 agent 资料，并从资料页继续与它对话。
+10. 发送 `status=success` 结构化状态消息（带 `target_agent_id`）。
+11. 单独发送目标 agent 的结构化资料卡消息。
+12. 再发一条普通文字，告诉用户可以点开资料卡查看 agent 资料，并从资料页继续与它对话。
 
 ## 每次安装至少校验这些点
 
@@ -161,6 +171,9 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 - 包已成功下载
 - hash / manifest 校验通过（如果提供）
 - 安装内容已经落到目标位置
+- 涉及 OpenClaw 配置时，`openclaw config validate` 已通过
+- 涉及 OpenClaw 配置时，`channels.grix.accounts.<agent_name>`、`agents.list`、`bindings` 已包含目标项
+- 涉及 OpenClaw 配置时，`tools.profile="coding"`、`tools.alsoAllow`、`tools.sessions.visibility="agent"` 已符合预期
 - 目标 agent 安装后仍然可用
 - 实际安装路线没有偏离 `install.route`
 

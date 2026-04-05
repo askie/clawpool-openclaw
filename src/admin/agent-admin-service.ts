@@ -11,20 +11,20 @@ export type GrixAgentAdminToolParams = {
   describeMessageTool: Record<string, unknown>;
 };
 
-function buildChannelBootstrapCommand(params: {
-  channelName: string;
+function buildAccountConfigSetCommand(params: {
+  accountId: string;
   apiEndpoint: string;
   agentId: string;
   apiKeyPlaceholder: string;
 }): string {
-  return [
-    "openclaw channels add",
-    "--channel grix",
-    `--name ${JSON.stringify(params.channelName)}`,
-    `--http-url ${JSON.stringify(params.apiEndpoint)}`,
-    `--user-id ${JSON.stringify(params.agentId)}`,
-    `--token ${JSON.stringify(params.apiKeyPlaceholder)}`,
-  ].join(" ");
+  const payload = {
+    name: params.accountId,
+    enabled: true,
+    apiKey: params.apiKeyPlaceholder,
+    wsUrl: params.apiEndpoint,
+    agentId: params.agentId,
+  };
+  return `openclaw config set channels.grix.accounts.${params.accountId} '${JSON.stringify(payload)}' --strict-json`;
 }
 
 function maskSecret(value: string): string {
@@ -105,14 +105,16 @@ export async function createGrixApiAgent(params: {
         ? [
             "Install and enable the channel plugin if it is not installed yet: `openclaw plugins install @dhf-openclaw/grix && openclaw plugins enable grix`.",
             "Use the one-time `createdAgent.api_key` from this result as `<NEW_AGENT_API_KEY>` for the binding command, then stop sharing it in chat.",
-            `Bind the new API agent to OpenClaw with: \`${buildChannelBootstrapCommand({
-              channelName: `grix-${agentName}`,
+            `Bind the new API agent to OpenClaw with: \`${buildAccountConfigSetCommand({
+              accountId: `grix-${agentName}`,
               apiEndpoint,
               agentId,
               apiKeyPlaceholder: "<NEW_AGENT_API_KEY>",
             })}\``,
-            "After binding the channel, apply agents/bindings/tools changes through `openclaw config set` or the bundled `grix_agent_bind.py configure-local-openclaw --apply` flow.",
-            "Do not run `openclaw gateway restart` during an active install chat. Prefer a guarded apply flow that temporarily uses `gateway.reload.mode=hot` so the current conversation is not interrupted.",
+            `Prepare local paths for the new agent: workspace \`~/.openclaw/workspace-${agentName}\` and agentDir \`~/.openclaw/agents/${agentName}/agent\`; create minimal \`AGENTS.md\`, \`MEMORY.md\`, and \`USER.md\` if they are missing.`,
+            'Merge and write the local agent config with `openclaw config set ... --strict-json`: update `agents.list`, `bindings`, `tools.profile`, `tools.alsoAllow`, and `tools.sessions.visibility`; keep existing entries instead of overwriting unrelated agents.',
+            'Set tool access to include `message`, `grix_query`, `grix_group`, and `grix_agent_admin`, then run `openclaw config validate` and re-read the written paths to confirm they exist.',
+            "Do not run `openclaw gateway restart` during an active install chat; the official config commands should hot-reload the changes.",
           ]
         : [],
   };

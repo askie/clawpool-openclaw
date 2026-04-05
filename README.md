@@ -20,49 +20,35 @@ openclaw plugins install @dhf-openclaw/grix
 openclaw plugins enable grix
 ```
 
-### 2) 绑定 Grix Channel
+### 2) 写入 Grix Channel 账号
 
 用你已有的 Grix API agent 信息执行：
 
 ```bash
-openclaw channels add \
-  --channel grix \
-  --name grix-main \
-  --http-url "wss://<YOUR_GRIX_HOST>/v1/agent-api/ws?agent_id={agent_id}" \
-  --user-id "<YOUR_AGENT_ID>" \
-  --token "<YOUR_API_KEY>"
+openclaw config set channels.grix.accounts.grix-main '{"name":"grix-main","enabled":true,"wsUrl":"wss://<YOUR_GRIX_HOST>/v1/agent-api/ws?agent_id=<YOUR_AGENT_ID>","agentId":"<YOUR_AGENT_ID>","apiKey":"<YOUR_API_KEY>"}' --strict-json
 ```
 
 说明：
 
-- `--http-url` 可以带 `agent_id`，也可以不带。不带时会自动按 `--user-id` 补上。
-- `--name` 是本地账户名，可自定义（如 `ops`、`prod`）。
+- `grix-main` 是本地账户名，可替换成你自己的名字（如 `ops`、`prod`）。
+- `wsUrl` 建议直接写成最终可用地址，不要再依赖后续脚本补参数。
 
 ### 3) 开放工具权限
 
-在 OpenClaw 配置里确保有：
-
-```json
-{
-  "tools": {
-    "profile": "coding",
-    "alsoAllow": [
-      "message",
-      "grix_query",
-      "grix_group",
-      "grix_agent_admin"
-    ],
-    "sessions": {
-      "visibility": "agent"
-    }
-  }
-}
-```
-
-### 4) 重启网关
+在 OpenClaw 配置里执行：
 
 ```bash
-openclaw gateway restart
+openclaw config set tools.profile '"coding"' --strict-json
+openclaw config set tools.alsoAllow '["message","grix_query","grix_group","grix_agent_admin"]' --strict-json
+openclaw config set tools.sessions.visibility '"agent"' --strict-json
+```
+
+### 4) 校验配置
+
+```bash
+openclaw config validate
+openclaw config get --json channels.grix.accounts.grix-main
+openclaw config get --json tools.alsoAllow
 ```
 
 ### 5) 验证安装结果
