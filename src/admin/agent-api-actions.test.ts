@@ -6,6 +6,7 @@ test("isAgentHTTPActionName recognizes supported actions", () => {
   assert.equal(isAgentHTTPActionName("contact_search"), true);
   assert.equal(isAgentHTTPActionName("session_search"), true);
   assert.equal(isAgentHTTPActionName("message_history"), true);
+  assert.equal(isAgentHTTPActionName("message_search"), true);
   assert.equal(isAgentHTTPActionName("group_create"), true);
   assert.equal(isAgentHTTPActionName("group_leave_self"), true);
   assert.equal(isAgentHTTPActionName("group_member_speaking_update"), true);
@@ -91,6 +92,23 @@ test("buildAgentHTTPRequest builds message_history query", () => {
   assert.equal(req.path, "/messages/history");
   assert.deepEqual(req.query, {
     session_id: "task_room_1",
+    before_id: "98721",
+    limit: "20",
+  });
+});
+
+test("buildAgentHTTPRequest builds message_search query", () => {
+  const req = buildAgentHTTPRequest("message_search", {
+    sessionId: "task_room_1",
+    keyword: "日志",
+    beforeId: "98721",
+    limit: 20,
+  });
+  assert.equal(req.method, "GET");
+  assert.equal(req.path, "/messages/search");
+  assert.deepEqual(req.query, {
+    session_id: "task_room_1",
+    keyword: "日志",
     before_id: "98721",
     limit: "20",
   });

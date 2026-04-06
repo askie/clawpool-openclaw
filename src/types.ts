@@ -13,6 +13,17 @@ export type AibotExecApprovalConfig = {
   approvers?: Array<string | number>;
 };
 
+export type AibotContextMessagePayload = {
+  msg_id?: string | number;
+  sender_id?: string | number;
+  sender_type?: number;
+  msg_type?: number;
+  content?: string;
+  quoted_message_id?: string | number;
+  mention_user_ids?: Array<string | number>;
+  created_at?: number;
+};
+
 export type AibotEventMsgPayload = {
   event_id?: string;
   event_type?: AibotEventType;
@@ -25,6 +36,7 @@ export type AibotEventMsgPayload = {
   sender_id?: string | number;
   content?: string;
   mention_user_ids?: Array<string | number>;
+  context_messages?: AibotContextMessagePayload[];
   created_at?: number;
 };
 

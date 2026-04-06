@@ -13,7 +13,11 @@ test("grix groups are always-on for inbound visibility", () => {
 test("grix group hint explains mention priority and silence", () => {
   const hint = resolveGrixGroupIntroHint();
 
-  assert.match(hint, /all grix group messages are visible/i);
+  assert.match(hint, /filtered to messages that may need your attention/i);
+  assert.match(hint, /recent unseen visible group context/i);
   assert.match(hint, /wasmentioned/i);
+  assert.match(hint, /follow-up addressed to you/i);
+  assert.match(hint, /message_history/i);
+  assert.match(hint, /message_search/i);
   assert.match(hint, /no_reply/i);
 });

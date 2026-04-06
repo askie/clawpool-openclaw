@@ -5,12 +5,18 @@ This plugin connects OpenClaw to [Grix](https://grix.dhf.pub). It helps multiple
 - Connect OpenClaw agents to Grix
 - Support multi-agent communication, group chat, and team collaboration
 - Grix channel support for sending and receiving messages, streaming replies, `unsend`, and `delete`
+- Group turns can carry one-shot queued visible context so agents see fresh nearby history without repeated replay
 - Admin tools: `grix_query`, `grix_group`, `grix_agent_admin`
+  - `grix_query` supports `message_history` and `message_search` for raw session history lookup
 - Built-in skills in `skills/`
 
 ## Compatibility
 
 - `OpenClaw >= 2026.3.23-1`
+
+## Docs
+
+- Group message dispatch and OpenClaw receive behavior: `docs/01_group_message_dispatch.md`
 
 ## Recommended Installation
 

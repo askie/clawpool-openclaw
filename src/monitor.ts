@@ -29,6 +29,10 @@ import {
   resolveGrixDispatchResolution,
   resolveGrixInboundSemantics,
 } from "./group-semantics.js";
+import {
+  clearPendingInboundContext,
+  stagePendingInboundContext,
+} from "./inbound-context.js";
 
 type MarkdownTableMode = Parameters<PluginRuntime["channel"]["text"]["convertMarkdownTables"]>[1];
 
@@ -440,6 +444,7 @@ async function processEvent(params: {
   const eventId = toStringId(event.event_id);
   const quotedMessageId = normalizeNumericMessageId(event.quoted_message_id);
   const bodyForAgent = buildBodyWithQuotedReplyId(rawBody, quotedMessageId);
+  let stagedRouteSessionKey = "";
 
   const senderId = toStringId(event.sender_id);
   const semantics = resolveGrixInboundSemantics(event);
@@ -618,6 +623,12 @@ async function processEvent(params: {
     });
 
     const routeSessionKey = ctxPayload.SessionKey ?? route.sessionKey;
+    stagePendingInboundContext({
+      sessionKey: routeSessionKey,
+      messageSid,
+      contextMessages: event.context_messages,
+    });
+    stagedRouteSessionKey = routeSessionKey;
     await core.channel.session.recordInboundSession({
       storePath,
       sessionKey: routeSessionKey,
@@ -1067,6 +1078,10 @@ async function processEvent(params: {
     runtime.log(
       `[grix:${account.accountId}] active reply run clearing eventId=${activeRun?.eventId || "-"} stopRequested=${activeRun?.stopRequested === true} abortReason=${activeRun ? resolveAbortReason(activeRun.controller.signal) : "-"} visibleOutputSent=${visibleOutputSent}`,
     );
+    clearPendingInboundContext({
+      sessionKey: stagedRouteSessionKey,
+      expectedMessageSid: messageSid,
+    });
     clearActiveReplyRun(activeRun);
     if (!inboundEventAccepted) {
       releaseInboundEvent(inboundEvent.claim);

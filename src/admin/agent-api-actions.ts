@@ -4,6 +4,7 @@ export const AGENT_HTTP_ACTION_NAMES = [
   "contact_search",
   "session_search",
   "message_history",
+  "message_search",
   "group_create",
   "group_leave_self",
   "group_member_add",
@@ -543,6 +544,31 @@ function buildMessageHistoryRequest(params: Record<string, unknown>): AgentHTTPR
   };
 }
 
+function buildMessageSearchRequest(params: Record<string, unknown>): AgentHTTPRequest {
+  const sessionID = readRequiredStringParam(params, "sessionId");
+  const keyword = readRequiredStringParam(params, "keyword");
+  const beforeID = readStringParam(params, "beforeId");
+  const limit = readOptionalInt(params, "limit");
+
+  const query: Record<string, string> = {
+    session_id: sessionID,
+    keyword,
+  };
+  if (beforeID) {
+    query.before_id = beforeID;
+  }
+  if (limit != null) {
+    query.limit = String(limit);
+  }
+
+  return {
+    actionName: "message_search",
+    method: "GET",
+    path: "/messages/search",
+    query,
+  };
+}
+
 function buildAgentAPICreateRequest(params: Record<string, unknown>): AgentHTTPRequest {
   const agentName = readRequiredStringParam(params, "agentName");
   if (!AGENT_NAME_RE.test(agentName)) {
@@ -582,6 +608,8 @@ export function buildAgentHTTPRequest(
       return buildSessionSearchRequest(params);
     case "message_history":
       return buildMessageHistoryRequest(params);
+    case "message_search":
+      return buildMessageSearchRequest(params);
     case "group_create":
       return buildGroupCreateRequest(params);
     case "group_leave_self":

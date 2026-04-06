@@ -13,6 +13,10 @@ import {
   resolveGrixPluginConfig,
 } from "./src/plugin-config.js";
 import { buildGrixResumeHookResult } from "./src/resume-context.js";
+import {
+  buildPendingInboundContextPrompt,
+  mergePromptHookResults,
+} from "./src/inbound-context.js";
 
 const plugin = {
   id: "grix",
@@ -31,12 +35,19 @@ const plugin = {
       commands: ["grix"],
     });
     api.on("before_prompt_build", (event, ctx) =>
-      buildGrixResumeHookResult({
-        messages: event.messages,
-        trigger: ctx.trigger,
-        channelId: ctx.channelId,
-        config: pluginConfig.resumeContext,
-      }),
+      mergePromptHookResults(
+        buildGrixResumeHookResult({
+          messages: event.messages,
+          trigger: ctx.trigger,
+          channelId: ctx.channelId,
+          config: pluginConfig.resumeContext,
+        }),
+        {
+          prependContext: buildPendingInboundContextPrompt({
+            sessionKey: ctx.sessionKey,
+          }),
+        },
+      ),
     );
   },
 };

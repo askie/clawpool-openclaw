@@ -22,7 +22,15 @@ test("group_mention marks the current agent as explicitly mentioned", () => {
   assert.equal(semantics.mentionsOther, false);
   assert.match(
     buildGrixGroupSystemPrompt(semantics) ?? "",
+    /recent unseen visible context/i,
+  );
+  assert.match(
+    buildGrixGroupSystemPrompt(semantics) ?? "",
     /may return no_reply/i,
+  );
+  assert.match(
+    buildGrixGroupSystemPrompt(semantics) ?? "",
+    /message_history|message_search/i,
   );
 });
 
@@ -41,7 +49,15 @@ test("group_message with other mentions stays visible but optional", () => {
   assert.equal(semantics.mentionsOther, true);
   assert.match(
     buildGrixGroupSystemPrompt(semantics) ?? "",
+    /recent queued context/i,
+  );
+  assert.match(
+    buildGrixGroupSystemPrompt(semantics) ?? "",
     /someone else/i,
+  );
+  assert.match(
+    buildGrixGroupSystemPrompt(semantics) ?? "",
+    /grix_query/i,
   );
 });
 

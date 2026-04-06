@@ -62,7 +62,9 @@ export function buildGrixGroupSystemPrompt(
   if (semantics.wasMentioned) {
     return [
       "This group turn explicitly targeted you.",
+      "Recent unseen visible context may already be attached before the current message.",
       "Reply when it is useful or needed to complete the task.",
+      "If you need more earlier context, use grix_query with action=\"message_history\" or action=\"message_search\" first.",
       "If no reply is needed, you may return NO_REPLY.",
     ].join(" ");
   }
@@ -70,15 +72,21 @@ export function buildGrixGroupSystemPrompt(
   if (semantics.mentionsOther) {
     return [
       "This group turn explicitly targeted someone else, not you.",
+      "If recent queued context is attached, treat it as background unless it clearly pulls you in.",
       "You may reply only if you add clear value.",
+      "If earlier details matter before deciding, you may inspect them with grix_query history tools.",
       "Otherwise return NO_REPLY.",
       "Do not take action unless the task is clearly yours.",
     ].join(" ");
   }
 
   return [
-    "This group turn is visible context, not an explicit mention for you.",
-    "Reply only if it clearly helps the conversation.",
+    "This group turn is not an explicit mention for you.",
+    "It may be shared context, or it may be a routed follow-up that is still addressed to you.",
+    "Recent unseen visible context may already be attached before the current message.",
+    "Use recent context to decide whether the speaker is still talking to you.",
+    "If recent context is not enough, you may inspect older context with grix_query history tools before deciding.",
+    "Reply when it clearly helps the conversation.",
     "Otherwise return NO_REPLY.",
     "Do not take action unless the task is clearly yours.",
   ].join(" ");

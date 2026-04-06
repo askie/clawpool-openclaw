@@ -98,7 +98,9 @@ test("buildGrixResumeHookResult only injects for user-triggered grix turns", () 
     ],
   });
 
-  assert.match(hookResult?.prependSystemContext ?? "", /sessions_history/);
+  assert.match(hookResult?.prependSystemContext ?? "", /grix_query/);
+  assert.match(hookResult?.prependSystemContext ?? "", /message_history/);
+  assert.match(hookResult?.prependSystemContext ?? "", /message_search/);
   assert.match(hookResult?.prependSystemContext ?? "", /memory_search/);
   assert.match(hookResult?.prependContext ?? "", /Resume context:/);
 

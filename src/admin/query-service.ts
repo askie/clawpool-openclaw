@@ -8,6 +8,7 @@ export const GRIX_QUERY_TOOL_ACTIONS = [
   "contact_search",
   "session_search",
   "message_history",
+  "message_search",
 ] as const;
 
 export type GrixQueryToolAction = (typeof GRIX_QUERY_TOOL_ACTIONS)[number];
@@ -31,6 +32,8 @@ function mapQueryActionToRequestAction(action: GrixQueryToolAction) {
       return "session_search" as const;
     case "message_history":
       return "message_history" as const;
+    case "message_search":
+      return "message_search" as const;
     default:
       action satisfies never;
       throw new Error(`Unsupported Grix query action: ${String(action)}`);

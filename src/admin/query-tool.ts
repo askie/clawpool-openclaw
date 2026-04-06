@@ -42,6 +42,19 @@ export const GrixQueryToolSchema = {
       },
       required: ["action", "accountId", "sessionId"],
     },
+    {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        action: { const: "message_search" },
+        accountId: { type: "string", minLength: 1 },
+        sessionId: { type: "string", minLength: 1 },
+        keyword: { type: "string", minLength: 1 },
+        beforeId: { type: "string", pattern: "^[0-9]+$" },
+        limit: { type: "integer", minimum: 1 },
+      },
+      required: ["action", "accountId", "sessionId", "keyword"],
+    },
   ],
 } as const;
 
@@ -51,7 +64,7 @@ export function createGrixQueryTool(api: OpenClawPluginApi, ctx?: OpenClawPlugin
     name: "grix_query",
     label: "Grix Query",
     description:
-      "Search Grix contacts and sessions, or read session message history through typed query operations.",
+      "Search Grix contacts and sessions, read older session messages, or keyword-search raw session history through typed query operations.",
     parameters: GrixQueryToolSchema,
     async execute(_toolCallId: string, params: Record<string, unknown>) {
       try {

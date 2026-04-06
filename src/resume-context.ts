@@ -7,7 +7,7 @@ const NO_REPLY_RE = /^\s*NO_REPLY\b/i;
 
 const GRIX_RESUME_SYSTEM_CONTEXT = [
   "For Grix chats, treat any \"Resume context\" block as a convenience recap rather than ground truth.",
-  "When exact wording, ids, or older details matter, verify them against raw session history with sessions_history when that tool is available.",
+  "When exact wording, ids, or older details matter, use grix_query with action=\"message_history\" to read older raw session messages, or action=\"message_search\" to find relevant older messages by keyword, when those tools are available.",
   "When durable facts, decisions, or follow-ups should survive compaction, prefer recording them in memory files or using memory_search/memory_get when those tools are available.",
 ].join("\n");
 
