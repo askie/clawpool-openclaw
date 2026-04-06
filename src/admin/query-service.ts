@@ -16,6 +16,7 @@ export type GrixQueryToolParams = {
   action: GrixQueryToolAction;
   accountId: string;
   id?: string;
+  keyword?: string;
   sessionId?: string;
   beforeId?: string;
   limit?: number;

@@ -1,76 +1,25 @@
 ---
 name: message-send
-description: 发送私信消息。支持当前会话回复和跨会话私信。使用场景：(1) 需要给 owner/特定用户发送私信通知 (2) 跨会话发送消息 (3) 主动推送消息给指定目标。触发词：发私信、私信、发送消息、send message、notify。
+description: 发送消息。支持当前会话回复和跨会话发送。跨会话时使用准确的 `session_id` 或已存在的 `route.sessionKey` 作为 `to` 目标，不使用旧的 `target=agent:...` 格式。触发词：发私信、私信、发送消息、send message、notify。
 ---
 
 # 消息发送技能
 
 这个技能用于通过 OpenClaw 的 `message` 工具发送消息。
 
----
-
 ## 两种发送模式
 
 ### 1. 当前会话回复
 
-在当前聊天上下文中回复消息，不需要额外参数。
-
-**参数**：
-- `action`: "send"
-- `channel`: 当前渠道（如 "grix"）
-- `accountId`: 当前账号 ID
-- `message`: 消息内容
-
-**使用场景**：
-- 在当前对话中回复用户
-- 当前会话内的正常消息发送
-
-### 2. 跨会话私信
-
-脱离当前聊天上下文，给其他会话发送私信。
+如果就是回复当前 Grix 会话，直接发送，不需要额外提供目标会话。
 
 **参数**：
 - `action`: "send"
 - `channel`: "grix"
-- `accountId`: 发送账号 ID（如 "{accountId}"）
-- `target`: 目标会话标识（格式见下文）
+- `accountId`: 当前账号 ID
 - `message`: 消息内容
 
-**使用场景**：
-- 给 owner 发送通知/审批请求
-- 跨会话发送消息
-- 主动推送消息给指定目标
-
----
-
-## Target 格式说明
-
-### Grix 私信格式
-
-```
-target=agent:{agentId}:grix:direct:{sessionId}
-```
-
-**参数说明**：
-- `{agentId}`: 当前 agent 的 ID（如 "grix-developer"）
-- `{sessionId}`: 目标私聊会话的 session ID（UUID 格式）
-
 **示例**：
-```
-target=agent:grix-developer:grix:direct:e72ce987-2d2e-40ed-bcc9-b336b4974512
-```
-
-### 如何获取 sessionId
-
-1. **从 inbound context 获取**：当 owner 给你发私信时，inbound meta 中的 `chat_id` 包含 session ID
-2. **从 MEMORY.md 获取**：如果 workspace 的 MEMORY.md 记录了 owner 的会话 ID，直接使用
-3. **从会话列表获取**：通过 `sessions_list` 工具查找目标会话
-
----
-
-## 实际调用示例
-
-### 示例 1：当前会话回复
 
 ```json
 {
@@ -81,52 +30,85 @@ target=agent:grix-developer:grix:direct:e72ce987-2d2e-40ed-bcc9-b336b4974512
 }
 ```
 
-### 示例 2：给 owner 发私信
+### 2. 跨会话发送
+
+如果要发到别的私聊或群聊，使用 `to` 指向目标会话。
+
+**参数**：
+- `action`: "send"
+- `channel`: "grix"
+- `accountId`: 当前账号 ID
+- `to`: 目标会话标识
+- `message`: 消息内容
+
+**示例**：
 
 ```json
 {
   "action": "send",
   "channel": "grix",
   "accountId": "{accountId}",
-  "target": "agent:{agentId}:grix:direct:{ownerSessionId}",
+  "to": "{targetSessionId}",
   "message": "需要您确认一个开发决策：..."
 }
 ```
 
-### 示例 3：发送到群组
+## `to` 的真实写法
+
+当前插件认的是下面两类目标：
+
+1. 准确的 Grix `session_id`（推荐，通常是 UUID）
+2. 已存在于当前运行时中的 `route.sessionKey`
+
+推荐直接传裸 `session_id`：
+
+```text
+to=e72ce987-2d2e-40ed-bcc9-b336b4974512
+```
+
+兼容写法里，`grix:<session_id>` 或 `session:<session_id>` 也能被解析，但不要作为默认格式。
+
+不要使用这些旧写法：
+
+1. `target=agent:{agentId}:grix:direct:{sessionId}`
+2. 纯数字用户 ID / agent ID
+3. 不存在的会话别名
+
+## 如何获取目标会话
+
+1. 如果就是回复当前会话，直接省略 `to`
+2. 如果 MEMORY.md 已记录目标 `session_id`，直接复用
+3. 如果还不知道目标会话，先用 `grix_query` 的 `session_search` 找到准确 `session_id`
+
+示例：
 
 ```json
 {
   "action": "send",
   "channel": "grix",
   "accountId": "{accountId}",
-  "target": "{groupId}",
+  "to": "{groupSessionId}",
   "message": "任务已完成，请查看结果"
 }
 ```
-
----
 
 ## 关键参数说明
 
 | 参数 | 必填 | 说明 |
 |------|------|------|
-| `action` | ✅ | 固定值 "send" |
-| `channel` | ✅ | 渠道类型，如 "grix" |
-| `accountId` | ✅ | 发送账号 ID |
+| `action` | ✅ | 固定值 `"send"` |
+| `channel` | ✅ | 固定值 `"grix"` |
+| `accountId` | ✅ | 当前 Grix 账号 ID |
 | `message` | ✅ | 消息内容 |
-| `target` | 私信必填 | 目标会话标识（私信/群组） |
-
----
+| `to` | 跨会话必填 | 准确 `session_id` 或可解析的 `route.sessionKey` |
 
 ## 注意事项
 
-1. **区分 `target` 和 `to`**：Grix 使用 `target` 参数，不是 `to`
-2. **sessionId 是 UUID**：不要混淆用户 ID 和会话 ID
-3. **权限检查**：确保有目标会话的发送权限
-4. **消息格式**：支持纯文本和 markdown
-
----
+1. 使用 `to`，不要用 `target`
+2. `to` 优先传准确 `session_id`，不要混淆用户 ID、agent ID 和会话 ID
+3. 纯数字目标会直接失败，不会自动转成私聊
+4. 跨会话发消息前，先确认当前账号对目标会话有发送权限
+5. 消息内容支持纯文本和 markdown
 
 ## 会话卡片消息协议
 
@@ -169,12 +151,12 @@ target=agent:grix-developer:grix:direct:e72ce987-2d2e-40ed-bcc9-b336b4974512
 
 ### 使用要求
 
-1. 只有在**已知准确 `session_id`** 时，才允许输出 `conversation-card`。
-2. 如果没有 `session_id`，只能发送普通文本说明，不能伪造会话卡片。
-3. 不要输出 `chat://...`、网页链接、或“点这里打开会话”之类的自然语言链接替代方案。
-4. 不要构造前端内部 `biz_card` JSON，也不要尝试发送 Flutter/前端私有协议结构。
-5. `conversation-card` 必须单行发送，不要换行，不要在同一条指令里混入多余说明文字。
-6. 如果字段值包含特殊字符，先做 URI component 编码，再拼进指令文本。
+1. 只有在**已知准确 `session_id`** 时，才允许输出 `conversation-card`
+2. 如果没有 `session_id`，只能发送普通文本说明，不能伪造会话卡片
+3. 不要输出 `chat://...`、网页链接、或“点这里打开会话”之类的自然语言链接替代方案
+4. 不要构造前端内部 `biz_card` JSON，也不要尝试发送 Flutter/前端私有协议结构
+5. `conversation-card` 必须单行发送，不要换行，不要在同一条指令里混入多余说明文字
+6. 如果字段值包含特殊字符，先做 URI component 编码，再拼进指令文本
 
 ### 示例
 
@@ -190,36 +172,17 @@ target=agent:grix-developer:grix:direct:e72ce987-2d2e-40ed-bcc9-b336b4974512
 [[conversation-card|session_id=e72ce987-2d2e-40ed-bcc9-b336b4974512|session_type=private|title=Alice|peer_id=1001]]
 ```
 
-### 适用场景
-
-- 给 owner 或其他用户发送“请进入这个对话继续处理”的提醒
-- 发送“这是你要查看的群聊/私聊入口”的通知
-- 发送引用型对话入口，而不是发送完整对话记录内容
-
-### 不适用场景
-
-- 普通文本通知
-- 没有准确 `session_id` 的模糊提醒
-- 需要直接发送完整对话记录内容的场景
-- 仅仅告诉对方“我已经处理完了”，但并不需要跳转到某个具体会话的场景
-
----
-
 ## 错误处理
 
-常见错误及处理方式：
-
-- **target 不存在**：确认 session ID 是否正确
-- **权限不足**：检查 accountId 是否有目标会话的发送权限
-- **参数缺失**：确保必填参数都已提供
-- **格式错误**：检查 target 格式是否符合要求
-
----
+- `to` 无法解析：确认 `session_id` 或 `route.sessionKey` 是否正确
+- 权限不足：检查当前 `accountId` 是否有目标会话的发送权限
+- 参数缺失：确保必填参数都已提供
+- 目标格式错误：检查 `to` 是否是准确 `session_id` 或有效 `route.sessionKey`
 
 ## 最佳实践
 
-1. **记录 owner sessionId**：在 workspace 的 MEMORY.md 中记录 owner 的会话 ID，方便后续调用
-2. **使用变量**：在代码中使用 `{agentId}`、`{accountId}` 等变量，而不是硬编码
-3. **简洁明了**：私信消息应简洁，突出重点
-4. **适当使用**：不要滥用私信功能，避免打扰 owner
-5. **需要跳转时优先用会话卡片**：如果消息的核心目标是让对方打开某个已知会话，优先发送 `conversation-card` 指令，而不是发普通说明文字
+1. 跨会话发送时，优先记录和复用准确 `session_id`
+2. 需要找会话时，先用 `grix_query.session_search`
+3. 消息内容保持简洁，突出重点
+4. 不要滥用主动消息，避免打扰 owner
+5. 需要跳转时优先用会话卡片，而不是发普通说明文字

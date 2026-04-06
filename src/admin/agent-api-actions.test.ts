@@ -28,6 +28,26 @@ test("buildAgentHTTPRequest builds contact_search query", () => {
   });
 });
 
+test("buildAgentHTTPRequest builds contact_search keyword query", () => {
+  const req = buildAgentHTTPRequest("contact_search", {
+    keyword: "atlas user",
+    limit: 5,
+  });
+  assert.equal(req.method, "GET");
+  assert.equal(req.path, "/contacts/search");
+  assert.deepEqual(req.query, {
+    keyword: "atlas user",
+    limit: "5",
+  });
+});
+
+test("buildAgentHTTPRequest allows contact_search without filters", () => {
+  const req = buildAgentHTTPRequest("contact_search", {});
+  assert.equal(req.method, "GET");
+  assert.equal(req.path, "/contacts/search");
+  assert.equal(req.query, undefined);
+});
+
 test("buildAgentHTTPRequest builds session_search query", () => {
   const req = buildAgentHTTPRequest("session_search", {
     id: "task_room_1",
@@ -39,6 +59,26 @@ test("buildAgentHTTPRequest builds session_search query", () => {
     id: "task_room_1",
     limit: "5",
   });
+});
+
+test("buildAgentHTTPRequest builds session_search keyword query", () => {
+  const req = buildAgentHTTPRequest("session_search", {
+    keyword: "taskroom9083",
+    offset: 10,
+  });
+  assert.equal(req.method, "GET");
+  assert.equal(req.path, "/sessions/search");
+  assert.deepEqual(req.query, {
+    keyword: "taskroom9083",
+    offset: "10",
+  });
+});
+
+test("buildAgentHTTPRequest allows session_search without filters", () => {
+  const req = buildAgentHTTPRequest("session_search", {});
+  assert.equal(req.method, "GET");
+  assert.equal(req.path, "/sessions/search");
+  assert.equal(req.query, undefined);
 });
 
 test("buildAgentHTTPRequest builds message_history query", () => {
@@ -172,10 +212,6 @@ test("buildAgentHTTPRequest requires describeMessageTool for agent_api_create", 
       }),
     /requires describeMessageTool/,
   );
-});
-
-test("buildAgentHTTPRequest requires id for contact_search", () => {
-  assert.throws(() => buildAgentHTTPRequest("contact_search", {}), /requires id/);
 });
 
 test("buildAgentHTTPRequest builds group_detail_read query", () => {

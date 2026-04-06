@@ -165,6 +165,7 @@ def build_agent_result(action: str, result: dict):
         "handoff": {
             "target_skill": "grix-admin",
             "payload": {
+                "mode": "bind-local",
                 "agent_id": agent_id,
                 "agent_name": data.get("agent_name", ""),
                 "api_endpoint": api_endpoint,

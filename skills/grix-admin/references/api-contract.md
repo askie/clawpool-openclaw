@@ -25,6 +25,7 @@
 
 ```json
 {
+  "accountId": "primary",
   "agentName": "ops-assistant",
   "avatarUrl": "https://example.com/avatar.png",
   "describeMessageTool": {
@@ -32,6 +33,8 @@
   }
 }
 ```
+
+`accountId` is required for the typed `grix_agent_admin` tool. If the conversation did not hand it in explicitly, resolve the default local Grix account first, then pass the exact resolved ID.
 
 `agentName` validation rule for this skill:
 
@@ -61,7 +64,7 @@
 | HTTP/BizCode | Meaning | Skill Response |
 |---|---|---|
 | `403/20011` | `agent.api.create` scope missing | Ask owner to grant scope |
-| `401/10001` | invalid or missing auth | Check `api_key` and account config |
+| `401/10001` | invalid or missing auth | Check the current Grix account `apiKey` / `wsUrl` / `agentId` config |
 | `403/10002` | caller agent inactive / invalid provider | Ask owner to activate caller agent |
 | `409/20002` | duplicate agent name | Ask user for another `agent_name` |
 | `400/20004` | owner quota exceeded | Ask owner to clean up unused agents |

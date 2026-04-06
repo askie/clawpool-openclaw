@@ -29,11 +29,13 @@
 ```json
 {
   "agent_name": "grix-main",
-  "provider_type": 3
+  "provider_type": 3,
+  "is_main": true
 }
 ```
 
-`provider_type=3` means Agent API type.
+`provider_type=3` means Agent API type.  
+The bundled bootstrap flow uses `is_main=true` so the first API agent gets the full initial scope set.
 
 ## Reuse flow
 
@@ -66,7 +68,8 @@ The bundled script lifts these fields to the top level:
 
 成功后输出这些字段，直接交给 `grix-admin`：
 
-1. `agent_id`
-2. `agent_name`
-3. `api_endpoint`
-4. `api_key`
+1. `mode=bind-local`
+2. `agent_id`
+3. `agent_name`
+4. `api_endpoint`
+5. `api_key`

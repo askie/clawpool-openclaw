@@ -465,13 +465,18 @@ function buildGroupDetailReadRequest(params: Record<string, unknown>): AgentHTTP
 }
 
 function buildContactSearchRequest(params: Record<string, unknown>): AgentHTTPRequest {
-  const id = readRequiredStringParam(params, "id");
+  const id = readStringParam(params, "id");
+  const keyword = readStringParam(params, "keyword");
   const limit = readOptionalInt(params, "limit");
   const offset = readOptionalInt(params, "offset");
 
-  const query: Record<string, string> = {
-    id,
-  };
+  const query: Record<string, string> = {};
+  if (id) {
+    query.id = id;
+  }
+  if (keyword) {
+    query.keyword = keyword;
+  }
   if (limit != null) {
     query.limit = String(limit);
   }
@@ -483,18 +488,23 @@ function buildContactSearchRequest(params: Record<string, unknown>): AgentHTTPRe
     actionName: "contact_search",
     method: "GET",
     path: "/contacts/search",
-    query,
+    ...(Object.keys(query).length > 0 ? { query } : {}),
   };
 }
 
 function buildSessionSearchRequest(params: Record<string, unknown>): AgentHTTPRequest {
-  const id = readRequiredStringParam(params, "id");
+  const id = readStringParam(params, "id");
+  const keyword = readStringParam(params, "keyword");
   const limit = readOptionalInt(params, "limit");
   const offset = readOptionalInt(params, "offset");
 
-  const query: Record<string, string> = {
-    id,
-  };
+  const query: Record<string, string> = {};
+  if (id) {
+    query.id = id;
+  }
+  if (keyword) {
+    query.keyword = keyword;
+  }
   if (limit != null) {
     query.limit = String(limit);
   }
@@ -506,7 +516,7 @@ function buildSessionSearchRequest(params: Record<string, unknown>): AgentHTTPRe
     actionName: "session_search",
     method: "GET",
     path: "/sessions/search",
-    query,
+    ...(Object.keys(query).length > 0 ? { query } : {}),
   };
 }
 

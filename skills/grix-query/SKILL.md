@@ -1,6 +1,6 @@
 ---
 name: grix-query
-description: Use the typed `grix_query` tool for Grix contact search, session search, and session message history lookup. Trigger when users ask to find contacts, locate a conversation, or inspect recent messages in a known session.
+description: Use the typed `grix_query` tool for Grix contact lookup, keyword search, session search, and session message history lookup. Trigger when users ask to find contacts, search conversations, list visible sessions, or inspect recent messages in a known session.
 ---
 
 # Grix Query
@@ -13,9 +13,10 @@ This skill is only for querying existing contacts, sessions, and message history
 1. Parse the user request into one action:
    `contact_search`, `session_search`, or `message_history`.
 2. Validate required fields before any tool call.
-3. Call `grix_query` exactly once per business action.
-4. If the user wants message history but no `sessionId` is known, locate the target session first through `session_search` or ask the user for a precise target.
-5. Return exact remediation for scope, auth, and parameter failures.
+3. Start with one `grix_query` call for the first page.
+4. If the result is paginated and `has_more` is `true`, continue paging when the user asked for all results, when the target is still unresolved, or when one page is clearly insufficient.
+5. If the user wants message history but no `sessionId` is known, locate the target session first through `session_search` or ask the user for a precise target.
+6. Return exact remediation for scope, auth, and parameter failures.
 
 ## Tool Contract
 
@@ -23,15 +24,19 @@ For Grix query actions, always call:
 
 1. Tool: `grix_query`
 2. `action`: one of `contact_search`, `session_search`, or `message_history`
-3. `accountId`: optional; include it when the configured account is ambiguous
+3. `accountId`: required; pass the exact current Grix account ID
 
 Rules:
 
 1. Pass query parameters with their exact typed field names.
-2. For `contact_search` and `session_search`: `id` is optional. When omitted, returns a paginated list of all contacts or sessions.
-3. Use `sessionId`, `beforeId`, and `limit` explicitly for message history.
-4. Never invent a `sessionId`. Resolve it from context, from a previous tool result, or ask the user.
-5. Keep one tool call per action for audit clarity.
+2. For `contact_search` and `session_search`, use exactly one of these modes:
+   exact lookup with `id`, keyword search with `keyword`, or list-all with neither.
+3. If both `id` and `keyword` are present, the backend will prioritize `id`; avoid sending both unless you explicitly want exact-match behavior.
+4. Use `sessionId`, `beforeId`, and `limit` explicitly for message history.
+5. Never invent a `sessionId`. Resolve it from context, from a previous tool result, or ask the user.
+6. Use one tool call per page. Repeated calls are allowed only for pagination or for resolving an ambiguous target.
+7. When paging `contact_search` or `session_search`, keep the same filter and advance `offset`.
+8. When paging `message_history`, reuse the same `sessionId` and set `beforeId` to the oldest message ID from the previous page.
 
 ## Lookup Usage
 
@@ -52,6 +57,7 @@ Examples:
 ```json
 {
   "action": "contact_search",
+  "accountId": "primary",
   "id": "1002"
 }
 ```
@@ -59,32 +65,59 @@ Examples:
 ```json
 {
   "action": "session_search",
+  "accountId": "primary",
   "id": "task_room_9083"
+}
+```
+
+### Keyword Search
+
+When the user provides a fuzzy name, title, username, or other search phrase, pass `keyword`:
+
+```json
+{
+  "action": "contact_search",
+  "accountId": "primary",
+  "keyword": "atlas user"
+}
+```
+
+```json
+{
+  "action": "session_search",
+  "accountId": "primary",
+  "keyword": "taskroom9083"
 }
 ```
 
 ### List All (without ID or keyword)
 
-When the user asks to list all contacts or sessions, call without `id`:
+When the user asks to list all contacts or sessions, call without `id` and without `keyword`:
 
 ```json
 {
-  "action": "contact_search"
+  "action": "contact_search",
+  "accountId": "primary"
 }
 ```
 
 ```json
 {
-  "action": "session_search"
+  "action": "session_search",
+  "accountId": "primary"
 }
 ```
 
 Returns a paginated result with `has_more`, `list`, and default page size of 20.
 Use `limit` and `offset` to paginate through results.
 
+If the user asks for all results, keep fetching additional pages until `has_more` is `false`.
+If the user only needs one match or one page is enough to answer, stop after the first sufficient page.
+
 ```json
 {
   "action": "contact_search",
+  "accountId": "primary",
   "limit": 50,
   "offset": 20
 }
@@ -96,43 +129,55 @@ Use `limit` and `offset` to paginate through results.
 
 Purpose: search the owner's Grix contact directory.
 
-**Without parameters**: returns all contacts (friends + agents) in a paginated list, sorted by created_at descending. Default page size 20.
+**Without `id` and without `keyword`**: returns all contacts (friends + agents) in a paginated list, sorted by `created_at` descending. Default page size 20.
 
 **With `id`**: returns the exact matching contact record.
+
+**With `keyword`**: searches contact remark name, nickname, username, and numeric ID prefix.
 
 Input:
 
 1. `id` (contact ID, numeric string) — optional
-2. `limit` — optional, default 20
-3. `offset` — optional, default 0
+2. `keyword` — optional
+3. `limit` — optional, default 20
+4. `offset` — optional, default 0
 
 Guardrails:
 
 1. Use `id` when the target contact ID is already known and you need the exact entry.
-2. Without `id`, the result includes both user contacts and agent contacts merged and sorted.
-3. Check `has_more` to determine if additional pages exist.
-4. Do not jump directly to session history from a vague contact hint; resolve the contact or session first.
+2. Use `keyword` for fuzzy search; do not use `id` for partial matches.
+3. Without `id` and `keyword`, the result includes both user contacts and agent contacts merged and sorted.
+4. Check `has_more` to determine if additional pages exist.
+5. When paging, keep the same filters and increase `offset` by the number of items already fetched.
+6. If the user asked for all matches, continue until `has_more` is `false`.
+7. Do not jump directly to session history from a vague contact hint; resolve the contact or session first.
 
 ### session_search
 
 Purpose: search the owner's visible sessions.
 
-**Without parameters**: returns all visible sessions in a paginated list, ordered by pinned status and last_active_at. Default page size 20.
+**Without `id` and without `keyword`**: returns all visible sessions in a paginated list, ordered by pinned status and `last_active_at`. Default page size 20.
 
 **With `id`**: returns the exact matching session.
+
+**With `keyword`**: searches session title and `session_id`.
 
 Input:
 
 1. `id` (session ID) — optional
-2. `limit` — optional, default 20
-3. `offset` — optional, default 0
+2. `keyword` — optional
+3. `limit` — optional, default 20
+4. `offset` — optional, default 0
 
 Guardrails:
 
 1. Use `id` when the target session ID is already known.
-2. Without `id`, the result shows all sessions the agent can see.
-3. Check `has_more` to determine if additional pages exist.
-4. If multiple sessions match, present the candidates and let the user choose before reading history.
+2. Use `keyword` for fuzzy search by title or session ID text.
+3. Without `id` and `keyword`, the result shows all sessions the agent can see.
+4. Check `has_more` to determine if additional pages exist.
+5. When paging, keep the same filters and increase `offset` by the number of items already fetched.
+6. If the user asked for all matches, continue until `has_more` is `false`.
+7. If multiple sessions match, present the candidates and let the user choose before reading history.
 
 ### message_history
 
@@ -151,7 +196,9 @@ Guardrails:
 
 1. Only call this after the target session is unambiguous.
 2. Use `beforeId` only for older-page pagination.
-3. Do not claim to have full history if only one page was fetched.
+3. For the next page, set `beforeId` to the oldest message ID returned in the previous page.
+4. If the user asked for more history and `has_more` is `true`, keep paging until enough history is collected or no more pages remain.
+5. Do not claim to have full history if only one page was fetched.
 
 ## Error Handling Rules
 
@@ -173,5 +220,6 @@ Guardrails:
 1. State the query result first.
 2. Include key identifiers from successful lookups:
    `peer_id` / `peer_type` for contacts, `session_id` for sessions, and message identifiers for history.
-3. If history results may be partial, state that clearly.
-4. Never hide scope or auth errors behind generic wording.
+3. If only part of a paginated result was fetched, state that clearly.
+4. If multiple pages were fetched, summarize that the answer is merged from several pages.
+5. Never hide scope or auth errors behind generic wording.

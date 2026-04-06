@@ -64,12 +64,12 @@ description: 负责 OpenClaw 本地配置与后续 agent 管理；支持接收 g
 
 1. `agentName`（必填）：`^[a-z][a-z0-9-]{2,31}$`
 2. `describeMessageTool`（必填）：`actions` 非空
-3. `accountId`（可选）
+3. `accountId`（必填）：当前 Grix 账号 ID；如果上下文没明给，先从本地默认账号解析出确切值再传给 `grix_agent_admin`
 4. `avatarUrl`（可选）
 
 执行规则：
 
-1. 先确认本地已经有可用的 Grix 账号配置，位置是 `channels.grix.accounts.<accountId>`；如果当前上下文没给 `accountId`，按默认账号处理。
+1. 先确认本地已经有可用的 Grix 账号配置，位置是 `channels.grix.accounts.<accountId>`。
 2. 若目标账号缺失、禁用，或 `apiKey` / `wsUrl` / `agentId` 任一为空，说明主通道还没完成，不做本模式，立刻切回 `grix-register`。
 3. 若本地主通道已存在，再调用 `grix_agent_admin` 创建远端 agent（仅一次，不自动重试）。
 4. 创建成功后，执行本地绑定（同 Mode A）。
@@ -90,7 +90,7 @@ description: 负责 OpenClaw 本地配置与后续 agent 管理；支持接收 g
 1. `bind-local` 缺少字段：明确指出缺哪个字段并停止。
 2. invalid name（Mode B）：要求用户提供合法小写英文名。
 3. `403/20011`：提示 owner 授权 `agent.api.create`。
-4. `401/10001`：检查本地 `agent_api_key` 或 grix 账号配置。
+4. `401/10001`：检查当前 Grix 账号配置里的 `apiKey` / `wsUrl` / `agentId` 是否正确。
 5. `409/20002`：要求更换 agent 名称。
 6. 本地配置失败：返回失败命令与结果并停止；重点说明是哪一步 `get` / `set` / `validate` 失败。
 

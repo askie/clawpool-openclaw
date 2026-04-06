@@ -44,7 +44,7 @@ description: 仅用于初次安装阶段，完成 Grix 环境的账号注册/登
 scripts/grix_auth.py create-api-agent --access-token "<token>" --agent-name "<agent名称>"
 ```
 
-若同名 `provider_type=3` Agent 已存在，脚本会自动轮换 API Key 后复用。
+这一步会按后端真实接口创建首个 `provider_type=3` 的主 API agent（`is_main=true`），让它拿到完整初始 scopes。若同名 `provider_type=3` Agent 已存在，脚本会自动轮换 API Key 后复用。
 
 ### 4. 强制移交给 grix-admin
 

@@ -15,9 +15,15 @@ Map high-level governance actions to Aibot Agent API HTTP routes.
 
 | Action | Method | Route | Required Scope |
 |---|---|---|---|
+| `group_detail_read` | `GET` | `/sessions/group/detail` | `group.detail.read` |
 | `group_create` | `POST` | `/sessions/create_group` | `group.create` |
 | `group_leave_self` | `POST` | `/sessions/leave` | - |
 | `group_member_add` | `POST` | `/sessions/members/add` | `group.member.add` |
+| `group_member_remove` | `POST` | `/sessions/members/remove` | `group.member.remove` |
+| `group_member_role_update` | `POST` | `/sessions/members/role` | `group.member.role.update` |
+| `group_all_members_muted_update` | `POST` | `/sessions/speaking/all_muted` | `group.speaking.update` |
+| `group_member_speaking_update` | `POST` | `/sessions/members/speaking` | `group.speaking.update` |
+| `group_dissolve` | `POST` | `/sessions/dissolve` | `group.dissolve` |
 
 ## OpenClaw Tool Mapping
 
@@ -25,15 +31,15 @@ Use the native `grix_group` tool with typed fields:
 
 | Tool action | HTTP action | Required fields |
 |---|---|---|
-| `create` | `group_create` | `name` |
-| `detail` | `group_detail_read` | `sessionId` |
-| `leave` | `group_leave_self` | `sessionId` |
-| `add_members` | `group_member_add` | `sessionId`, `memberIds` |
-| `remove_members` | `group_member_remove` | `sessionId`, `memberIds` |
-| `update_member_role` | `group_member_role_update` | `sessionId`, `memberId`, `role` |
-| `update_all_members_muted` | `group_all_members_muted_update` | `sessionId`, `allMembersMuted` |
-| `update_member_speaking` | `group_member_speaking_update` | `sessionId`, `memberId`, `isSpeakMuted` or `canSpeakWhenAllMuted` |
-| `dissolve` | `group_dissolve` | `sessionId` |
+| `create` | `group_create` | `accountId`, `name` |
+| `detail` | `group_detail_read` | `accountId`, `sessionId` |
+| `leave` | `group_leave_self` | `accountId`, `sessionId` |
+| `add_members` | `group_member_add` | `accountId`, `sessionId`, `memberIds` |
+| `remove_members` | `group_member_remove` | `accountId`, `sessionId`, `memberIds` |
+| `update_member_role` | `group_member_role_update` | `accountId`, `sessionId`, `memberId`, `role` |
+| `update_all_members_muted` | `group_all_members_muted_update` | `accountId`, `sessionId`, `allMembersMuted` |
+| `update_member_speaking` | `group_member_speaking_update` | `accountId`, `sessionId`, `memberId`, `isSpeakMuted` or `canSpeakWhenAllMuted` |
+| `dissolve` | `group_dissolve` | `accountId`, `sessionId` |
 
 ## Payload Templates
 
@@ -42,6 +48,7 @@ Use the native `grix_group` tool with typed fields:
 ```json
 {
   "action": "create",
+  "accountId": "primary",
   "name": "项目协作群",
   "memberIds": ["1002", "9991"],
   "memberTypes": [1, 2]
@@ -53,6 +60,7 @@ Use the native `grix_group` tool with typed fields:
 ```json
 {
   "action": "add_members",
+  "accountId": "primary",
   "sessionId": "task_room_9083",
   "memberIds": ["1003"],
   "memberTypes": [1]
@@ -64,6 +72,7 @@ Use the native `grix_group` tool with typed fields:
 ```json
 {
   "action": "leave",
+  "accountId": "primary",
   "sessionId": "task_room_9083"
 }
 ```

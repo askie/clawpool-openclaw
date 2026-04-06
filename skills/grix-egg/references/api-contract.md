@@ -17,9 +17,9 @@ Use only these entry points for remote communication:
 
 | Install intent | Tool | Notes |
 |---|---|---|
-| Contact/session/message lookup | `grix_query` | Read-only queries |
-| Group lifecycle and membership ops | `grix_group` | Governance operations |
-| Create remote API agent | `grix_agent_admin` | Returns `id`, `agent_name`, `api_endpoint`, `api_key`, `api_key_hint` |
+| Contact/session/message lookup | `grix_query` | Read-only queries; every call must include the exact current `accountId`; contact/session search may need pagination |
+| Group lifecycle and membership ops | `grix_group` | Governance operations; every call must include the exact current `accountId` |
+| Create remote API agent | `grix_agent_admin` | Returns `id`, `agent_name`, `api_endpoint`, `api_key`, `api_key_hint`; every call must include the exact current `accountId` |
 
 Local OpenClaw binding remains a local CLI operation via the official `openclaw` commands:
 
@@ -44,5 +44,6 @@ Local OpenClaw binding remains a local CLI operation via the official `openclaw`
 
 1. Scope/auth/parameter errors: no automatic retry.
 2. Transient network failure: at most one retry, and only after explicit confirmation.
-3. Installation status payloads (`channelData.grix.eggInstall`) must still be emitted on terminal success/failure.
-4. On terminal success, emit one additional agent profile payload (`channelData.grix.userProfile`) for the final target agent before sending the plain-language next-step guidance.
+3. Pagination is not a retry: `grix_query` can continue with additional pages when the current page is insufficient.
+4. Installation status payloads (`channelData.grix.eggInstall`) must still be emitted on terminal success/failure.
+5. On terminal success, emit one additional agent profile payload (`channelData.grix.userProfile`) for the final target agent before sending the plain-language next-step guidance.

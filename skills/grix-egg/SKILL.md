@@ -49,7 +49,7 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 - 需要创建远端 API agent 时，使用 `grix_agent_admin`。
 - 所有远端 API 通讯都必须走统一工具入口：`grix_query` / `grix_group` / `grix_agent_admin`，禁止在对话里自行发 HTTP 请求。
 - 禁止使用 `curl`、`fetch`、`axios` 或临时脚本直连 `/v1/agent-api`。
-- 单个业务动作只调用一次对应工具，失败后先说明原因，不要静默重试。
+- 单页查询或单次变更动作只调用一次对应工具；只有分页读取或解析目标仍然不明确时，才允许继续调用下一次。
 - 必须以 `install.route` 为准执行，不要自己重新选路线。
 - `openclaw_create_new` / `openclaw_existing` 只能安装 persona/openclaw 包。
 - `claude_existing` 只能安装 skill.zip。
@@ -126,7 +126,8 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 
 1. 不直接拼接 `Authorization` 或手工构造 `/v1/agent-api/*` 请求。
 2. 不写临时通讯脚本，不走隐藏协议。
-3. 优先复用 `accountId`；若上下文有歧义，先确认后再调用工具。
+3. 每次 typed tool 调用都要带上准确的当前 `accountId`。
+4. `grix_query` 遇到分页结果时，若当前页不足以完成安装判断，继续按分页规则取后续页。
 
 ## 推荐流程
 
