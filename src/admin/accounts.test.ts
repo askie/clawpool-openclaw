@@ -56,24 +56,7 @@ test("resolveGrixAccount merges base and account-scoped config", () => {
   assert.equal(account.apiBaseUrl, "https://api.dev.local/v1/agent-api");
 });
 
-test("resolveGrixAccount keeps apiBaseUrl empty when wsUrl is configured", (t) => {
-  const previousWebBase = process.env.GRIX_WEB_BASE_URL;
-  const previousAgentBase = process.env.GRIX_AGENT_API_BASE;
-  delete process.env.GRIX_AGENT_API_BASE;
-  process.env.GRIX_WEB_BASE_URL = "http://127.0.0.1:27180/v1/agent-api/";
-  t.after(() => {
-    if (previousAgentBase == null) {
-      delete process.env.GRIX_AGENT_API_BASE;
-    } else {
-      process.env.GRIX_AGENT_API_BASE = previousAgentBase;
-    }
-    if (previousWebBase == null) {
-      delete process.env.GRIX_WEB_BASE_URL;
-    } else {
-      process.env.GRIX_WEB_BASE_URL = previousWebBase;
-    }
-  });
-
+test("resolveGrixAccount keeps apiBaseUrl empty when wsUrl is configured", () => {
   const account = resolveGrixAccount({
     cfg: {
       channels: {
@@ -94,24 +77,7 @@ test("resolveGrixAccount keeps apiBaseUrl empty when wsUrl is configured", (t) =
   assert.equal(account.apiBaseUrl, "");
 });
 
-test("resolveGrixAccount uses GRIX_WEB_BASE_URL only when wsUrl is missing", (t) => {
-  const previousWebBase = process.env.GRIX_WEB_BASE_URL;
-  const previousAgentBase = process.env.GRIX_AGENT_API_BASE;
-  delete process.env.GRIX_AGENT_API_BASE;
-  process.env.GRIX_WEB_BASE_URL = "http://127.0.0.1:27180/v1/agent-api/";
-  t.after(() => {
-    if (previousAgentBase == null) {
-      delete process.env.GRIX_AGENT_API_BASE;
-    } else {
-      process.env.GRIX_AGENT_API_BASE = previousAgentBase;
-    }
-    if (previousWebBase == null) {
-      delete process.env.GRIX_WEB_BASE_URL;
-    } else {
-      process.env.GRIX_WEB_BASE_URL = previousWebBase;
-    }
-  });
-
+test("resolveGrixAccount keeps apiBaseUrl empty when wsUrl is missing", () => {
   const account = resolveGrixAccount({
     cfg: {
       channels: {
@@ -128,7 +94,7 @@ test("resolveGrixAccount uses GRIX_WEB_BASE_URL only when wsUrl is missing", (t)
     accountId: "ops",
   });
 
-  assert.equal(account.apiBaseUrl, "http://127.0.0.1:27180/v1/agent-api");
+  assert.equal(account.apiBaseUrl, "");
 });
 
 test("resolveGrixAccount strict scope requires explicit account entry", () => {
@@ -151,22 +117,7 @@ test("resolveGrixAccount strict scope requires explicit account entry", () => {
   );
 });
 
-test("resolveGrixAccount strict scope does not fall back to global env", (t) => {
-  const previousWs = process.env.GRIX_WS_URL;
-  const previousAgentId = process.env.GRIX_AGENT_ID;
-  const previousApiKey = process.env.GRIX_API_KEY;
-  process.env.GRIX_WS_URL = "wss://global.example/v1/agent-api/ws";
-  process.env.GRIX_AGENT_ID = "global-agent";
-  process.env.GRIX_API_KEY = "global-key";
-  t.after(() => {
-    if (previousWs == null) delete process.env.GRIX_WS_URL;
-    else process.env.GRIX_WS_URL = previousWs;
-    if (previousAgentId == null) delete process.env.GRIX_AGENT_ID;
-    else process.env.GRIX_AGENT_ID = previousAgentId;
-    if (previousApiKey == null) delete process.env.GRIX_API_KEY;
-    else process.env.GRIX_API_KEY = previousApiKey;
-  });
-
+test("resolveGrixAccount strict scope does not derive wsUrl from agentId", () => {
   const account = resolveGrixAccount({
     cfg: {
       channels: {

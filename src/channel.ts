@@ -191,7 +191,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
         connected: false,
         lastError: account.configured
           ? null
-          : "missing wsUrl/agentId/apiKey (or GRIX_WS_URL/GRIX_AGENT_ID/GRIX_API_KEY)",
+          : "missing wsUrl/agentId/apiKey",
         dmPolicy: account.config.dmPolicy ?? "open",
         tokenSource: account.apiKey ? "config" : "none",
         mode: "block_streaming",
@@ -439,8 +439,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
               channel: "grix",
               accountId: account.accountId,
               kind: "config",
-              message:
-                "Grix account is not configured. Set wsUrl/agentId/apiKey (or GRIX_WS_URL/GRIX_AGENT_ID/GRIX_API_KEY).",
+              message: "Grix account is not configured. Set wsUrl/agentId/apiKey.",
             },
           ];
         }

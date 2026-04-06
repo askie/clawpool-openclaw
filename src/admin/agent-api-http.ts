@@ -24,7 +24,6 @@ type AgentAPIEnvelope<TData = unknown> = {
 
 type AgentAPIBaseSource =
   | "account_api_base_url"
-  | "env_grix_agent_api_base"
   | "local_ws_url"
   | "derived_from_ws_url";
 
@@ -43,14 +42,6 @@ function logAgentAPIInfo(message: string): void {
 
 function logAgentAPIError(message: string): void {
   console.error(`[grix:agent-api] ${message}`);
-}
-
-function resolveExplicitAgentAPIBase(): string {
-  const base = String(process.env.GRIX_AGENT_API_BASE ?? "").trim();
-  if (!base) {
-    return "";
-  }
-  return trimTrailingSlash(base);
 }
 
 function deriveAgentAPIBaseFromWsUrl(wsUrl: string): string {
@@ -127,17 +118,7 @@ function resolveAgentAPIBaseInfo(account: ResolvedGrixAccount): ResolvedAgentAPI
       source: "derived_from_ws_url",
     };
   }
-  const explicit = resolveExplicitAgentAPIBase();
-  if (explicit) {
-    return {
-      base: explicit,
-      source: "env_grix_agent_api_base",
-    };
-  }
-  return {
-    base: deriveAgentAPIBaseFromWsUrl(normalizedWsUrl),
-    source: "derived_from_ws_url",
-  };
+  throw new Error("Grix account apiBaseUrl/wsUrl is missing");
 }
 
 export function resolveAgentAPIBase(account: ResolvedGrixAccount): string {

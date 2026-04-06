@@ -76,11 +76,9 @@ function appendAgentIdToWsUrl(rawWsUrl: string, agentId: string): string {
 }
 
 function resolveWsUrl(merged: GrixAccountConfig, agentId: string): string {
-  const envWs = normalizeNonEmpty(process.env.GRIX_WS_URL);
   const cfgWs = normalizeNonEmpty(merged.wsUrl);
-  const ws = cfgWs || envWs;
-  if (ws) {
-    return appendAgentIdToWsUrl(ws, agentId);
+  if (cfgWs) {
+    return appendAgentIdToWsUrl(cfgWs, agentId);
   }
   if (!agentId) {
     return "";
@@ -93,12 +91,7 @@ function resolveAgentAPIBaseUrl(merged: GrixAccountConfig): string {
   if (cfgBase) {
     return cfgBase;
   }
-  if (normalizeNonEmpty(merged.wsUrl)) {
-    return "";
-  }
-  const envBase = trimTrailingSlash(normalizeNonEmpty(process.env.GRIX_AGENT_API_BASE));
-  const webBase = trimTrailingSlash(normalizeNonEmpty(process.env.GRIX_WEB_BASE_URL));
-  return envBase || webBase;
+  return "";
 }
 
 function resolveStrictAccountConfig(
@@ -189,10 +182,10 @@ export function resolveGrixAccount(params: {
 
   const agentId = strictScope
     ? normalizeNonEmpty(merged.agentId)
-    : normalizeNonEmpty(merged.agentId || process.env.GRIX_AGENT_ID);
+    : normalizeNonEmpty(merged.agentId);
   const apiKey = strictScope
     ? normalizeNonEmpty(merged.apiKey)
-    : normalizeNonEmpty(merged.apiKey || process.env.GRIX_API_KEY);
+    : normalizeNonEmpty(merged.apiKey);
   const wsUrl = strictScope
     ? appendAgentIdToWsUrl(normalizeNonEmpty(merged.wsUrl), agentId)
     : resolveWsUrl(merged, agentId);

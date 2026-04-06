@@ -83,11 +83,9 @@ function appendAgentIdToWsUrl(rawWsUrl: string, agentId: string): string {
 }
 
 function resolveWsUrl(merged: AibotAccountConfig, agentId: string): string {
-  const envWs = normalizeNonEmpty(process.env.GRIX_WS_URL);
   const cfgWs = normalizeNonEmpty(merged.wsUrl);
-  const ws = cfgWs || envWs;
-  if (ws) {
-    return appendAgentIdToWsUrl(ws, agentId);
+  if (cfgWs) {
+    return appendAgentIdToWsUrl(cfgWs, agentId);
   }
   if (!agentId) {
     return "";
@@ -100,11 +98,7 @@ function resolveAgentAPIBaseUrl(merged: AibotAccountConfig): string {
   if (cfgBase) {
     return cfgBase;
   }
-  if (normalizeNonEmpty(merged.wsUrl)) {
-    return "";
-  }
-  const envBase = normalizeNonEmpty(process.env.GRIX_AGENT_API_BASE);
-  return envBase;
+  return "";
 }
 
 export function redactAibotWsUrl(wsUrl: string): string {
@@ -133,8 +127,8 @@ export function resolveAibotAccount(params: {
   const accountEnabled = merged.enabled !== false;
   const enabled = baseEnabled && accountEnabled;
 
-  const agentId = normalizeAgentId(merged.agentId || process.env.GRIX_AGENT_ID);
-  const apiKey = normalizeNonEmpty(merged.apiKey || process.env.GRIX_API_KEY);
+  const agentId = normalizeAgentId(merged.agentId);
+  const apiKey = normalizeNonEmpty(merged.apiKey);
   const wsUrl = resolveWsUrl(merged, agentId);
   const apiBaseUrl = resolveAgentAPIBaseUrl(merged);
   const configured = Boolean(wsUrl && agentId && apiKey);

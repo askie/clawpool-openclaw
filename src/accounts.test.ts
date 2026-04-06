@@ -2,17 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { resolveAibotAccount } from "./accounts.ts";
 
-test("resolveAibotAccount keeps apiBaseUrl empty when wsUrl is configured", (t) => {
-  const previous = process.env.GRIX_AGENT_API_BASE;
-  process.env.GRIX_AGENT_API_BASE = "https://example.com/base/";
-  t.after(() => {
-    if (previous == null) {
-      delete process.env.GRIX_AGENT_API_BASE;
-      return;
-    }
-    process.env.GRIX_AGENT_API_BASE = previous;
-  });
-
+test("resolveAibotAccount keeps apiBaseUrl empty when wsUrl is configured", () => {
   const account = resolveAibotAccount({
     cfg: {
       channels: {
@@ -33,17 +23,7 @@ test("resolveAibotAccount keeps apiBaseUrl empty when wsUrl is configured", (t) 
   assert.equal(account.apiBaseUrl, "");
 });
 
-test("resolveAibotAccount uses env api base only when wsUrl is missing", (t) => {
-  const previous = process.env.GRIX_AGENT_API_BASE;
-  process.env.GRIX_AGENT_API_BASE = "https://example.com/base/";
-  t.after(() => {
-    if (previous == null) {
-      delete process.env.GRIX_AGENT_API_BASE;
-      return;
-    }
-    process.env.GRIX_AGENT_API_BASE = previous;
-  });
-
+test("resolveAibotAccount keeps apiBaseUrl empty when wsUrl is missing", () => {
   const account = resolveAibotAccount({
     cfg: {
       channels: {
@@ -60,5 +40,5 @@ test("resolveAibotAccount uses env api base only when wsUrl is missing", (t) => 
     accountId: "ops",
   });
 
-  assert.equal(account.apiBaseUrl, "https://example.com/base/");
+  assert.equal(account.apiBaseUrl, "");
 });
