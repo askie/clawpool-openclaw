@@ -25,6 +25,13 @@ import { consumeSilentUnsendCompleted } from "./silent-unsend-completion.js";
 import { shouldSkipFinalReplyAfterStreamedBlock } from "./final-streamed-reply-policy.ts";
 import { deliverAibotPayload } from "./aibot-payload-delivery.ts";
 import {
+  deletePendingInboundEvent,
+  loadRecoverablePendingInboundEvents,
+  markPendingInboundEventAcked,
+  persistPendingInboundEvent,
+  type PendingInboundEventHandle,
+} from "./inbound-event-recovery.ts";
+import {
   buildGrixGroupSystemPrompt,
   resolveGrixDispatchResolution,
   resolveGrixInboundSemantics,
@@ -371,9 +378,9 @@ function reportHandledCommandResult(params: {
     lastError?: string | null;
     lastOutboundAt?: number;
   }) => void;
-}): void {
+}): boolean {
   if (!params.eventId) {
-    return;
+    return true;
   }
   try {
     params.client.sendEventResult({
@@ -384,17 +391,20 @@ function reportHandledCommandResult(params: {
       updated_at: Date.now(),
     });
     params.statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
+    return true;
   } catch (err) {
     params.runtime.error(
       `[grix:${params.account.accountId}] command event result send failed eventId=${params.eventId} status=${params.status}: ${String(err)}`,
     );
     params.statusSink?.({ lastError: String(err) });
+    return false;
   }
 }
 
 async function sendHandledCommandReply(params: {
   client: AibotWsClient;
   sessionId: string;
+  messageSid: string;
   replyText: string;
   replyExtra?: Record<string, unknown>;
   eventId?: string;
@@ -406,14 +416,16 @@ async function sendHandledCommandReply(params: {
     lastOutboundAt?: number;
   }) => void;
 }): Promise<void> {
+  const clientMsgId = `reply_${params.messageSid}_command`;
   await params.client.sendText(params.sessionId, params.replyText, {
     eventId: params.eventId,
+    clientMsgId,
     quotedMessageId: params.quotedMessageId,
     extra: params.replyExtra,
   });
   params.statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
   params.runtime.log(
-    `[grix:${params.account.accountId}] command reply sent eventId=${params.eventId || "-"} sessionId=${params.sessionId} quotedMessageId=${params.quotedMessageId || "-"} textLen=${params.replyText.length}`,
+    `[grix:${params.account.accountId}] command reply sent eventId=${params.eventId || "-"} sessionId=${params.sessionId} clientMsgId=${clientMsgId} quotedMessageId=${params.quotedMessageId || "-"} textLen=${params.replyText.length}`,
   );
 }
 
@@ -423,6 +435,7 @@ async function processEvent(params: {
   config: OpenClawConfig;
   runtime: RuntimeEnv;
   client: AibotWsClient;
+  recoveredHandle?: PendingInboundEventHandle | null;
   statusSink?: (patch: {
     lastError?: string | null;
     lastInboundAt?: number;
@@ -458,6 +471,9 @@ async function processEvent(params: {
     messageSid,
   });
   let visibleOutputSent = false;
+  let recoveryHandle = params.recoveredHandle ?? null;
+  let eventResultDelivered = false;
+  let terminalCompletionRecorded = false;
   const inboundEvent = claimInboundEvent({
     accountId: account.accountId,
     eventId,
@@ -468,6 +484,15 @@ async function processEvent(params: {
     runtime.log(
       `[grix:${account.accountId}] skip duplicate inbound event ${baseLogContext} confirmed=${inboundEvent.confirmed}`,
     );
+    if (recoveryHandle && inboundEvent.confirmed) {
+      try {
+        await deletePendingInboundEvent(recoveryHandle);
+      } catch (err) {
+        runtime.error(
+          `[grix:${account.accountId}] duplicate recovered event cleanup failed ${baseLogContext}: ${String(err)}`,
+        );
+      }
+    }
     if (inboundEvent.confirmed && eventId) {
       try {
         client.ackEvent(eventId, {
@@ -489,7 +514,61 @@ async function processEvent(params: {
     `[grix:${account.accountId}] inbound event ${baseLogContext} chatType=${chatType} eventType=${semantics.eventType || "-"} wasMentioned=${semantics.wasMentioned ? "true" : "false"} mentionsOther=${semantics.mentionsOther ? "true" : "false"} bodyLen=${rawBody.length} quotedMessageId=${quotedMessageId || "-"}`,
   );
 
+  if (!recoveryHandle) {
+    try {
+      recoveryHandle = await persistPendingInboundEvent({
+        accountId: account.accountId,
+        event,
+      });
+    } catch (err) {
+      releaseInboundEvent(inboundEvent.claim);
+      throw err;
+    }
+    if (!recoveryHandle) {
+      releaseInboundEvent(inboundEvent.claim);
+      throw new Error(`failed to persist inbound event before processing ${baseLogContext}`);
+    }
+  }
+
   let inboundEventAccepted = false;
+  let pendingEventFinalized = false;
+  const acceptInboundEvent = async (): Promise<void> => {
+    if (inboundEventAccepted) {
+      return;
+    }
+    if (recoveryHandle && !recoveryHandle.record.acked) {
+      await markPendingInboundEventAcked(recoveryHandle);
+    }
+    if (eventId) {
+      client.ackEvent(eventId, {
+        sessionId,
+        msgId: messageSid,
+        receivedAt: Date.now(),
+      });
+      statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
+    }
+    confirmInboundEvent(inboundEvent.claim);
+    inboundEventAccepted = true;
+  };
+  const finalizeInboundEvent = async (): Promise<void> => {
+    if (pendingEventFinalized) {
+      return;
+    }
+    pendingEventFinalized = true;
+    if (recoveryHandle && inboundEventAccepted && (eventId ? eventResultDelivered : terminalCompletionRecorded)) {
+      try {
+        await deletePendingInboundEvent(recoveryHandle);
+      } catch (err) {
+        runtime.error(
+          `[grix:${account.accountId}] pending inbound cleanup failed ${baseLogContext}: ${String(err)}`,
+        );
+      }
+    }
+    if (!inboundEventAccepted) {
+      releaseInboundEvent(inboundEvent.claim);
+    }
+  };
+
   const commandOutcome = await handleExecApprovalCommand({
     rawBody,
     senderId,
@@ -498,19 +577,11 @@ async function processEvent(params: {
   });
   if (commandOutcome.handled) {
     try {
-      if (eventId) {
-        client.ackEvent(eventId, {
-          sessionId,
-          msgId: messageSid,
-          receivedAt: Date.now(),
-        });
-        statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
-      }
-      confirmInboundEvent(inboundEvent.claim);
-      inboundEventAccepted = true;
+      await acceptInboundEvent();
       await sendHandledCommandReply({
         client,
         sessionId,
+        messageSid,
         replyText: commandOutcome.replyText,
         replyExtra: commandOutcome.replyExtra,
         eventId,
@@ -519,7 +590,7 @@ async function processEvent(params: {
         runtime,
         statusSink,
       });
-      reportHandledCommandResult({
+      eventResultDelivered = reportHandledCommandResult({
         client,
         eventId,
         status: "responded",
@@ -529,6 +600,7 @@ async function processEvent(params: {
         runtime,
         statusSink,
       });
+      terminalCompletionRecorded = !eventId || eventResultDelivered;
       return;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -536,7 +608,7 @@ async function processEvent(params: {
         `[grix:${account.accountId}] exec approval command failed ${baseLogContext}: ${message}`,
       );
       statusSink?.({ lastError: message });
-      reportHandledCommandResult({
+      eventResultDelivered = reportHandledCommandResult({
         client,
         eventId,
         status: "failed",
@@ -547,6 +619,8 @@ async function processEvent(params: {
         statusSink,
       });
       throw err;
+    } finally {
+      await finalizeInboundEvent();
     }
   }
 
@@ -643,24 +717,7 @@ async function processEvent(params: {
       routeSessionKey,
       statusSink: statusSink ? (patch) => statusSink({ lastError: patch.lastError }) : undefined,
     });
-    if (eventId) {
-      try {
-        client.ackEvent(eventId, {
-          sessionId,
-          msgId: messageSid,
-          receivedAt: Date.now(),
-        });
-        statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
-        confirmInboundEvent(inboundEvent.claim);
-        inboundEventAccepted = true;
-      } catch (err) {
-        runtime.error(`[grix:${account.accountId}] event ack failed eventId=${eventId}: ${String(err)}`);
-        statusSink?.({ lastError: String(err) });
-      }
-    } else {
-      confirmInboundEvent(inboundEvent.claim);
-      inboundEventAccepted = true;
-    }
+    await acceptInboundEvent();
 
     // Outbound replies should anchor to the trigger message itself.
     const outboundQuotedMessageId = normalizeNumericMessageId(event.msg_id);
@@ -715,14 +772,15 @@ async function processEvent(params: {
       }, composingRenewIntervalMs);
     };
 
-    const reportEventResult = (status: "responded" | "failed" | "canceled", code = "", msg = ""): void => {
+    const reportEventResult = (status: "responded" | "failed" | "canceled", code = "", msg = ""): boolean => {
       if (eventResultReported) {
-        return;
+        return eventResultDelivered;
       }
       eventResultReported = true;
       stopComposingRenewal();
       if (!eventId) {
-        return;
+        eventResultDelivered = true;
+        return true;
       }
       try {
         client.sendEventResult({
@@ -733,11 +791,15 @@ async function processEvent(params: {
           updated_at: Date.now(),
         });
         statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
+        eventResultDelivered = true;
+        return true;
       } catch (err) {
         runtime.error(
           `[grix:${account.accountId}] event result send failed eventId=${eventId} status=${status}: ${String(err)}`,
         );
         statusSink?.({ lastError: String(err) });
+        eventResultDelivered = false;
+        return false;
       }
     };
 
@@ -1074,6 +1136,7 @@ async function processEvent(params: {
         setComposing(false);
       }
     }
+    terminalCompletionRecorded = !eventId || eventResultDelivered;
   } finally {
     runtime.log(
       `[grix:${account.accountId}] active reply run clearing eventId=${activeRun?.eventId || "-"} stopRequested=${activeRun?.stopRequested === true} abortReason=${activeRun ? resolveAbortReason(activeRun.controller.signal) : "-"} visibleOutputSent=${visibleOutputSent}`,
@@ -1083,8 +1146,58 @@ async function processEvent(params: {
       expectedMessageSid: messageSid,
     });
     clearActiveReplyRun(activeRun);
-    if (!inboundEventAccepted) {
-      releaseInboundEvent(inboundEvent.claim);
+    await finalizeInboundEvent();
+  }
+}
+
+async function replayRecoveredInboundEvents(params: {
+  account: ResolvedAibotAccount;
+  config: OpenClawConfig;
+  runtime: RuntimeEnv;
+  client: AibotWsClient;
+  abortSignal: AbortSignal;
+  statusSink?: (patch: {
+    lastError?: string | null;
+    lastInboundAt?: number;
+    lastOutboundAt?: number;
+  }) => void;
+}): Promise<void> {
+  const handles = await loadRecoverablePendingInboundEvents({
+    accountId: params.account.accountId,
+  });
+  if (handles.length === 0) {
+    return;
+  }
+
+  params.runtime.log(
+    `[grix:${params.account.accountId}] replay recoverable inbound events count=${handles.length}`,
+  );
+  for (const handle of handles) {
+    if (params.abortSignal.aborted || !isActiveMonitor(params.account.accountId, params.client)) {
+      return;
+    }
+    if (!params.client.getStatus().authed) {
+      return;
+    }
+    try {
+      await processEvent({
+        event: handle.record.event,
+        account: params.account,
+        config: params.config,
+        runtime: params.runtime,
+        client: params.client,
+        recoveredHandle: handle,
+        statusSink: params.statusSink,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      params.runtime.error(
+        `[grix:${params.account.accountId}] recoverable inbound replay failed recordId=${handle.recordId} eventId=${toStringId(handle.record.event?.event_id) || "-"} sessionId=${toStringId(handle.record.event?.session_id) || "-"} msgId=${toStringId(handle.record.event?.msg_id) || "-"}: ${message}`,
+      );
+      params.statusSink?.({ lastError: message });
+      if (!params.client.getStatus().authed) {
+        return;
+      }
     }
   }
 }
@@ -1092,11 +1205,47 @@ async function processEvent(params: {
 export async function monitorAibotProvider(options: AibotMonitorOptions): Promise<AibotMonitorResult> {
   const { account, config, runtime, abortSignal, statusSink } = options;
   let client: AibotWsClient;
+  let lastAuthed = false;
+  let replayPromise: Promise<void> | null = null;
+  let replayRequested = false;
   const guardedStatusSink = (patch: AibotMonitorStatusPatch): void => {
     if (!isActiveMonitor(account.accountId, client)) {
       return;
     }
     statusSink?.(patch);
+  };
+  const scheduleRecoveredInboundReplay = (): void => {
+    if (abortSignal.aborted || !isActiveMonitor(account.accountId, client) || !client.getStatus().authed) {
+      return;
+    }
+    if (replayPromise) {
+      replayRequested = true;
+      return;
+    }
+    replayPromise = replayRecoveredInboundEvents({
+      account,
+      config,
+      runtime,
+      client,
+      abortSignal,
+      statusSink: guardedStatusSink,
+    })
+      .catch((err) => {
+        if (!isActiveMonitor(account.accountId, client)) {
+          return;
+        }
+        const message = err instanceof Error ? err.message : String(err);
+        runtime.error(`[grix:${account.accountId}] recovered inbound replay failed: ${message}`);
+        guardedStatusSink({ lastError: message });
+      })
+      .finally(() => {
+        replayPromise = null;
+        if (!replayRequested) {
+          return;
+        }
+        replayRequested = false;
+        scheduleRecoveredInboundReplay();
+      });
   };
   client = new AibotWsClient(account, {
     logger: {
@@ -1106,6 +1255,8 @@ export async function monitorAibotProvider(options: AibotMonitorOptions): Promis
       debug: (message) => runtime.log(message),
     },
     onStatus: (status) => {
+      const authedJustBecameTrue = status.authed && !lastAuthed;
+      lastAuthed = status.authed;
       guardedStatusSink({
         running: status.running,
         connected: status.connected,
@@ -1113,6 +1264,9 @@ export async function monitorAibotProvider(options: AibotMonitorOptions): Promis
         lastConnectAt: status.lastConnectAt ?? undefined,
         lastDisconnectAt: status.lastDisconnectAt ?? undefined,
       });
+      if (authedJustBecameTrue) {
+        scheduleRecoveredInboundReplay();
+      }
     },
     onEventMsg: (event) => {
       if (!isActiveMonitor(account.accountId, client)) {
