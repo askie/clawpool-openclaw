@@ -155,8 +155,11 @@ to=e72ce987-2d2e-40ed-bcc9-b336b4974512
 2. 如果没有 `session_id`，只能发送普通文本说明，不能伪造会话卡片
 3. 不要输出 `chat://...`、网页链接、或“点这里打开会话”之类的自然语言链接替代方案
 4. 不要构造前端内部 `biz_card` JSON，也不要尝试发送 Flutter/前端私有协议结构
-5. `conversation-card` 必须单行发送，不要换行，不要在同一条指令里混入多余说明文字
-6. 如果字段值包含特殊字符，先做 URI component 编码，再拼进指令文本
+5. `conversation-card` 指令本体必须单行，不要在指令内部换行
+6. 默认建议把会话卡片单独作为一条消息发送，最稳也最容易复用
+7. 如果确实需要把说明和卡片放在同一条消息里，可以在卡片前后加少量普通文字；前端会保留普通文字并渲染其中**第一张**会话卡片
+8. 同一条消息里不要放多张 `conversation-card`；需要多个跳转入口时，分多条消息发送
+9. 如果字段值包含特殊字符，先做 URI component 编码，再拼进指令文本
 
 ### 示例
 
@@ -170,6 +173,12 @@ to=e72ce987-2d2e-40ed-bcc9-b336b4974512
 
 ```text
 [[conversation-card|session_id=e72ce987-2d2e-40ed-bcc9-b336b4974512|session_type=private|title=Alice|peer_id=1001]]
+```
+
+示例 3：同一条消息里带一句说明文字再附会话卡片
+
+```text
+测试群已经建好，你点下面这张卡片就能直接进去。[[conversation-card|session_id=0fa947bd-bb4e-46ad-8308-5526bc98e002|session_type=group|title=%E6%B5%8B%E8%AF%95%E7%BE%A4]]
 ```
 
 ## 错误处理
