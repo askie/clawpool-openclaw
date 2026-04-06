@@ -5,7 +5,6 @@ import {
   buildGrixGroupSystemPrompt,
   resolveGrixDispatchResolution,
   resolveGrixInboundSemantics,
-  resolveGrixMentionFallbackText,
 } from "./group-semantics.ts";
 
 test("group_mention marks the current agent as explicitly mentioned", () => {
@@ -20,13 +19,10 @@ test("group_mention marks the current agent as explicitly mentioned", () => {
 
   assert.equal(semantics.isGroup, true);
   assert.equal(semantics.wasMentioned, true);
-  assert.equal(semantics.mustReply, true);
-  assert.equal(semantics.allowSilent, false);
-  assert.equal(semantics.allowActions, true);
   assert.equal(semantics.mentionsOther, false);
   assert.match(
     buildGrixGroupSystemPrompt(semantics) ?? "",
-    /must reply/i,
+    /may return no_reply/i,
   );
 });
 
@@ -42,9 +38,6 @@ test("group_message with other mentions stays visible but optional", () => {
 
   assert.equal(semantics.isGroup, true);
   assert.equal(semantics.wasMentioned, false);
-  assert.equal(semantics.mustReply, false);
-  assert.equal(semantics.allowSilent, true);
-  assert.equal(semantics.allowActions, false);
   assert.equal(semantics.mentionsOther, true);
   assert.match(
     buildGrixGroupSystemPrompt(semantics) ?? "",
@@ -63,12 +56,7 @@ test("direct messages do not use group prompting", () => {
 
   assert.equal(semantics.isGroup, false);
   assert.equal(semantics.wasMentioned, false);
-  assert.equal(semantics.allowSilent, false);
   assert.equal(buildGrixGroupSystemPrompt(semantics), undefined);
-});
-
-test("mention fallback stays minimal", () => {
-  assert.equal(resolveGrixMentionFallbackText(), "I'm here.");
 });
 
 test("ordinary group silence is treated as a valid completion", () => {
@@ -88,12 +76,11 @@ test("ordinary group silence is treated as a valid completion", () => {
     }),
     {
       shouldCompleteSilently: true,
-      shouldSendMentionFallback: false,
     },
   );
 });
 
-test("explicit mention silence triggers fallback instead of silent completion", () => {
+test("explicit mention silence now completes silently without synthetic text", () => {
   const semantics = resolveGrixInboundSemantics({
     session_id: "s1",
     msg_id: "m5",
@@ -109,13 +96,12 @@ test("explicit mention silence triggers fallback instead of silent completion", 
       eventResultReported: false,
     }),
     {
-      shouldCompleteSilently: false,
-      shouldSendMentionFallback: true,
+      shouldCompleteSilently: true,
     },
   );
 });
 
-test("visible output disables group fallback handling", () => {
+test("visible output disables silent completion handling", () => {
   const semantics = resolveGrixInboundSemantics({
     session_id: "s1",
     msg_id: "m6",
@@ -132,7 +118,6 @@ test("visible output disables group fallback handling", () => {
     }),
     {
       shouldCompleteSilently: false,
-      shouldSendMentionFallback: false,
     },
   );
 });

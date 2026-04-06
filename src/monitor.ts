@@ -28,7 +28,6 @@ import {
   buildGrixGroupSystemPrompt,
   resolveGrixDispatchResolution,
   resolveGrixInboundSemantics,
-  resolveGrixMentionFallbackText,
 } from "./group-semantics.js";
 
 type MarkdownTableMode = Parameters<PluginRuntime["channel"]["text"]["convertMarkdownTables"]>[1];
@@ -1031,39 +1030,6 @@ async function processEvent(params: {
             `[grix:${account.accountId}] group dispatch completed silently ${baseLogContext} attempt=${attemptLabel} wasMentioned=${semantics.wasMentioned ? "true" : "false"}`,
           );
           reportEventResult("responded");
-        }
-
-        if (dispatchResolution.shouldSendMentionFallback) {
-          outboundCounter++;
-          const stableClientMsgId = `reply_${messageSid}_${outboundCounter}`;
-          runtime.log(
-            `[grix:${account.accountId}] explicit mention fallback reply ${buildEventLogContext({
-              eventId,
-              sessionId,
-              messageSid,
-              clientMsgId: stableClientMsgId,
-              outboundCounter,
-            })}`,
-          );
-          const didSendFallback = await deliverAibotMessage({
-            payload: {
-              text: resolveGrixMentionFallbackText(),
-            },
-            client,
-            account,
-            sessionId,
-            abortSignal: runAbortController.signal,
-            eventId,
-            quotedMessageId: outboundQuotedMessageId,
-            runtime,
-            statusSink,
-            stableClientMsgId,
-            tableMode,
-          });
-          attemptHasOutbound = attemptHasOutbound || didSendFallback;
-          if (didSendFallback) {
-            markVisibleOutputSent();
-          }
         }
 
         break;

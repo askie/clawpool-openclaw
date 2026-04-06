@@ -7,14 +7,10 @@ export type GrixInboundSemantics = {
   hasAnyMention: boolean;
   mentionsOther: boolean;
   mentionUserIds: string[];
-  mustReply: boolean;
-  allowSilent: boolean;
-  allowActions: boolean;
 };
 
 export type GrixDispatchResolution = {
   shouldCompleteSilently: boolean;
-  shouldSendMentionFallback: boolean;
 };
 
 function normalizeEventType(value: unknown): string {
@@ -45,9 +41,6 @@ export function resolveGrixInboundSemantics(event: AibotEventMsgPayload): GrixIn
   const hasAnyMention = mentionUserIds.length > 0;
   const wasMentioned = isGroup && eventType === "group_mention";
   const mentionsOther = isGroup && hasAnyMention && !wasMentioned;
-  const mustReply = wasMentioned;
-  const allowSilent = isGroup && !mustReply;
-  const allowActions = !isGroup || mustReply;
 
   return {
     isGroup,
@@ -56,9 +49,6 @@ export function resolveGrixInboundSemantics(event: AibotEventMsgPayload): GrixIn
     hasAnyMention,
     mentionsOther,
     mentionUserIds,
-    mustReply,
-    allowSilent,
-    allowActions,
   };
 }
 
@@ -72,8 +62,8 @@ export function buildGrixGroupSystemPrompt(
   if (semantics.wasMentioned) {
     return [
       "This group turn explicitly targeted you.",
-      "You must reply or take the requested action when appropriate.",
-      "Do not return NO_REPLY for this turn.",
+      "Reply when it is useful or needed to complete the task.",
+      "If no reply is needed, you may return NO_REPLY.",
     ].join(" ");
   }
 
@@ -94,10 +84,6 @@ export function buildGrixGroupSystemPrompt(
   ].join(" ");
 }
 
-export function resolveGrixMentionFallbackText(): string {
-  return "I'm here.";
-}
-
 export function resolveGrixDispatchResolution(params: {
   semantics: GrixInboundSemantics;
   visibleOutputSent: boolean;
@@ -106,12 +92,10 @@ export function resolveGrixDispatchResolution(params: {
   if (params.visibleOutputSent || params.eventResultReported) {
     return {
       shouldCompleteSilently: false,
-      shouldSendMentionFallback: false,
     };
   }
 
   return {
-    shouldCompleteSilently: params.semantics.allowSilent,
-    shouldSendMentionFallback: params.semantics.mustReply,
+    shouldCompleteSilently: params.semantics.isGroup,
   };
 }
