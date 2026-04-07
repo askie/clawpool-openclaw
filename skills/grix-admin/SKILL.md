@@ -23,7 +23,9 @@ description: 负责 OpenClaw 本地配置与后续 agent 管理；支持接收 g
 2. 先准备本地目录：
    - `workspace=~/.openclaw/workspace-<agent_name>`
    - `agentDir=~/.openclaw/agents/<agent_name>/agent`
-   - 如果 `AGENTS.md`、`MEMORY.md`、`USER.md` 不存在，补最小文件，避免新 agent 工作区为空
+   - persona 文件只放 `workspace` 根目录：`IDENTITY.md`、`SOUL.md`、`AGENTS.md`，以及可选的 `USER.md` / `MEMORY.md`
+   - 不要把 persona 文件放进 `agentDir`；`agentDir` 是 OpenClaw 管理的每个 agent 运行状态目录
+   - 如果 `workspace` 里缺少必要 persona 文件，补最小文件，避免新 agent 工作区为空
 3. 读取现有配置；若路径不存在，按空对象 / 空数组处理：
    - `channels.grix.accounts`
    - `agents.list`
@@ -56,7 +58,8 @@ description: 负责 OpenClaw 本地配置与后续 agent 管理；支持接收 g
    - `openclaw config get --json channels.grix.accounts.<agent_name>`
    - `openclaw config get --json agents.list`
    - `openclaw agents bindings --agent <agent_name> --json`
-8. 安装私聊进行中时不要执行 `openclaw gateway restart`；`openclaw config set` 和 `openclaw agents bind` 的热重载应当让配置立即生效。
+8. 安装私聊进行中时不要主动执行 `openclaw gateway restart`；先完成 `openclaw config set`、`openclaw agents bind`、`openclaw config validate` 和读取校验。
+9. 如果安装已经完成、配置和绑定都确认正确，但后续实际对话里仍然表现成旧运行态，再使用官方命令 `openclaw gateway restart` 做一次定向补救，然后重新校验绑定和实际行为。
 
 ## Mode B: create-and-bind（已有主密钥时的后续管理）
 
@@ -73,7 +76,7 @@ description: 负责 OpenClaw 本地配置与后续 agent 管理；支持接收 g
 2. 若目标账号缺失、禁用，或 `apiKey` / `wsUrl` / `agentId` 任一为空，说明主通道还没完成，不做本模式，立刻切回 `grix-register`。
 3. 若本地主通道已存在，再调用 `grix_agent_admin` 创建远端 agent（仅一次，不自动重试）。
 4. 创建成功后，执行本地绑定（同 Mode A）。
-5. 整个 `create-and-bind` 流程里不要执行 `openclaw gateway restart`。
+5. 整个 `create-and-bind` 流程里不要主动执行 `openclaw gateway restart`；只有后续验证确认配置正确但运行态仍旧时，才把它当成补救动作。
 
 ## Guardrails（两种模式都适用）
 

@@ -57,7 +57,7 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 - 没完成校验前，绝不能宣称安装成功。
 - 如果新建目标后又失败了，能安全回滚就先回滚；不能回滚就如实告诉用户当前残留状态。
 - 上下文已经给出 `install.target_agent_id` 或 `install.suggested_agent_name` 时，直接继续执行，不要再向用户确认目标、命名或用途；只有信息缺失、冲突或执行阻塞时才提问。
-- 安装私聊进行中时，禁止执行 `openclaw gateway restart`；本流程涉及的本地 OpenClaw 配置必须通过官方 CLI 写入并让 OpenClaw 自己热重载：`channels.grix.accounts.<agent_name>`、`agents.list`、`tools.*` 继续使用 `openclaw config set`，Grix 绑定使用 `openclaw agents bind`；禁止调用会直接改 `openclaw.json` 的脚本，也不要手工编辑 JSON。只有在安装已经成功、流程进入拉群验收、并且确认配置正确但运行态仍然是旧结果时，才允许把 gateway 重启当成一次定向补救手段。
+- 安装私聊进行中时，禁止主动执行 `openclaw gateway restart`；本流程涉及的本地 OpenClaw 配置必须通过官方 CLI 写入：`channels.grix.accounts.<agent_name>`、`agents.list`、`tools.*` 继续使用 `openclaw config set`，Grix 绑定使用 `openclaw agents bind`；禁止调用会直接改 `openclaw.json` 的脚本，也不要手工编辑 JSON。OpenClaw 官方默认是 `gateway.reload.mode="hybrid"`，先写配置并完成校验；只有在安装已经成功、流程进入拉群验收、并且确认配置正确但运行态仍然是旧结果时，才允许用官方命令 `openclaw gateway restart` 做一次定向补救。
 - 对 `@dhf-openclaw/grix` 的安装，安装成功后还必须确保存在一个自动更新 cron 任务，定期执行 `grix-update`；优先复用同名任务 `grix auto update`，避免重复创建。
 - 对 `@dhf-openclaw/grix` 的安装，自动更新 cron 不是“提醒项”，而是安装完成条件的一部分；在实际执行 `openclaw cron add` 或 `openclaw cron edit` 并确认任务存在之前，不得宣称安装完成。
 - 最终成功或失败时，必须发送一条独立的结构化安装状态消息。
@@ -137,11 +137,17 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 2. 如果 route=`openclaw_create_new`，直接使用 `install.suggested_agent_name` 作为默认短名字；若缺失，再按 egg 标题或 egg ID 自行取一个简短名字继续。只有名字或目标信息真的缺失、冲突或执行被阻塞时，才向用户确认；**用户主动取消时发 `failed/user_cancelled` 结构化状态消息后结束**。
 3. 如果 route=`openclaw_existing`，直接使用 `install.target_agent_id` 指定的目标 agent 继续，不要重复确认目标。
 4. 如果 route=`openclaw_create_new`，需要新建远端 API agent，用 `grix_agent_admin` 创建。
+   - `grix_agent_admin` 返回的 `nextSteps` 里如果同时提到 `workspace` 和 `agentDir`，以 `workspace` 作为 persona 落位目录理解。
+   - persona 文件只安装到 `workspace` 根目录，不要装到 `agentDir`。
 5. 如果 route=`openclaw_create_new` 且远端 agent 已创建成功，立即发送 `status=running`、`step=agent_created` 结构化状态消息。
 6. 用 OpenClaw 正规步骤准备本地目标目录和配置。
 7. 下载 persona/openclaw 包，并校验 hash / manifest（如果上下文提供）。
 8. 发送 `status=running`、`step=downloaded` 结构化状态消息。
-9. 安装 persona/openclaw 内容。
+9. 安装 persona/openclaw 内容到 `workspace` 根目录。
+   - 把 persona 包内容解压或写入 `<workspace>/`，例如 `~/.openclaw/workspace-<agent_name>/`
+   - `IDENTITY.md`、`SOUL.md`、`AGENTS.md` 必须落在这个 `workspace` 根目录
+   - `USER.md` / `MEMORY.md` 如包内提供，也放在这个 `workspace` 根目录
+   - 不要解压到 `agentDir`；`agentDir` 由 OpenClaw 自动管理运行状态
 10. 发送 `status=running`、`step=installed` 结构化状态消息。
 11. 先用 `openclaw config get --json` 读取当前 `channels.grix.accounts`、`agents.list`、`tools.profile`、`tools.alsoAllow`、`tools.sessions.visibility`；若个别路径不存在，按空对象 / 空数组处理，在现有值基础上合并本次目标项，不要覆盖掉其他已有配置；如果需要确认已有 Grix 绑定，额外用 `openclaw agents bindings --agent <agent_name> --json` 查看当前绑定列表。
 12. 用官方 CLI 逐项写入本地变更，推荐顺序如下：
@@ -161,24 +167,25 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 17. 再发一条普通文字，告诉用户可以点开资料卡查看 agent 资料，并从资料页继续与它对话。
 18. 如果 route=`openclaw_create_new`，紧接着主动问用户是否需要现在就拉一个测试群，帮他当场验收这个新 agent；用户明确拒绝则结束。
 19. 用户同意后，用 `grix_group` 创建测试群，并确保群成员至少包含：当前主 agent、当前私聊里的主人、步骤15里的目标 agent。
-20. 创建成功后，在当前私聊里同步一次测试群已建好；如果已经拿到准确 `session_id`，可额外发送会话卡片帮助用户进入测试群。会话卡片一律按 `message-send` 里的 `conversation-card` 协议发送：默认单独一条最稳，也允许和一句简短说明同发，但一条消息只放一张会话卡片。
-21. 主 agent 进入测试群后，先主动 `@` 目标 agent，发送一条明确的身份确认消息，例如“@xxx 你是谁？请介绍一下你自己。”
-22. 判断这次回答是否通过：
+20. 创建成功后，先保存 `grix_group` 返回的准确 `session_id`，后续所有发往测试群的消息都必须使用这个 `session_id` 作为消息目标，不要继续使用当前私聊的会话目标；如果没有拿到准确 `session_id`，先不要继续群测。
+21. 在当前私聊里同步一次测试群已建好；如果已经拿到准确 `session_id`，可额外发送会话卡片帮助用户进入测试群。会话卡片一律按 `message-send` 里的 `conversation-card` 协议发送：默认单独一条最稳，也允许和一句简短说明同发，但一条消息只放一张会话卡片。
+22. 主 agent 进入测试群后，先主动 `@` 目标 agent，发送一条明确的身份确认消息，例如“@xxx 你是谁？请介绍一下你自己。”这条测试消息的 `target` 必须使用步骤20保存的测试群 `session_id`。
+23. 判断这次回答是否通过：
     - 通过：回答内容与 egg 的人设、名字、定位、说话风格基本一致，没有明显串成其他 agent、默认助手或空白身份。
     - 不通过：回答成了别的人设、通用助手、自我介绍缺失，或明显还是旧配置。
-23. 如果不通过，主 agent 必须继续排查并修复，优先顺序如下：
+24. 如果不通过，主 agent 必须继续排查并修复，优先顺序如下：
     - 先检查本次安装落位是否正确，确认目标 persona/skill 已经装到预期位置。
     - 再检查 `channels.grix.accounts.<agent_name>`、`agents.list`、`openclaw agents bindings --agent <agent_name> --json` 是否都指向这次新 agent。
     - 再检查必要的工具权限和会话可见性是否仍符合安装要求。
-    - 如果以上配置都正确，但群里回复依然像旧人格或默认人格，再把运行态未刷新视为高概率原因；这时可以明确告知用户你要做一次定向的 gateway 重启补救，执行后重新验证。
-24. 每做完一轮修复，都要回到同一个测试群再次 `@` 目标 agent 问身份；只有回答正确后，测试才算通过。
-25. 测试通过后，在测试群里简短说明已验收通过；同时回到当前私聊，告诉主人现在已经正常，他也可以自己继续问话了。
-26. 对 `@dhf-openclaw/grix` 安装成功后，还要检查自动更新 cron：
+    - 如果以上配置都正确，但群里回复依然像旧人格或默认人格，再把运行态未刷新视为高概率原因；这时可以明确告知用户你要做一次定向的 gateway 重启补救，并使用官方命令 `openclaw gateway restart`，执行后重新验证。
+25. 每做完一轮修复，都要回到同一个测试群再次 `@` 目标 agent 问身份；这类复测消息也必须继续使用步骤20保存的测试群 `session_id`。只有回答正确后，测试才算通过。
+26. 测试通过后，在测试群里简短说明已验收通过；同时回到当前私聊，告诉主人现在已经正常，他也可以自己继续问话了。
+27. 对 `@dhf-openclaw/grix` 安装成功后，还要检查自动更新 cron：
     - 先用 `openclaw cron list` 查是否已经存在同名任务 `grix auto update`
     - 若不存在，创建一个隔离式、静默的定时任务去执行 `grix-update`
     - 若已存在，改用 `openclaw cron edit` 更新到标准参数
     - 创建或更新后，用 `openclaw cron list` / `openclaw cron status` 再确认一次
-27. 自动更新 cron 推荐参数固定为：
+28. 自动更新 cron 推荐参数固定为：
     - 名称：`grix auto update`
     - 频率：`--every "6h"`
     - `--session isolated`
@@ -186,7 +193,7 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
     - `--no-deliver`
     - `--agent <main_agent>`
     - `--message` 中明确要求使用 `grix-update` 技能，并以 `{"mode":"check-and-apply","plugin_id":"grix","notify_on":"never","allow_restart":true}` 执行
-28. 自动更新 cron 的实际执行命令应按下面分支落地，不要只停留在说明文字：
+29. 自动更新 cron 的实际执行命令应按下面分支落地，不要只停留在说明文字：
     - 不存在同名任务时，执行：
       ```bash
       openclaw cron add \
@@ -208,7 +215,7 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
         --no-deliver \
         --message 'Use the grix-update skill with {"mode":"check-and-apply","plugin_id":"grix","notify_on":"never","allow_restart":true}. If there is no update or the update succeeds, reply exactly NO_REPLY. If the install is unsupported or any step fails, return one short failure summary.'
       ```
-29. 只有下面条件都满足，`@dhf-openclaw/grix` 安装才能对用户宣称成功：
+30. 只有下面条件都满足，`@dhf-openclaw/grix` 安装才能对用户宣称成功：
     - 插件已安装并启用
     - 本地配置和绑定已校验通过
     - 目标 agent 可正常工作
@@ -249,11 +256,13 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 ### 验收动作
 
 1. 由主 agent 创建测试群，并把主 agent、主人、目标 agent 拉进去。
-2. 主 agent 在群里先发起第一问，不要把第一轮验证交给用户。
-3. 第一问必须是直接验证身份的话术，例如：
+2. 创建成功后，立即保存测试群返回的准确 `session_id`；后续所有发往测试群的消息都必须使用这个 `session_id` 作为 `target`，不要继续使用当前私聊的会话目标；如果没有拿到准确 `session_id`，先不要继续群测。
+3. 主 agent 在群里先发起第一问，不要把第一轮验证交给用户。
+4. 第一问必须是直接验证身份的话术，例如：
    - `@目标agent 你是谁？请介绍一下你自己。`
    - `@目标agent 说一下你的身份和你是做什么的。`
-4. 如果第一轮回答模糊，允许追问一轮，但只要内容已经明显偏离 egg 人设，就直接进入修复，不要无限追问。
+5. 第一轮和后续追问都必须继续发到同一个测试群 `session_id`；不要把群测消息发回安装私聊。
+6. 如果第一轮回答模糊，允许追问一轮，但只要内容已经明显偏离 egg 人设，就直接进入修复，不要无限追问。
 
 ### 通过标准
 
@@ -269,7 +278,7 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 1. 先把它视为配置或运行态问题，不要让用户自己猜。
 2. 先查安装内容、agent 绑定、Grix 账号映射、agent 列表是否都对上本次目标 agent。
 3. 再查需要的工具权限和会话可见性是否仍是预期值。
-4. 配置已经确认正确，但群里说出来还是旧人格时，再考虑运行态未刷新；这时可以做一次定向的 gateway 重启补救。
+4. 配置已经确认正确，但群里说出来还是旧人格时，再考虑运行态未刷新；这时使用 OpenClaw 官方命令 `openclaw gateway restart` 做一次定向补救，不要改用 `kill -9`、`nohup` 或手工编辑配置文件。
 5. 每次修完都必须重新进同一个测试群再问一次“你是谁”，直到回答正确。
 6. 没有重新实测通过前，不能告诉用户“已经好了”。
 
