@@ -37,4 +37,9 @@ test("build keeps visibleOutputSent scoped consistently in processEvent cleanup 
     new RegExp(`visibleOutputSent=\\$\\{${visibleOutputSentName}\\}`),
     "cleanup log should reference the same bundled visibleOutputSent symbol",
   );
+  assert.doesNotMatch(
+    code,
+    /closeActiveStream\(/,
+    "bundled output should not reference the removed closeActiveStream helper",
+  );
 });

@@ -999,7 +999,6 @@ async function processEvent(params: {
             abortSignal: runAbortController.signal,
           },
         });
-        await closeActiveStream("dispatch_complete");
         runtime.log(
           `[grix:${account.accountId}] dispatch complete ${baseLogContext} attempt=${attemptLabel} queuedFinal=${dispatchResult.queuedFinal} counts=${JSON.stringify(dispatchResult.counts)}`,
         );
