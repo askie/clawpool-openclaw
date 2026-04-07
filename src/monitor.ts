@@ -38,9 +38,10 @@ import {
   stagePendingInboundContext,
 } from "./inbound-context.js";
 import {
-  buildStreamBlockClientMsgId,
-  sendStreamBlockWithFinish,
-} from "./stream-block-delivery.ts";
+  type AppendOnlyReplyStream,
+  buildPartialReplyClientMsgId,
+  createAppendOnlyReplyStream,
+} from "./partial-stream-delivery.ts";
 import { wrapToolExecutionPayload } from "./tool-execution-card.ts";
 
 type MarkdownTableMode = Parameters<PluginRuntime["channel"]["text"]["convertMarkdownTables"]>[1];
@@ -164,55 +165,6 @@ function buildEventLogContext(params: {
     parts.push(`outboundCounter=${params.outboundCounter}`);
   }
   return parts.join(" ");
-}
-
-async function deliverAibotStreamBlockMessage(params: {
-  text: string;
-  client: AibotWsClient;
-  account: ResolvedAibotAccount;
-  sessionId: string;
-  abortSignal?: AbortSignal;
-  eventId?: string;
-  messageSid: string;
-  quotedMessageId?: string;
-  clientMsgId: string;
-  runtime: RuntimeEnv;
-  statusSink?: (patch: { lastOutboundAt?: number; lastError?: string | null }) => void;
-}): Promise<boolean> {
-  const context = buildEventLogContext({
-    eventId: params.eventId,
-    sessionId: params.sessionId,
-    messageSid: params.messageSid,
-    clientMsgId: params.clientMsgId,
-  });
-  // OpenClaw block payloads are already markdown-safe chunks. Reusing one
-  // stream bubble across multiple blocks can corrupt fenced/code content when
-  // those chunks are mechanically appended by the receiver.
-  return await sendStreamBlockWithFinish({
-    text: params.text,
-    client: params.client,
-    sessionId: params.sessionId,
-    eventId: params.eventId,
-    quotedMessageId: params.quotedMessageId,
-    clientMsgId: params.clientMsgId,
-    chunkChars: resolveStreamChunkChars(params.account),
-    chunkDelayMs: resolveStreamChunkDelayMs(params.account),
-    finishDelayMs: resolveStreamFinishDelayMs(params.account),
-    abortSignal: params.abortSignal,
-    sleep,
-    onSent: () => {
-      params.statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
-    },
-    onAbort: ({ chunkCount, chunkIndex, didSend }) => {
-      params.runtime.log(
-        `[grix:${params.account.accountId}] stream chunk abort before send ${context} chunkIndex=${chunkIndex}/${chunkCount} didSend=${didSend} abortReason=${resolveAbortReason(params.abortSignal)}`,
-      );
-    },
-    onFinishError: (err) => {
-      params.runtime.error(`[grix:${params.account.accountId}] stream finish failed: ${String(err)}`);
-      params.statusSink?.({ lastError: String(err) });
-    },
-  });
 }
 
 async function deliverAibotMessage(params: {
@@ -849,14 +801,34 @@ async function processEvent(params: {
 
     setComposing(true);
     scheduleComposingRenewal();
+    let activePartialReplyStream: AppendOnlyReplyStream | null = null;
 
     try {
       for (let attempt = 1; attempt <= retryPolicy.maxAttempts; attempt++) {
-        let hasStreamedBlock = false;
         let outboundCounter = 0;
         let attemptHasOutbound = false;
         let retryGuardedText: GuardedReplyText | null = null;
         const attemptLabel = `${attempt}/${retryPolicy.maxAttempts}`;
+        const partialReplyStream = createAppendOnlyReplyStream({
+          client,
+          sessionId,
+          eventId,
+          quotedMessageId: outboundQuotedMessageId,
+          clientMsgId: buildPartialReplyClientMsgId(messageSid),
+          chunkChars: resolveStreamChunkChars(account),
+          chunkDelayMs: resolveStreamChunkDelayMs(account),
+          finishDelayMs: resolveStreamFinishDelayMs(account),
+          abortSignal: runAbortController.signal,
+          sleep,
+          onSent: () => {
+            statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
+          },
+          onFinishError: (err) => {
+            runtime.error(`[grix:${account.accountId}] stream finish failed: ${String(err)}`);
+            statusSink?.({ lastError: String(err) });
+          },
+        });
+        activePartialReplyStream = partialReplyStream;
 
         const dispatchResult = await core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
           ctx: ctxPayload,
@@ -876,27 +848,21 @@ async function processEvent(params: {
                   : normalizedPayload;
               const hasMedia = Boolean(decoratedPayload.mediaUrl) || ((decoratedPayload.mediaUrls?.length ?? 0) > 0);
               const text = core.channel.text.convertMarkdownTables(decoratedPayload.text ?? "", tableMode);
-              const streamedTextAlreadyVisible = hasStreamedBlock;
-              const isStreamBlock = info.kind === "block" && !guardedText && !hasMedia && text.length > 0;
-              const blockClientMsgId = isStreamBlock
-                ? buildStreamBlockClientMsgId(messageSid, outboundCounter)
-                : undefined;
+              const streamedTextAlreadyVisible = partialReplyStream.hasVisibleText();
               const deliverContext = buildEventLogContext({
                 eventId,
                 sessionId,
                 messageSid,
-                clientMsgId: blockClientMsgId ?? `reply_${messageSid}_${outboundCounter}`,
+                clientMsgId: `reply_${messageSid}_${outboundCounter}`,
                 outboundCounter,
               });
               const finalOutboundEnvelope =
                 info.kind === "final" || info.kind === "tool"
                   ? buildAibotOutboundEnvelope(decoratedPayload)
                   : undefined;
-              if (!isStreamBlock) {
-                runtime.log(
-                  `[grix:${account.accountId}] deliver ${deliverContext} kind=${info.kind} textLen=${text.length} hasMedia=${hasMedia} streamedBefore=${streamedTextAlreadyVisible}`,
-                );
-              }
+              runtime.log(
+                `[grix:${account.accountId}] deliver ${deliverContext} kind=${info.kind} textLen=${text.length} hasMedia=${hasMedia} streamedBefore=${streamedTextAlreadyVisible}`,
+              );
 
               if (guardedText) {
                 runtime.error(
@@ -909,7 +875,7 @@ async function processEvent(params: {
                 retryGuardedText == null &&
                 isRetryableGuardedReply(guardedText) &&
                 !attemptHasOutbound &&
-                !hasStreamedBlock
+                !partialReplyStream.hasVisibleText()
               ) {
                 retryGuardedText = guardedText;
                 runtime.log(
@@ -918,33 +884,16 @@ async function processEvent(params: {
                 return;
               }
 
-              if (retryGuardedText && !attemptHasOutbound && !hasStreamedBlock) {
+              if (retryGuardedText && !attemptHasOutbound && !partialReplyStream.hasVisibleText()) {
                 runtime.log(
                   `[grix:${account.accountId}] skip outbound while retry pending ${deliverContext} attempt=${attemptLabel} code=${retryGuardedText.code}`,
                 );
                 return;
               }
 
-              if (isStreamBlock) {
-                const didSendBlock = await deliverAibotStreamBlockMessage({
-                  text,
-                  client,
-                  account,
-                  sessionId,
-                  abortSignal: runAbortController.signal,
-                  eventId,
-                  messageSid,
-                  quotedMessageId: outboundQuotedMessageId,
-                  clientMsgId: blockClientMsgId ?? buildStreamBlockClientMsgId(messageSid, outboundCounter),
-                  runtime,
-                  statusSink,
-                });
-                hasStreamedBlock = hasStreamedBlock || didSendBlock;
-                attemptHasOutbound = attemptHasOutbound || didSendBlock;
-                if (didSendBlock) {
-                  markVisibleOutputSent();
-                }
-                return;
+              if (info.kind === "final" && partialReplyStream.hasVisibleText()) {
+                const didFinishStream = await partialReplyStream.finish(text);
+                attemptHasOutbound = attemptHasOutbound || didFinishStream;
               }
 
               if (
@@ -997,8 +946,29 @@ async function processEvent(params: {
           },
           replyOptions: {
             abortSignal: runAbortController.signal,
+            disableBlockStreaming: true,
+            onPartialReply: async (payload) => {
+              if ((payload.mediaUrls?.length ?? 0) > 0) {
+                return;
+              }
+
+              const guardedText = guardInternalReplyText(String(payload.text ?? ""));
+              const userText = guardedText ? guardedText.userText : String(payload.text ?? "");
+              const text = core.channel.text.convertMarkdownTables(userText, tableMode);
+              if (!text) {
+                return;
+              }
+
+              const didSendPartial = await partialReplyStream.pushSnapshot(text);
+              attemptHasOutbound = attemptHasOutbound || didSendPartial;
+              if (didSendPartial) {
+                markVisibleOutputSent();
+              }
+            },
           },
         });
+        await partialReplyStream.finish();
+        activePartialReplyStream = null;
         runtime.log(
           `[grix:${account.accountId}] dispatch complete ${baseLogContext} attempt=${attemptLabel} queuedFinal=${dispatchResult.queuedFinal} counts=${JSON.stringify(dispatchResult.counts)}`,
         );
@@ -1030,6 +1000,7 @@ async function processEvent(params: {
             if (delayMs > 0) {
               await sleep(delayMs);
             }
+            activePartialReplyStream = null;
             continue;
           }
 
@@ -1078,6 +1049,7 @@ async function processEvent(params: {
         reportEventResult("failed", "grix_no_outbound_reply", "no outbound reply emitted");
       }
     } catch (err) {
+      await activePartialReplyStream?.finish();
       if (runAbortController.signal.aborted) {
         runtime.log(
           `[grix:${account.accountId}] dispatch aborted ${baseLogContext} stopRequested=${activeRun?.stopRequested === true} abortReason=${resolveAbortReason(runAbortController.signal)}`,

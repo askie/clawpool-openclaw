@@ -131,7 +131,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
     threads: false,
     polls: false,
     nativeCommands: false,
-    blockStreaming: true,
+    blockStreaming: false,
   },
   actions: aibotMessageActions,
   reload: {
@@ -194,7 +194,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
           : "missing wsUrl/agentId/apiKey",
         dmPolicy: account.config.dmPolicy ?? "open",
         tokenSource: account.apiKey ? "config" : "none",
-        mode: "block_streaming",
+        mode: "streaming",
         baseUrl: redactAibotWsUrl(account.wsUrl),
         allowFrom:
           account.config.allowFrom?.map((entry) => String(entry).trim()).filter(Boolean) ?? [],
