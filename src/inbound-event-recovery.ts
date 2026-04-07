@@ -1,5 +1,5 @@
-import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   mkdir,
   readdir,
@@ -11,7 +11,14 @@ import {
 
 import type { AibotEventMsgPayload } from "./types.js";
 
-const DEFAULT_RECOVERY_BASE_DIR = path.join(os.tmpdir(), "openclaw-grix-inbound-events");
+const DEFAULT_RECOVERY_BASE_DIR = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+  "tmp",
+  "grix-inbound-events",
+);
 const DEFAULT_RECOVERY_TTL_MS = 48 * 60 * 60 * 1000;
 
 type PersistedInboundEventRecord = {
