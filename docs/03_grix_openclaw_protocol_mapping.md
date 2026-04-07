@@ -2,7 +2,7 @@
 
 > 更新时间：2026-04-08  
 > 状态：已落地  
-> 适用范围：`index.ts`、`src/channel.ts`、`src/monitor.ts`、`src/client.ts`、`src/actions.ts`、`src/channel-exec-approvals.ts`、`src/admin/*`
+> 适用范围：`index.ts`、`src/channel.ts`、`src/group-adapter.ts`、`src/group-tool-policy.ts`、`src/monitor.ts`、`src/client.ts`、`src/actions.ts`、`src/channel-exec-approvals.ts`、`src/local-actions.ts`、`src/admin/*`
 
 这篇文档只回答一件事:
 
@@ -20,6 +20,7 @@
 | 消息动作 `unsend` / `delete` | `src/actions.ts` | AIBot WebSocket |
 | Exec Approval 展示适配 | `src/channel-exec-approvals.ts` | AIBot WebSocket |
 | Exec Approval 本地动作执行 | `src/local-actions.ts` | AIBot WebSocket (`local_action`) + 本地 OpenClaw Gateway 命令 |
+| 群聊接收规则（mention gate / intro hint / tool policy） | `src/group-adapter.ts` / `src/group-tool-policy.ts` | OpenClaw 内部 `groups` hook，不走 AIBot |
 | 工具 `grix_query` | `src/admin/query-tool.ts` | AIBot WebSocket (`agent_invoke`) |
 | 工具 `grix_group` | `src/admin/group-tool.ts` | AIBot WebSocket (`agent_invoke`) |
 | CLI `openclaw grix doctor` | `src/admin/cli.ts` | 本地配置读取，不走 AIBot |
@@ -30,6 +31,7 @@
 1. 真正和 AIBot 直连的是聊天收发、流式回复、撤回、停止、审批卡片这些通道能力
 2. `grix_query`、`grix_group` 已经走统一的 AIBot WebSocket 请求-响应
 3. 插件没有把 Grix 收到的普通文本当成 OpenClaw 原生命令解析；审批也不再在插件里解析，改由 backend 转成标准 `local_action`
+4. 群聊的通用提示、可见性开关和工具限制仍然在插件本地实现，但这属于 OpenClaw 内部 hook，不对应额外的 AIBot 协议命令
 
 ---
 
@@ -52,6 +54,14 @@
 
 1. OpenClaw 的文本流式回复没有直接映射成 AIBot 的“块流”
 2. 插件强制使用连续文本快照，再转成 AIBot 的 `client_stream_chunk`
+
+另外，`src/channel.ts` 里还有三项群聊内部 hook，它们不直接映射 AIBot 协议：
+
+| OpenClaw groups hook | 当前实现 | 对外效果 |
+|---|---|---|
+| `resolveRequireMention()` | `false` | 群聊不做硬 mention 门槛 |
+| `resolveGroupIntroHint()` | `src/group-adapter.ts` | 给模型一段静态群聊总提示 |
+| `resolveToolPolicy()` | `src/group-tool-policy.ts` | 群聊里默认禁用主动 `message` 工具 |
 
 ---
 
@@ -147,6 +157,7 @@
 | `send_ack` | `send_msg`、`client_stream_chunk` 结束包、`delete_msg`、路由绑定/解析 |
 | `send_nack` | 同上，作为失败回包 |
 | `error` | 同上，作为失败回包 |
+| `agent_invoke_result` | `src/client.ts` `agentInvoke()`，作为管理工具的请求-响应结果 |
 
 ---
 
@@ -223,7 +234,7 @@
 
 ### 8.1 `grix_query`
 
-| OpenClaw 工具 | action | 下游 actionName | HTTP |
+| OpenClaw 工具 | action | 下游 actionName | 下游协议 |
 |---|---|---|---|
 | `grix_query` | `contact_search` | `contact_search` | `agent_invoke` |
 | `grix_query` | `session_search` | `session_search` | `agent_invoke` |
@@ -232,7 +243,7 @@
 
 ### 8.2 `grix_group`
 
-| OpenClaw 工具 | action | 下游 actionName | HTTP |
+| OpenClaw 工具 | action | 下游 actionName | 下游协议 |
 |---|---|---|---|
 | `grix_group` | `create` | `group_create` | `agent_invoke` |
 | `grix_group` | `detail` | `group_detail_read` | `agent_invoke` |
@@ -274,8 +285,8 @@
 
 如果只问“对接了哪些 AIBot 协议”，当前实际涉及的是这两组命令：
 
-1. AIBot -> 插件：`auth_ack`、`ping`、`event_msg`、`event_react`、`event_revoke`、`event_stop`、`kicked`、`send_ack`、`send_nack`、`error`
-2. 插件 -> AIBot：`auth`、`pong`、`event_ack`、`event_result`、`event_stop_ack`、`event_stop_result`、`send_msg`、`client_stream_chunk`、`delete_msg`、`session_route_bind`、`session_route_resolve`、`session_activity_set`
+1. AIBot -> 插件：`auth_ack`、`ping`、`event_msg`、`event_react`、`event_revoke`、`event_stop`、`local_action`、`kicked`、`send_ack`、`send_nack`、`error`、`agent_invoke_result`
+2. 插件 -> AIBot：`auth`、`pong`、`event_ack`、`event_result`、`event_stop_ack`、`event_stop_result`、`send_msg`、`client_stream_chunk`、`delete_msg`、`session_route_bind`、`session_route_resolve`、`session_activity_set`、`local_action_result`、`agent_invoke`
 
 如果只问“OpenClaw 侧暴露了哪些主要命令 / 工具入口”，核心就是这些：
 

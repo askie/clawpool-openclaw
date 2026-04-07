@@ -1,7 +1,7 @@
 # 跨项目阶段对齐：插件边界改造 × Backend 适配器重构
 
 > 更新时间：2026-04-08
-> 状态：实施中（B0–B4 已完成；P0–P3 已完成，P5 已解除阻塞但尚未清理）
+> 状态：实施中（B0–B4 已完成；P0–P1 已完成，P2 部分完成，P3 已完成，P5 已解除阻塞但尚未清理）
 > 关联文档：  
 > - 插件侧：`04_grix_plugin_server_boundary_refactor_plan.md`  
 > - Backend 侧：`backend/docs/ai-agent-adapter-refactor-plan.md`  
@@ -19,7 +19,7 @@
 |---|---|---|---|---|
 | B0：冻结标准合同 | `AgentClientMeta`、`NormalizedInboundEvent`、`DomainOutboundEvent`、`AdapterRegistry` 接口定义；稳定合同文档 | P0：冻结边界并立规则 | 边界文档、模块归属清单、迁移优先级清单 | **P0 和 B0 必须同步完成，互为前置** |
 | B1：落 OpenClaw 适配器 | `OpenClawAdapterBase` 实现、适配器注册中心骨架 | P1：拆代码层次 | 传输核心层与业务扩展层隔开，稳定合同测试 | P1 可与 B1 并行；P1 产出是 B1 的配合条件 |
-| B2：OpenClaw 差异逻辑收进适配器 ✅ | 主链路不再有 OpenClaw 专属分支；适配器运行时被使用（NormalizeOutbound/NormalizeApproval/NormalizeStatus） | P2：高变化规则迁到 server | 审批语法迁出，群聊策略文案迁出，插件只保留稳定字段映射 | **B2 已完成，P2 解除阻塞**；`agent_invoke` 已就绪，`local_action` 已开放最小稳定子集（`exec_approve` / `exec_reject`） |
+| B2：OpenClaw 差异逻辑收进适配器 ✅ | 主链路不再有 OpenClaw 专属分支；适配器运行时被使用（NormalizeOutbound/NormalizeApproval/NormalizeStatus） | P2：高变化规则迁到 server 🔶 | 审批语法已迁出；每条消息的群聊提示已收缩为事实描述；但 channel 级群聊 intro hint / tool policy 仍在插件侧 | **B2 已完成，P2 已开始但未收尾**；`agent_invoke` 已就绪，`local_action` 已开放最小稳定子集（`exec_approve` / `exec_reject`） |
 | B3：接入 Claude 适配器 | `ClaudeAdapterBase` 按同一标准接入 | P3：缩减插件公开能力面 ✅ | `src/admin/*` 已收口到 `grix_query` / `grix_group` + 本地 `doctor`；README 与技能说明已更新 | P3 已完成；可与 B3 并行，互不阻塞 |
 | B4：补版本矩阵与兼容策略 ✅ | `family registry`、`version range match`、`degrade policy`、`capability matrix` | — | — | B4 已完成；插件侧旧兼容路径清理已解除阻塞 |
 | B5：收敛 app 侧依赖 🔶 | app 中 AI 家族专属判断清除；卡片线格式标准化（`claude_*`→`agent_*`）；翻译键/Widget Key 重命名；backend 适配器 `NormalizeInbound` 卡片类型归一化 | P4（如有）：建立 server 端版本矩阵 | 实际由 B4 承担 | B5 是 backend 收尾，插件侧无依赖 |
@@ -43,15 +43,16 @@
 
 例如：
 - 审批命令语法迁出 → 需要 backend 适配器里已有对应的 `local_action` 下发逻辑
-- 群聊策略文案迁出 → 需要 backend 已能通过 `event_msg` 的上下文字段传达必要信息
+- 群聊策略文案迁出 → 每条消息级别的策略文案已经收缩；剩余 channel 级 intro hint / tool policy 仍要等 backend 完整接住后再迁出
 - 卡片协议迁出 → 需要 backend 已有统一卡片领域模型
 
 迁出顺序建议（从最安全到风险最高）：
 
-1. 群聊事实字段（只删文案，不删字段）— 最安全，backend 不需要新增接口
-2. 审批语法迁出 — 需要 backend `local_action` 协议上线
-3. 卡片协议迁出 — 需要 backend 统一卡片领域模型稳定
-4. 远端管理接口迁出 — 需要 backend 对应 admin API 完整
+1. 群聊事实字段（只删每条消息策略文案，不删字段）— 已完成
+2. 审批语法迁出 — 已完成，依赖 backend `local_action` 协议
+3. channel 级群聊 intro hint / tool policy 迁出 — 仍待 backend 接住
+4. 卡片协议迁出 — 需要 backend 统一卡片领域模型稳定
+5. 远端管理接口迁出 — 需要 backend 对应 admin API 完整
 
 ### 约束 3：旧逻辑最后清理
 
@@ -95,7 +96,8 @@
 
 - [ ] 主链路里是否已无 OpenClaw 专属分支
 - [ ] 插件里审批命令语法是否已迁出
-- [ ] 群聊策略文案是否已迁出
+- [ ] 每条消息级别的群聊策略文案是否已收缩为事实描述
+- [ ] channel 级群聊 intro hint / tool policy 是否也已迁出
 - [ ] `local_action` / `local_action_result` 协议是否已在插件和 backend 两侧实现
 
 ### 节点 4（B4 + P5 完成后）
