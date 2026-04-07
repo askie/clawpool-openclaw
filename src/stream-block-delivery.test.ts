@@ -97,7 +97,7 @@ test("sendStreamBlockWithFinish keeps separate block deliveries isolated", async
   ]);
 });
 
-test("sendStreamBlockChunk allows multiple blocks to share one stream bubble", async () => {
+test("sendStreamBlockChunk mechanically appends shared bubble content", async () => {
   const calls: Array<{ deltaContent: string; clientMsgId: string; isFinish: boolean }> = [];
   const client = {
     sendStreamChunk: async (_sessionId: string, deltaContent: string, opts: {
@@ -114,7 +114,7 @@ test("sendStreamBlockChunk allows multiple blocks to share one stream bubble", a
 
   const sharedClientMsgId = buildStreamBlockClientMsgId("msg_merged", 1);
   const first = await sendStreamBlockChunk({
-    text: "```md\n# title",
+    text: "```latex\n\\begin{equat\n```\n",
     client,
     sessionId: "session_1",
     clientMsgId: sharedClientMsgId,
@@ -123,7 +123,7 @@ test("sendStreamBlockChunk allows multiple blocks to share one stream bubble", a
     finishDelayMs: 0,
   });
   const second = await sendStreamBlockChunk({
-    text: "\n\n- item\n```",
+    text: "```latex\nion}\n  e^{i\\pi} + 1 = 0\n```".trimStart(),
     client,
     sessionId: "session_1",
     clientMsgId: sharedClientMsgId,
@@ -141,14 +141,26 @@ test("sendStreamBlockChunk allows multiple blocks to share one stream bubble", a
   assert.equal(first, true);
   assert.equal(second, true);
   assert.equal(didFinish, true);
+  const combined = calls
+    .filter((entry) => !entry.isFinish)
+    .map((entry) => entry.deltaContent)
+    .join("");
+  assert.equal(
+    combined,
+    "```latex\n\\begin{equat\n```\n```latex\nion}\n  e^{i\\pi} + 1 = 0\n```",
+  );
+  assert.notEqual(
+    combined,
+    "```latex\n\\begin{equation}\n  e^{i\\pi} + 1 = 0\n```",
+  );
   assert.deepEqual(calls, [
     {
-      deltaContent: "```md\n# title",
+      deltaContent: "```latex\n\\begin{equat\n```\n",
       clientMsgId: "reply_msg_merged_1_stream",
       isFinish: false,
     },
     {
-      deltaContent: "\n\n- item\n```",
+      deltaContent: "```latex\nion}\n  e^{i\\pi} + 1 = 0\n```",
       clientMsgId: "reply_msg_merged_1_stream",
       isFinish: false,
     },
@@ -158,4 +170,42 @@ test("sendStreamBlockChunk allows multiple blocks to share one stream bubble", a
       isFinish: true,
     },
   ]);
+});
+
+test("shared stream bubbles also lose trimmed block separators", async () => {
+  const calls: string[] = [];
+  const client = {
+    sendStreamChunk: async (_sessionId: string, deltaContent: string, opts: {
+      isFinish?: boolean;
+    }) => {
+      if (opts.isFinish === true) {
+        return;
+      }
+      calls.push(deltaContent);
+    },
+  };
+
+  await sendStreamBlockChunk({
+    text: "```mermaid\ngraph TD\nA[开始] --> B{判断条件}",
+    client,
+    sessionId: "session_1",
+    clientMsgId: buildStreamBlockClientMsgId("msg_mermaid", 1),
+    chunkChars: 200,
+    chunkDelayMs: 0,
+    finishDelayMs: 0,
+  });
+  await sendStreamBlockChunk({
+    text: "\n    B -->|是| C[执行操作A]\n```".trimStart(),
+    client,
+    sessionId: "session_1",
+    clientMsgId: buildStreamBlockClientMsgId("msg_mermaid", 1),
+    chunkChars: 200,
+    chunkDelayMs: 0,
+    finishDelayMs: 0,
+  });
+
+  assert.equal(
+    calls.join(""),
+    "```mermaid\ngraph TD\nA[开始] --> B{判断条件}B -->|是| C[执行操作A]\n```",
+  );
 });

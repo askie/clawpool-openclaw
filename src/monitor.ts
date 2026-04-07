@@ -39,8 +39,7 @@ import {
 } from "./inbound-context.js";
 import {
   buildStreamBlockClientMsgId,
-  finishStreamBlock,
-  sendStreamBlockChunk,
+  sendStreamBlockWithFinish,
 } from "./stream-block-delivery.ts";
 import { wrapToolExecutionPayload } from "./tool-execution-card.ts";
 
@@ -167,7 +166,7 @@ function buildEventLogContext(params: {
   return parts.join(" ");
 }
 
-async function deliverAibotStreamBlockChunk(params: {
+async function deliverAibotStreamBlockMessage(params: {
   text: string;
   client: AibotWsClient;
   account: ResolvedAibotAccount;
@@ -186,7 +185,10 @@ async function deliverAibotStreamBlockChunk(params: {
     messageSid: params.messageSid,
     clientMsgId: params.clientMsgId,
   });
-  return await sendStreamBlockChunk({
+  // OpenClaw block payloads are already markdown-safe chunks. Reusing one
+  // stream bubble across multiple blocks can corrupt fenced/code content when
+  // those chunks are mechanically appended by the receiver.
+  return await sendStreamBlockWithFinish({
     text: params.text,
     client: params.client,
     sessionId: params.sessionId,
@@ -205,33 +207,6 @@ async function deliverAibotStreamBlockChunk(params: {
       params.runtime.log(
         `[grix:${params.account.accountId}] stream chunk abort before send ${context} chunkIndex=${chunkIndex}/${chunkCount} didSend=${didSend} abortReason=${resolveAbortReason(params.abortSignal)}`,
       );
-    },
-  });
-}
-
-async function finishAibotStreamBlock(params: {
-  client: AibotWsClient;
-  account: ResolvedAibotAccount;
-  sessionId: string;
-  abortSignal?: AbortSignal;
-  eventId?: string;
-  messageSid: string;
-  quotedMessageId?: string;
-  clientMsgId: string;
-  runtime: RuntimeEnv;
-  statusSink?: (patch: { lastOutboundAt?: number; lastError?: string | null }) => void;
-}): Promise<boolean> {
-  return await finishStreamBlock({
-    client: params.client,
-    sessionId: params.sessionId,
-    eventId: params.eventId,
-    quotedMessageId: params.quotedMessageId,
-    clientMsgId: params.clientMsgId,
-    finishDelayMs: resolveStreamFinishDelayMs(params.account),
-    abortSignal: params.abortSignal,
-    sleep,
-    onSent: () => {
-      params.statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
     },
     onFinishError: (err) => {
       params.runtime.error(`[grix:${params.account.accountId}] stream finish failed: ${String(err)}`);
@@ -881,49 +856,7 @@ async function processEvent(params: {
         let outboundCounter = 0;
         let attemptHasOutbound = false;
         let retryGuardedText: GuardedReplyText | null = null;
-        let streamSequence = 0;
-        let activeStreamClientMsgId: string | null = null;
-        let activeStreamDidSend = false;
         const attemptLabel = `${attempt}/${retryPolicy.maxAttempts}`;
-
-        const ensureActiveStreamClientMsgId = (): string => {
-          if (activeStreamClientMsgId) {
-            return activeStreamClientMsgId;
-          }
-          streamSequence += 1;
-          activeStreamClientMsgId = buildStreamBlockClientMsgId(messageSid, streamSequence);
-          return activeStreamClientMsgId;
-        };
-
-        const closeActiveStream = async (reason: string): Promise<void> => {
-          const streamClientMsgId = activeStreamClientMsgId;
-          const didSend = activeStreamDidSend;
-          activeStreamClientMsgId = null;
-          activeStreamDidSend = false;
-          if (!streamClientMsgId || !didSend) {
-            return;
-          }
-          const didFinish = await finishAibotStreamBlock({
-            client,
-            account,
-            sessionId,
-            abortSignal: runAbortController.signal,
-            eventId,
-            messageSid,
-            quotedMessageId: outboundQuotedMessageId,
-            clientMsgId: streamClientMsgId,
-            runtime,
-            statusSink,
-          });
-          runtime.log(
-            `[grix:${account.accountId}] stream close ${buildEventLogContext({
-              eventId,
-              sessionId,
-              messageSid,
-              clientMsgId: streamClientMsgId,
-            })} reason=${reason} finished=${didFinish ? "true" : "false"}`,
-          );
-        };
 
         const dispatchResult = await core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
           ctx: ctxPayload,
@@ -945,7 +878,9 @@ async function processEvent(params: {
               const text = core.channel.text.convertMarkdownTables(decoratedPayload.text ?? "", tableMode);
               const streamedTextAlreadyVisible = hasStreamedBlock;
               const isStreamBlock = info.kind === "block" && !guardedText && !hasMedia && text.length > 0;
-              const blockClientMsgId = isStreamBlock ? ensureActiveStreamClientMsgId() : undefined;
+              const blockClientMsgId = isStreamBlock
+                ? buildStreamBlockClientMsgId(messageSid, outboundCounter)
+                : undefined;
               const deliverContext = buildEventLogContext({
                 eventId,
                 sessionId,
@@ -991,7 +926,7 @@ async function processEvent(params: {
               }
 
               if (isStreamBlock) {
-                const didSendBlock = await deliverAibotStreamBlockChunk({
+                const didSendBlock = await deliverAibotStreamBlockMessage({
                   text,
                   client,
                   account,
@@ -1000,20 +935,17 @@ async function processEvent(params: {
                   eventId,
                   messageSid,
                   quotedMessageId: outboundQuotedMessageId,
-                  clientMsgId: blockClientMsgId ?? ensureActiveStreamClientMsgId(),
+                  clientMsgId: blockClientMsgId ?? buildStreamBlockClientMsgId(messageSid, outboundCounter),
                   runtime,
                   statusSink,
                 });
                 hasStreamedBlock = hasStreamedBlock || didSendBlock;
                 attemptHasOutbound = attemptHasOutbound || didSendBlock;
-                activeStreamDidSend = activeStreamDidSend || didSendBlock;
                 if (didSendBlock) {
                   markVisibleOutputSent();
                 }
                 return;
               }
-
-              await closeActiveStream(`before_${info.kind}`);
 
               if (
                 shouldSkipFinalReplyAfterStreamedBlock({
