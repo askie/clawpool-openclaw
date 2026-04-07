@@ -17,6 +17,7 @@ This plugin connects OpenClaw to [Grix](https://grix.dhf.pub). It helps multiple
 ## Docs
 
 - Group message dispatch and OpenClaw receive behavior: `docs/01_group_message_dispatch.md`
+- OpenClaw / AIBot protocol and command mapping: `docs/03_grix_openclaw_protocol_mapping.md`
 
 ## Recommended Installation
 
