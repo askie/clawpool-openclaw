@@ -1,4 +1,4 @@
-import type { OpenClawConfig, PluginRuntime } from "openclaw/plugin-sdk/core";
+import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 import type { ReplyPayload as OutboundReplyPayload, RuntimeEnv } from "openclaw/plugin-sdk";
 import type { ResolvedAibotAccount, AibotEventMsgPayload, AibotEventStopPayload } from "./types.js";
 import { AibotWsClient, clearActiveAibotClient, setActiveAibotClient } from "./client.js";
@@ -42,9 +42,6 @@ import {
   buildPartialReplyClientMsgId,
   createAppendOnlyReplyStream,
 } from "./partial-stream-delivery.ts";
-import { wrapToolExecutionPayload } from "./tool-execution-card.ts";
-
-type MarkdownTableMode = Parameters<PluginRuntime["channel"]["text"]["convertMarkdownTables"]>[1];
 
 type AibotMonitorStatusPatch = {
   connected?: boolean;
@@ -177,12 +174,9 @@ async function deliverAibotMessage(params: {
   quotedMessageId?: string;
   runtime: RuntimeEnv;
   statusSink?: (patch: { lastOutboundAt?: number; lastError?: string | null }) => void;
-  tableMode?: MarkdownTableMode;
   stableClientMsgId?: string;
 }): Promise<boolean> {
   const { payload, client, account, sessionId, quotedMessageId, runtime, statusSink, stableClientMsgId } = params;
-  const core = getAibotRuntime();
-  const tableMode = params.tableMode ?? "code";
   const outboundEnvelope = buildAibotOutboundEnvelope(payload);
   const execApprovalDiagnostic = outboundEnvelope.execApprovalDiagnostic;
   if (execApprovalDiagnostic.isCandidate) {
@@ -190,11 +184,9 @@ async function deliverAibotMessage(params: {
       `[grix:${account.accountId}] exec approval outbound diagnostic eventId=${params.eventId || "-"} sessionId=${sessionId} clientMsgId=${stableClientMsgId || "-"} matched=${execApprovalDiagnostic.matched ? "true" : "false"} reason=${execApprovalDiagnostic.reason} hasChannelData=${execApprovalDiagnostic.hasChannelData ? "true" : "false"} hasExecApprovalField=${execApprovalDiagnostic.hasExecApprovalField ? "true" : "false"} approvalId=${execApprovalDiagnostic.approvalId || "-"} approvalSlug=${execApprovalDiagnostic.approvalSlug || "-"} approvalCommandId=${execApprovalDiagnostic.approvalCommandId || "-"} commandDetected=${execApprovalDiagnostic.commandDetected ? "true" : "false"} host=${execApprovalDiagnostic.host || "-"} nodeId=${execApprovalDiagnostic.nodeId || "-"} cwd=${execApprovalDiagnostic.cwd || "-"} expiresInSeconds=${execApprovalDiagnostic.expiresInSeconds ?? "-"} allowedDecisionCount=${execApprovalDiagnostic.allowedDecisionCount} textPrefix=${JSON.stringify(execApprovalDiagnostic.textPrefix)} bizCard=${outboundEnvelope.cardKind ?? "none"}`,
     );
   }
-  const rawText = outboundEnvelope.text;
-  const text = core.channel.text.convertMarkdownTables(rawText, tableMode);
   const delivery = await deliverAibotPayload({
     payload,
-    text,
+    text: outboundEnvelope.text,
     extra: outboundEnvelope.extra,
     client,
     account,
@@ -673,12 +665,6 @@ async function processEvent(params: {
     // Outbound replies should anchor to the trigger message itself.
     const outboundQuotedMessageId = normalizeNumericMessageId(event.msg_id);
     const prefixOptions = {};
-
-    const tableMode = core.channel.text.resolveMarkdownTableMode({
-      cfg: config,
-      channel: "grix",
-      accountId: account.accountId,
-    });
     const retryPolicy = resolveUpstreamRetryPolicy(account);
     let composingSet = false;
     let composingRenewTimer: NodeJS.Timeout | null = null;
@@ -842,12 +828,9 @@ async function processEvent(params: {
               const normalizedPayload = guardedText
                 ? { ...outPayload, text: guardedText.userText }
                 : outPayload;
-              const decoratedPayload =
-                info.kind === "tool"
-                  ? wrapToolExecutionPayload(normalizedPayload)
-                  : normalizedPayload;
+              const decoratedPayload = normalizedPayload;
               const hasMedia = Boolean(decoratedPayload.mediaUrl) || ((decoratedPayload.mediaUrls?.length ?? 0) > 0);
-              const text = core.channel.text.convertMarkdownTables(decoratedPayload.text ?? "", tableMode);
+              const text = String(decoratedPayload.text ?? "");
               const streamedTextAlreadyVisible = partialReplyStream.hasVisibleText();
               const deliverContext = buildEventLogContext({
                 eventId,
@@ -932,7 +915,6 @@ async function processEvent(params: {
                 runtime,
                 statusSink,
                 stableClientMsgId,
-                tableMode,
               });
               attemptHasOutbound = attemptHasOutbound || didSendMessage;
               if (didSendMessage) {
@@ -954,7 +936,7 @@ async function processEvent(params: {
 
               const guardedText = guardInternalReplyText(String(payload.text ?? ""));
               const userText = guardedText ? guardedText.userText : String(payload.text ?? "");
-              const text = core.channel.text.convertMarkdownTables(userText, tableMode);
+              const text = userText;
               if (!text) {
                 return;
               }
@@ -1022,7 +1004,6 @@ async function processEvent(params: {
             runtime,
             statusSink,
             stableClientMsgId,
-            tableMode,
           });
           attemptHasOutbound = attemptHasOutbound || didSendMessage;
           if (didSendMessage) {

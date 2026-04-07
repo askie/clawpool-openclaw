@@ -116,42 +116,10 @@ function parseStructuredUserProfile(payload: OutboundReplyPayload): ParsedUserPr
   });
 }
 
-function parseEmbeddedReplyPayloadUserProfile(
-  payload: OutboundReplyPayload,
-): ParsedUserProfileCard | null {
-  const rawText = normalizeText(payload.text);
-  if (!rawText || !/^[{\[]/.test(rawText)) {
-    return null;
-  }
-
-  let embeddedReply: unknown;
-  try {
-    embeddedReply = JSON.parse(rawText);
-  } catch {
-    return null;
-  }
-  if (!embeddedReply || typeof embeddedReply !== "object" || Array.isArray(embeddedReply)) {
-    return null;
-  }
-
-  const record = embeddedReply as Record<string, unknown>;
-  const userProfile = extractUserProfileRecord(record.channelData);
-  if (!userProfile) {
-    return null;
-  }
-
-  return finalizeParsed({
-    user_id: userProfile.user_id,
-    peer_type: userProfile.peer_type,
-    nickname: userProfile.nickname ?? record.text,
-    avatar_url: userProfile.avatar_url,
-  });
-}
-
 export function buildUserProfileCardEnvelope(
   payload: OutboundReplyPayload,
 ): UserProfileCardEnvelope | undefined {
-  const parsed = parseStructuredUserProfile(payload) ?? parseEmbeddedReplyPayloadUserProfile(payload);
+  const parsed = parseStructuredUserProfile(payload);
   if (!parsed) {
     return undefined;
   }

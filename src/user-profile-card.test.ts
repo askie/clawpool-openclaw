@@ -44,7 +44,7 @@ test("buildUserProfileCardEnvelope maps structured grix profile payload to biz_c
   });
 });
 
-test("buildUserProfileCardEnvelope parses embedded reply payload text", () => {
+test("buildUserProfileCardEnvelope ignores embedded json text payloads", () => {
   const envelope = buildUserProfileCardEnvelope(
     buildPayload({
       text:
@@ -52,13 +52,7 @@ test("buildUserProfileCardEnvelope parses embedded reply payload text", () => {
     }),
   );
 
-  assert.ok(envelope);
-  assert.equal(envelope?.fallbackText, "[Profile Card] Planner Agent");
-  assert.deepEqual((envelope?.extra.biz_card as { payload?: unknown })?.payload, {
-    user_id: "agent-10",
-    peer_type: 2,
-    nickname: "Planner Agent",
-  });
+  assert.equal(envelope, undefined);
 });
 
 test("buildUserProfileCardEnvelope ignores unsupported peer type", () => {

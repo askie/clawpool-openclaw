@@ -10,7 +10,7 @@ function buildPayload(overrides: Partial<OutboundReplyPayload> = {}): OutboundRe
   };
 }
 
-test("buildEggInstallStatusCardEnvelope parses reply payload text into channel_data", () => {
+test("buildEggInstallStatusCardEnvelope ignores embedded json text payloads", () => {
   const envelope = buildEggInstallStatusCardEnvelope(
     buildPayload({
       text:
@@ -18,15 +18,7 @@ test("buildEggInstallStatusCardEnvelope parses reply payload text into channel_d
     }),
   );
 
-  assert.ok(envelope);
-  assert.equal(envelope?.fallbackText, "[Egg Install] 已完成安装");
-  assert.deepEqual((envelope?.extra.channel_data as { grix?: { eggInstall?: unknown } }).grix?.eggInstall, {
-    install_id: "eggins_1",
-    status: "success",
-    step: "completed",
-    summary: "已完成安装",
-    target_agent_id: "203001",
-  });
+  assert.equal(envelope, undefined);
 });
 
 test("buildEggInstallStatusCardEnvelope keeps structured channel data when already provided", () => {

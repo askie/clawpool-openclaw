@@ -37,14 +37,17 @@ test("buildAibotOutboundEnvelope keeps raw text when payload has no structured g
   assert.equal(envelope.text, "⏱️ Exec approval expired. ID: approval_full_321");
 });
 
-test("buildAibotOutboundEnvelope recognizes egg install status reply payload text", () => {
+test("buildAibotOutboundEnvelope keeps embedded egg install json text unchanged", () => {
   const envelope = buildAibotOutboundEnvelope({
     text:
       '{"text":"已下载并验证安装包","channelData":{"grix":{"eggInstall":{"install_id":"eggins_3","status":"running","step":"downloaded","summary":"已下载并验证安装包"}}}}',
   });
 
-  assert.equal(envelope.cardKind, "egg_install_status");
-  assert.equal(envelope.text, "[Egg Install] 已下载并验证安装包");
+  assert.equal(envelope.cardKind, undefined);
+  assert.equal(
+    envelope.text,
+    '{"text":"已下载并验证安装包","channelData":{"grix":{"eggInstall":{"install_id":"eggins_3","status":"running","step":"downloaded","summary":"已下载并验证安装包"}}}}',
+  );
 });
 
 test("buildAibotOutboundEnvelope recognizes structured user profile card payload", () => {
@@ -82,35 +85,17 @@ test("buildAibotOutboundEnvelope recognizes structured tool execution card paylo
   assert.equal(envelope.text, "[Tool] Tool: read /tmp/demo");
 });
 
-test("buildAibotOutboundTextEnvelope recognizes egg install status payload text", () => {
+test("buildAibotOutboundTextEnvelope keeps embedded egg install json text unchanged", () => {
   const envelope = buildAibotOutboundTextEnvelope(
     '{"text":"已下载并验证安装包","channelData":{"grix":{"eggInstall":{"install_id":"eggins_9","status":"running","step":"downloaded","summary":"已下载并验证安装包"}}}}',
   );
 
-  assert.equal(envelope.cardKind, "egg_install_status");
-  assert.equal(envelope.text, "[Egg Install] 已下载并验证安装包");
-  assert.deepEqual(envelope.extra, {
-    biz_card: {
-      version: 1,
-      type: "egg_install_status",
-      payload: {
-        install_id: "eggins_9",
-        status: "running",
-        step: "downloaded",
-        summary: "已下载并验证安装包",
-      },
-    },
-    channel_data: {
-      grix: {
-        eggInstall: {
-          install_id: "eggins_9",
-          status: "running",
-          step: "downloaded",
-          summary: "已下载并验证安装包",
-        },
-      },
-    },
-  });
+  assert.equal(envelope.cardKind, undefined);
+  assert.equal(
+    envelope.text,
+    '{"text":"已下载并验证安装包","channelData":{"grix":{"eggInstall":{"install_id":"eggins_9","status":"running","step":"downloaded","summary":"已下载并验证安装包"}}}}',
+  );
+  assert.equal(envelope.extra, undefined);
 });
 
 test("buildAibotOutboundTextEnvelope keeps plain text unchanged", () => {

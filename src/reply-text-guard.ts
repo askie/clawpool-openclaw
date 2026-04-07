@@ -4,11 +4,6 @@ export type GuardedReplyText = {
   userText: string;
 };
 
-const NETWORK_ERROR_MESSAGE = "上游服务网络异常，请稍后重试。";
-const TIMEOUT_MESSAGE = "上游服务响应超时，请稍后重试。";
-const CONTEXT_OVERFLOW_MESSAGE = "当前会话上下文过长，请新开会话后重试。";
-const GENERIC_STOP_MESSAGE = "上游服务异常中断，请稍后重试。";
-
 export function guardInternalReplyText(rawText: string): GuardedReplyText | null {
   const normalized = String(rawText ?? "").trim();
   if (!normalized) {
@@ -19,7 +14,7 @@ export function guardInternalReplyText(rawText: string): GuardedReplyText | null
     return {
       code: "upstream_network_error",
       rawText: normalized,
-      userText: NETWORK_ERROR_MESSAGE,
+      userText: normalized,
     };
   }
 
@@ -27,7 +22,7 @@ export function guardInternalReplyText(rawText: string): GuardedReplyText | null
     return {
       code: "upstream_timeout",
       rawText: normalized,
-      userText: TIMEOUT_MESSAGE,
+      userText: normalized,
     };
   }
 
@@ -35,7 +30,7 @@ export function guardInternalReplyText(rawText: string): GuardedReplyText | null
     return {
       code: "upstream_context_overflow",
       rawText: normalized,
-      userText: CONTEXT_OVERFLOW_MESSAGE,
+      userText: normalized,
     };
   }
 
@@ -43,7 +38,7 @@ export function guardInternalReplyText(rawText: string): GuardedReplyText | null
     return {
       code: "upstream_stop_reason",
       rawText: normalized,
-      userText: GENERIC_STOP_MESSAGE,
+      userText: normalized,
     };
   }
 

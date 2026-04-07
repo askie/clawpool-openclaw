@@ -28,25 +28,6 @@ function stripUndefinedFields<T extends Record<string, unknown>>(record: T): T {
   return next as T;
 }
 
-function splitSummaryAndDetail(text: string): ToolExecutionCardPayload | null {
-  const normalized = normalizeText(text);
-  if (!normalized) {
-    return null;
-  }
-
-  const sections = normalized.split(/\n{2,}/).map((item) => item.trim()).filter(Boolean);
-  const summaryText = sections[0] ?? normalized;
-  const detailText =
-    sections.length > 1
-      ? sections.slice(1).join("\n\n").trim() || undefined
-      : undefined;
-
-  return stripUndefinedFields<ToolExecutionCardPayload>({
-    summary_text: summaryText,
-    detail_text: detailText,
-  });
-}
-
 function buildToolExecutionExtra(parsed: ToolExecutionCardPayload): Record<string, unknown> {
   return {
     [BIZ_CARD_EXTRA_KEY]: {
@@ -94,36 +75,6 @@ function parseStructuredToolExecution(payload: OutboundReplyPayload): ToolExecut
     summary_text: summaryText,
     detail_text: normalizeText(record.detail_text) || undefined,
   });
-}
-
-export function wrapToolExecutionPayload(payload: OutboundReplyPayload): OutboundReplyPayload {
-  if (parseStructuredToolExecution(payload)) {
-    return payload;
-  }
-
-  const parsed = splitSummaryAndDetail(String(payload.text ?? ""));
-  if (!parsed) {
-    return payload;
-  }
-
-  const existingChannelData =
-    payload.channelData && typeof payload.channelData === "object" && !Array.isArray(payload.channelData)
-      ? { ...(payload.channelData as Record<string, unknown>) }
-      : {};
-  const existingGrix =
-    existingChannelData.grix && typeof existingChannelData.grix === "object" && !Array.isArray(existingChannelData.grix)
-      ? { ...(existingChannelData.grix as Record<string, unknown>) }
-      : {};
-
-  existingChannelData.grix = {
-    ...existingGrix,
-    toolExecution: parsed,
-  };
-
-  return {
-    ...payload,
-    channelData: existingChannelData,
-  };
 }
 
 export function buildToolExecutionCardEnvelope(

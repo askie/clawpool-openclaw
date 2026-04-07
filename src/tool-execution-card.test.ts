@@ -1,41 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  buildToolExecutionCardEnvelope,
-  wrapToolExecutionPayload,
-} from "./tool-execution-card.ts";
-
-test("wrapToolExecutionPayload attaches structured grix tool execution data", () => {
-  const wrapped = wrapToolExecutionPayload({
-    text: "Tool: read /tmp/demo\n\n```txt\nhello\n```",
-  });
-
-  assert.deepEqual(wrapped.channelData, {
-    grix: {
-      toolExecution: {
-        summary_text: "Tool: read /tmp/demo",
-        detail_text: "```txt\nhello\n```",
-      },
-    },
-  });
-});
-
-test("wrapToolExecutionPayload keeps existing structured tool execution payload", () => {
-  const payload = {
-    text: "placeholder",
-    channelData: {
-      grix: {
-        toolExecution: {
-          summary_text: "Tool: exec pwd",
-          detail_text: "```txt\n/tmp/demo\n```",
-        },
-      },
-    },
-  };
-
-  assert.equal(wrapToolExecutionPayload(payload), payload);
-});
+import { buildToolExecutionCardEnvelope } from "./tool-execution-card.ts";
 
 test("buildToolExecutionCardEnvelope returns structured tool execution card", () => {
   const envelope = buildToolExecutionCardEnvelope({
@@ -71,4 +37,12 @@ test("buildToolExecutionCardEnvelope returns structured tool execution card", ()
       },
     },
   });
+});
+
+test("buildToolExecutionCardEnvelope ignores plain text-only tool output", () => {
+  const envelope = buildToolExecutionCardEnvelope({
+    text: "Tool: read /tmp/demo\n\n```txt\nhello\n```",
+  });
+
+  assert.equal(envelope, undefined);
 });

@@ -147,46 +147,10 @@ function parseStructuredEggInstall(payload: OutboundReplyPayload): ParsedEggInst
   });
 }
 
-function parseEmbeddedReplyPayloadEggInstall(
-  payload: OutboundReplyPayload,
-): ParsedEggInstallStatusCard | null {
-  const rawText = normalizeText(payload.text);
-  if (!rawText || !/^[{\[]/.test(rawText)) {
-    return null;
-  }
-
-  let embeddedReply: unknown;
-  try {
-    embeddedReply = JSON.parse(rawText);
-  } catch {
-    return null;
-  }
-  if (!embeddedReply || typeof embeddedReply !== "object" || Array.isArray(embeddedReply)) {
-    return null;
-  }
-
-  const record = embeddedReply as Record<string, unknown>;
-  const eggInstall = extractEggInstallRecord(record.channelData);
-  if (!eggInstall) {
-    return null;
-  }
-
-  return finalizeParsed({
-    install_id: eggInstall.install_id,
-    status: eggInstall.status,
-    step: eggInstall.step,
-    summary: eggInstall.summary ?? record.text,
-    detail_text: eggInstall.detail_text,
-    target_agent_id: eggInstall.target_agent_id,
-    error_code: eggInstall.error_code,
-    error_msg: eggInstall.error_msg,
-  });
-}
-
 export function buildEggInstallStatusCardEnvelope(
   payload: OutboundReplyPayload,
 ): EggInstallStatusCardEnvelope | undefined {
-  const parsed = parseStructuredEggInstall(payload) ?? parseEmbeddedReplyPayloadEggInstall(payload);
+  const parsed = parseStructuredEggInstall(payload);
   if (!parsed) {
     return undefined;
   }
