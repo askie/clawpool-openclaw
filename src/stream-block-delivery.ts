@@ -24,7 +24,7 @@ export function buildStreamBlockClientMsgId(messageSid: string, outboundCounter:
   return `reply_${String(messageSid ?? "").trim()}_${Math.max(1, Math.floor(outboundCounter))}_stream`;
 }
 
-export async function sendStreamBlockWithFinish(params: {
+export async function sendStreamBlockChunk(params: {
   text: string;
   client: StreamBlockClient;
   sessionId: string;
@@ -38,15 +38,15 @@ export async function sendStreamBlockWithFinish(params: {
   sleep?: (ms: number) => Promise<void>;
   onSent?: () => void;
   onAbort?: (info: StreamBlockAbortInfo) => void;
-  onFinishError?: (error: unknown) => void;
 }): Promise<boolean> {
   const chunks = splitTextForAibotProtocol(params.text, params.chunkChars);
-  const sleep = params.sleep ?? (async (ms: number) => {
-    if (ms <= 0) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, ms));
-  });
+  const sleep = params.sleep ??
+    (async (ms: number) => {
+      if (ms <= 0) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, ms));
+    });
   let didSend = false;
 
   for (let index = 0; index < chunks.length; index++) {
@@ -82,8 +82,31 @@ export async function sendStreamBlockWithFinish(params: {
     return false;
   }
 
+  return true;
+}
+
+export async function finishStreamBlock(params: {
+  client: StreamBlockClient;
+  sessionId: string;
+  eventId?: string;
+  quotedMessageId?: string;
+  clientMsgId: string;
+  finishDelayMs: number;
+  abortSignal?: AbortSignal;
+  sleep?: (ms: number) => Promise<void>;
+  onSent?: () => void;
+  onFinishError?: (error: unknown) => void;
+}): Promise<boolean> {
+  const sleep = params.sleep ??
+    (async (ms: number) => {
+      if (ms <= 0) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, ms));
+    });
+
   if (params.abortSignal?.aborted) {
-    return true;
+    return false;
   }
 
   if (params.finishDelayMs > 0) {
@@ -91,7 +114,7 @@ export async function sendStreamBlockWithFinish(params: {
   }
 
   if (params.abortSignal?.aborted) {
-    return true;
+    return false;
   }
 
   try {
@@ -102,9 +125,58 @@ export async function sendStreamBlockWithFinish(params: {
       isFinish: true,
     });
     params.onSent?.();
+    return true;
   } catch (error) {
     params.onFinishError?.(error);
+    return false;
   }
+}
 
+export async function sendStreamBlockWithFinish(params: {
+  text: string;
+  client: StreamBlockClient;
+  sessionId: string;
+  eventId?: string;
+  quotedMessageId?: string;
+  clientMsgId: string;
+  chunkChars: number;
+  chunkDelayMs: number;
+  finishDelayMs: number;
+  abortSignal?: AbortSignal;
+  sleep?: (ms: number) => Promise<void>;
+  onSent?: () => void;
+  onAbort?: (info: StreamBlockAbortInfo) => void;
+  onFinishError?: (error: unknown) => void;
+}): Promise<boolean> {
+  const didSend = await sendStreamBlockChunk({
+    text: params.text,
+    client: params.client,
+    sessionId: params.sessionId,
+    eventId: params.eventId,
+    quotedMessageId: params.quotedMessageId,
+    clientMsgId: params.clientMsgId,
+    chunkChars: params.chunkChars,
+    chunkDelayMs: params.chunkDelayMs,
+    finishDelayMs: params.finishDelayMs,
+    abortSignal: params.abortSignal,
+    sleep: params.sleep,
+    onSent: params.onSent,
+    onAbort: params.onAbort,
+  });
+  if (!didSend) {
+    return false;
+  }
+  await finishStreamBlock({
+    client: params.client,
+    sessionId: params.sessionId,
+    eventId: params.eventId,
+    quotedMessageId: params.quotedMessageId,
+    clientMsgId: params.clientMsgId,
+    finishDelayMs: params.finishDelayMs,
+    abortSignal: params.abortSignal,
+    sleep: params.sleep,
+    onSent: params.onSent,
+    onFinishError: params.onFinishError,
+  });
   return true;
 }
