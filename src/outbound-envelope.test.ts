@@ -65,6 +65,23 @@ test("buildAibotOutboundEnvelope recognizes structured user profile card payload
   assert.equal(envelope.text, "[Profile Card] Ops Agent");
 });
 
+test("buildAibotOutboundEnvelope recognizes structured tool execution card payload", () => {
+  const envelope = buildAibotOutboundEnvelope({
+    text: "placeholder",
+    channelData: {
+      grix: {
+        toolExecution: {
+          summary_text: "Tool: read /tmp/demo",
+          detail_text: "```txt\nhello\n```",
+        },
+      },
+    },
+  });
+
+  assert.equal(envelope.cardKind, "tool_execution");
+  assert.equal(envelope.text, "[Tool] Tool: read /tmp/demo");
+});
+
 test("buildAibotOutboundTextEnvelope recognizes egg install status payload text", () => {
   const envelope = buildAibotOutboundTextEnvelope(
     '{"text":"已下载并验证安装包","channelData":{"grix":{"eggInstall":{"install_id":"eggins_9","status":"running","step":"downloaded","summary":"已下载并验证安装包"}}}}',

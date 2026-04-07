@@ -3,10 +3,7 @@ import type { ReplyPayload as OutboundReplyPayload, RuntimeEnv } from "openclaw/
 import type { ResolvedAibotAccount, AibotEventMsgPayload, AibotEventStopPayload } from "./types.js";
 import { AibotWsClient, clearActiveAibotClient, setActiveAibotClient } from "./client.js";
 import type { GuardedReplyText } from "./reply-text-guard.js";
-import {
-  resolveStreamTextChunkLimit,
-  splitTextForAibotProtocol,
-} from "./protocol-text.js";
+import { resolveStreamTextChunkLimit } from "./protocol-text.js";
 import {
   clearActiveReplyRun,
   registerActiveReplyRun,
@@ -40,6 +37,11 @@ import {
   clearPendingInboundContext,
   stagePendingInboundContext,
 } from "./inbound-context.js";
+import {
+  buildStreamBlockClientMsgId,
+  sendStreamBlockWithFinish,
+} from "./stream-block-delivery.ts";
+import { wrapToolExecutionPayload } from "./tool-execution-card.ts";
 
 type MarkdownTableMode = Parameters<PluginRuntime["channel"]["text"]["convertMarkdownTables"]>[1];
 
@@ -177,43 +179,37 @@ async function deliverAibotStreamBlock(params: {
   runtime: RuntimeEnv;
   statusSink?: (patch: { lastOutboundAt?: number; lastError?: string | null }) => void;
 }): Promise<boolean> {
-  const chunks = splitTextForAibotProtocol(params.text, resolveStreamChunkChars(params.account));
-  const chunkDelayMs = resolveStreamChunkDelayMs(params.account);
-  let didSend = false;
   const context = buildEventLogContext({
     eventId: params.eventId,
     sessionId: params.sessionId,
     messageSid: params.messageSid,
     clientMsgId: params.clientMsgId,
   });
-  // params.runtime.log(
-  //   `[grix:${params.account.accountId}] stream block send ${context} chunkCount=${chunks.length} textLen=${params.text.length} chunkDelayMs=${chunkDelayMs}`,
-  // );
-  for (let index = 0; index < chunks.length; index++) {
-    if (params.abortSignal?.aborted) {
+  return await sendStreamBlockWithFinish({
+    text: params.text,
+    client: params.client,
+    sessionId: params.sessionId,
+    eventId: params.eventId,
+    quotedMessageId: params.quotedMessageId,
+    clientMsgId: params.clientMsgId,
+    chunkChars: resolveStreamChunkChars(params.account),
+    chunkDelayMs: resolveStreamChunkDelayMs(params.account),
+    finishDelayMs: resolveStreamFinishDelayMs(params.account),
+    abortSignal: params.abortSignal,
+    sleep,
+    onSent: () => {
+      params.statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
+    },
+    onAbort: ({ chunkCount, chunkIndex, didSend }) => {
       params.runtime.log(
-        `[grix:${params.account.accountId}] stream chunk abort before send ${context} chunkIndex=${index + 1}/${chunks.length} didSend=${didSend} abortReason=${resolveAbortReason(params.abortSignal)}`,
+        `[grix:${params.account.accountId}] stream chunk abort before send ${context} chunkIndex=${chunkIndex}/${chunkCount} didSend=${didSend} abortReason=${resolveAbortReason(params.abortSignal)}`,
       );
-      return didSend;
-    }
-    const chunk = chunks[index];
-    const normalized = String(chunk ?? "");
-    if (!normalized) {
-      continue;
-    }
-    await params.client.sendStreamChunk(params.sessionId, normalized, {
-      eventId: params.eventId,
-      clientMsgId: params.clientMsgId,
-      quotedMessageId: params.quotedMessageId,
-      isFinish: false,
-    });
-    didSend = true;
-    params.statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
-    if (chunkDelayMs > 0 && index < chunks.length - 1) {
-      await sleep(chunkDelayMs);
-    }
-  }
-  return didSend;
+    },
+    onFinishError: (err) => {
+      params.runtime.error(`[grix:${params.account.accountId}] stream finish failed: ${String(err)}`);
+      params.statusSink?.({ lastError: String(err) });
+    },
+  });
 }
 
 async function deliverAibotMessage(params: {
@@ -728,7 +724,6 @@ async function processEvent(params: {
       channel: "grix",
       accountId: account.accountId,
     });
-    const streamClientMsgId = `reply_${messageSid}_stream`;
     const retryPolicy = resolveUpstreamRetryPolicy(account);
     let composingSet = false;
     let composingRenewTimer: NodeJS.Timeout | null = null;
@@ -854,47 +849,11 @@ async function processEvent(params: {
 
     try {
       for (let attempt = 1; attempt <= retryPolicy.maxAttempts; attempt++) {
-        let hasSentBlock = false;
+        let hasStreamedBlock = false;
         let outboundCounter = 0;
         let attemptHasOutbound = false;
         let retryGuardedText: GuardedReplyText | null = null;
         const attemptLabel = `${attempt}/${retryPolicy.maxAttempts}`;
-
-        const finishStreamIfNeeded = async () => {
-          if (!hasSentBlock) {
-            return;
-          }
-          if (runAbortController.signal.aborted) {
-            runtime.log(
-              `[grix:${account.accountId}] skip stream finish due to abort ${buildEventLogContext({
-                eventId,
-                sessionId,
-                messageSid,
-                clientMsgId: streamClientMsgId,
-              })} abortReason=${resolveAbortReason(runAbortController.signal)}`,
-            );
-            hasSentBlock = false;
-            return;
-          }
-          hasSentBlock = false;
-          try {
-            const finishDelayMs = resolveStreamFinishDelayMs(account);
-            if (finishDelayMs > 0) {
-              await sleep(finishDelayMs);
-            }
-            await client.sendStreamChunk(sessionId, "", {
-              eventId,
-              clientMsgId: streamClientMsgId,
-              quotedMessageId: outboundQuotedMessageId,
-              isFinish: true,
-            });
-            attemptHasOutbound = true;
-            statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
-          } catch (err) {
-            runtime.error(`[grix:${account.accountId}] stream finish failed: ${String(err)}`);
-            statusSink?.({ lastError: String(err) });
-          }
-        };
 
         const dispatchResult = await core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
           ctx: ctxPayload,
@@ -908,19 +867,26 @@ async function processEvent(params: {
               const normalizedPayload = guardedText
                 ? { ...outPayload, text: guardedText.userText }
                 : outPayload;
-              const hasMedia = Boolean(normalizedPayload.mediaUrl) || ((normalizedPayload.mediaUrls?.length ?? 0) > 0);
-              const text = core.channel.text.convertMarkdownTables(normalizedPayload.text ?? "", tableMode);
-              const streamedTextAlreadyVisible = hasSentBlock;
+              const decoratedPayload =
+                info.kind === "tool"
+                  ? wrapToolExecutionPayload(normalizedPayload)
+                  : normalizedPayload;
+              const hasMedia = Boolean(decoratedPayload.mediaUrl) || ((decoratedPayload.mediaUrls?.length ?? 0) > 0);
+              const text = core.channel.text.convertMarkdownTables(decoratedPayload.text ?? "", tableMode);
+              const streamedTextAlreadyVisible = hasStreamedBlock;
+              const blockClientMsgId = buildStreamBlockClientMsgId(messageSid, outboundCounter);
               const deliverContext = buildEventLogContext({
                 eventId,
                 sessionId,
                 messageSid,
-                clientMsgId: info.kind === "block" ? streamClientMsgId : `reply_${messageSid}_${outboundCounter}`,
+                clientMsgId: info.kind === "block" ? blockClientMsgId : `reply_${messageSid}_${outboundCounter}`,
                 outboundCounter,
               });
               const isStreamBlock = info.kind === "block" && !guardedText && !hasMedia && text.length > 0;
               const finalOutboundEnvelope =
-                info.kind === "final" ? buildAibotOutboundEnvelope(normalizedPayload) : undefined;
+                info.kind === "final" || info.kind === "tool"
+                  ? buildAibotOutboundEnvelope(decoratedPayload)
+                  : undefined;
               if (!isStreamBlock) {
                 runtime.log(
                   `[grix:${account.accountId}] deliver ${deliverContext} kind=${info.kind} textLen=${text.length} hasMedia=${hasMedia} streamedBefore=${streamedTextAlreadyVisible}`,
@@ -938,7 +904,7 @@ async function processEvent(params: {
                 retryGuardedText == null &&
                 isRetryableGuardedReply(guardedText) &&
                 !attemptHasOutbound &&
-                !hasSentBlock
+                !hasStreamedBlock
               ) {
                 retryGuardedText = guardedText;
                 runtime.log(
@@ -947,7 +913,7 @@ async function processEvent(params: {
                 return;
               }
 
-              if (retryGuardedText && !attemptHasOutbound && !hasSentBlock) {
+              if (retryGuardedText && !attemptHasOutbound && !hasStreamedBlock) {
                 runtime.log(
                   `[grix:${account.accountId}] skip outbound while retry pending ${deliverContext} attempt=${attemptLabel} code=${retryGuardedText.code}`,
                 );
@@ -964,19 +930,17 @@ async function processEvent(params: {
                   eventId,
                   messageSid,
                   quotedMessageId: outboundQuotedMessageId,
-                  clientMsgId: streamClientMsgId,
+                  clientMsgId: blockClientMsgId,
                   runtime,
                   statusSink,
                 });
-                hasSentBlock = hasSentBlock || didSendBlock;
+                hasStreamedBlock = hasStreamedBlock || didSendBlock;
                 attemptHasOutbound = attemptHasOutbound || didSendBlock;
                 if (didSendBlock) {
                   markVisibleOutputSent();
                 }
                 return;
               }
-
-              await finishStreamIfNeeded();
 
               if (
                 shouldSkipFinalReplyAfterStreamedBlock({
@@ -1004,7 +968,7 @@ async function processEvent(params: {
                 })} textLen=${text.length} hasMedia=${hasMedia}`,
               );
               const didSendMessage = await deliverAibotMessage({
-                payload: normalizedPayload,
+                payload: decoratedPayload,
                 client,
                 account,
                 sessionId,
@@ -1033,8 +997,6 @@ async function processEvent(params: {
         runtime.log(
           `[grix:${account.accountId}] dispatch complete ${baseLogContext} attempt=${attemptLabel} queuedFinal=${dispatchResult.queuedFinal} counts=${JSON.stringify(dispatchResult.counts)}`,
         );
-
-        await finishStreamIfNeeded();
 
         if (!visibleOutputSent && consumeSilentUnsendCompleted(messageSid)) {
           runtime.log(
