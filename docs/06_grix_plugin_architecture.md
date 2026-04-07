@@ -31,7 +31,7 @@
 flowchart TB
     subgraph Package["打包与声明层"]
         Manifest["openclaw.plugin.json\n声明插件 id / channel / skills / configSchema"]
-        Npm["package.json\n声明扩展入口 ./dist/index.js"]
+        Npm["package.json\n声明扩展入口 dist/index.js"]
         Skills["skills/\n内置技能目录"]
     end
 
@@ -115,7 +115,7 @@ flowchart TB
 | 层 | 文件 | 职责 |
 |---|---|---|
 | 插件清单 | `openclaw.plugin.json` | 声明插件 `id=grix`、`skills` 目录、`channels=["grix"]`、插件配置结构 |
-| 包发布入口 | `package.json` | 把 `./dist/index.js` 暴露给 OpenClaw 扩展加载器 |
+| 包发布入口 | `package.json` | 把 `dist/index.js` 暴露给 OpenClaw 扩展加载器 |
 | 真实入口 | `index.ts` | 在运行时注册 channel、tools、CLI、prompt hook |
 
 ### 3.2 `index.ts` 注册了什么

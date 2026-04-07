@@ -2,8 +2,8 @@
 
 > 更新时间：2026-04-08
 > 状态：实施中（B0–B4 已完成；P0–P1 已完成，P2 部分完成，P3 已完成，P5 已解除阻塞但尚未清理）
-> 关联文档：  
-> - 插件侧：`04_grix_plugin_server_boundary_refactor_plan.md`  
+> 关联文档：
+> - 插件侧：`docs/04_grix_plugin_server_boundary_refactor_plan.md`
 > - Backend 侧：`backend/docs/ai-agent-adapter-refactor-plan.md`  
 > - 稳定合同：`backend/docs/plugin_backend_stable_contract.md`
 
@@ -35,7 +35,7 @@
 
 **B0 + P0 必须在任何迁移动作之前完成。**
 
-稳定合同（`plugin_backend_stable_contract.md`）是两边共同的锚点。没有合同就开始迁移，两边会各自理解边界，最终对不上。
+稳定合同（`backend/docs/plugin_backend_stable_contract.md`）是两边共同的锚点。没有合同就开始迁移，两边会各自理解边界，最终对不上。
 
 ### 约束 2：backend 接住才能插件迁出
 
@@ -147,7 +147,7 @@ gantt
 
 症状：插件上报的 `capabilities` 字段名和 backend 期望的不一致，导致适配器选择失败，走了错误的降级路径。
 
-预防：`plugin_backend_stable_contract.md` 是唯一权威来源，两边实现前都必须对着这份文档写代码。
+预防：`backend/docs/plugin_backend_stable_contract.md` 是唯一权威来源，两边实现前都必须对着这份文档写代码。
 
 ### 风险 3：旧插件大量在线时提前关闭旧路径
 

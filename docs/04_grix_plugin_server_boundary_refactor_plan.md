@@ -3,8 +3,8 @@
 > 更新时间：2026-04-08
 > 状态：实施中（阶段 0–1 已完成，阶段 2 部分完成，阶段 3–4 已完成，阶段 5 未开始）
 > 适用范围：`index.ts`、`src/channel.ts`、`src/group-adapter.ts`、`src/group-tool-policy.ts`、`src/monitor.ts`、`src/resume-context.ts`、`src/inbound-context.ts`、`src/outbound-envelope.ts`、`src/exec-approvals.ts`、`src/group-semantics.ts`、`src/admin/*`，以及 server 侧对应的调度、协议适配、版本匹配模块
-> 关联文档：  
-> - 稳定合同：`（backend 仓库）backend/docs/plugin_backend_stable_contract.md`  
+> 关联文档：
+> - 稳定合同：`backend/docs/plugin_backend_stable_contract.md`（backend 仓库）
 > - 跨项目阶段对齐：`docs/05_cross_project_phase_alignment.md`
 
 这份文档只回答一件事：
@@ -294,7 +294,7 @@ flowchart LR
 
 ### 阶段 1：先拆代码层次，同步建立 WS 请求-响应基础 ✅ COMPLETE
 
-这一阶段重点是”拆干净”，并为 HTTP → WS 迁移打好基础：
+这一阶段重点是“拆干净”，并为 HTTP → WS 迁移打好基础：
 
 1. 在插件内部先把传输核心层和业务扩展层隔开 ✅
 2. 给传输核心层补稳定合同测试 ✅
@@ -315,12 +315,12 @@ flowchart LR
 ```typescript
 // 复用 client.ts 现有 request() 基础设施
 async agentInvoke(action: string, params: Record<string, unknown>, timeoutMs = 15_000) {
-  return this.request(“agent_invoke”, {
+  return this.request("agent_invoke", {
     invoke_id: randomUUID(),
     action,
     params,
     timeout_ms: timeoutMs,
-  }, { expected: [“agent_invoke_result”], timeoutMs });
+  }, { expected: ["agent_invoke_result"], timeoutMs });
 }
 ```
 
