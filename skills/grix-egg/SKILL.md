@@ -46,8 +46,8 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 
 - 只在当前私聊里沟通，不要切换到隐藏协议，不要输出机器专用 JSON。
 - 必须按 OpenClaw / Claude 的正规步骤安装，不要直接改后端数据库。
-- 需要创建远端 API agent 时，使用 `grix_agent_admin`。
-- 所有远端 API 通讯都必须走统一工具入口：`grix_query` / `grix_group` / `grix_agent_admin`，禁止在对话里自行发 HTTP 请求。
+- 需要创建远端 API agent 时，必须走 backend admin 路径；当前插件不再暴露 `grix_agent_admin`。
+- 所有仍由插件承接的远端 API 通讯都必须走统一工具入口：`grix_query` / `grix_group`，禁止在对话里自行发 HTTP 请求。
 - 禁止使用 `curl`、`fetch`、`axios` 或临时脚本直连 `/v1/agent-api`。
 - 单页查询或单次变更动作只调用一次对应工具；只有分页读取或解析目标仍然不明确时，才允许继续调用下一次。
 - 必须以 `install.route` 为准执行，不要自己重新选路线。
@@ -120,7 +120,7 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 
 1. 查联系人 / 会话 / 消息：调用 `grix_query`
 2. 群治理动作（建群、加人、移人、禁言、解散）：调用 `grix_group`
-3. 创建远端 API agent：调用 `grix_agent_admin`
+3. 创建远端 API agent：走 backend admin 路径，不通过插件工具
 
 规则：
 
@@ -136,8 +136,7 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 1. 读取上下文，确认 route 是 `openclaw_create_new` 还是 `openclaw_existing`。
 2. 如果 route=`openclaw_create_new`，直接使用 `install.suggested_agent_name` 作为默认短名字；若缺失，再按 egg 标题或 egg ID 自行取一个简短名字继续。只有名字或目标信息真的缺失、冲突或执行被阻塞时，才向用户确认；**用户主动取消时发 `failed/user_cancelled` 结构化状态消息后结束**。
 3. 如果 route=`openclaw_existing`，直接使用 `install.target_agent_id` 指定的目标 agent 继续，不要重复确认目标。
-4. 如果 route=`openclaw_create_new`，需要新建远端 API agent，用 `grix_agent_admin` 创建。
-   - `grix_agent_admin` 返回的 `nextSteps` 里如果同时提到 `workspace` 和 `agentDir`，以 `workspace` 作为 persona 落位目录理解。
+4. 如果 route=`openclaw_create_new`，先确认上下文已经给出远端 agent 的 `agent_id`、`api_endpoint`、`api_key`；缺任一项就停止，并提示用户先完成 backend admin 创建。
    - persona 文件只安装到 `workspace` 根目录，不要装到 `agentDir`。
 5. 如果 route=`openclaw_create_new` 且远端 agent 已创建成功，立即发送 `status=running`、`step=agent_created` 结构化状态消息。
 6. 用 OpenClaw 正规步骤准备本地目标目录和配置。
@@ -155,7 +154,7 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
     - `openclaw config set agents.list '<NEXT_AGENTS_LIST_JSON>' --strict-json`
     - `openclaw agents bind --agent <agent_name> --bind grix:<agent_name>`
     - `openclaw config set tools.profile '"coding"' --strict-json`
-    - `openclaw config set tools.alsoAllow '["message","grix_query","grix_group","grix_agent_admin"]' --strict-json`
+    - `openclaw config set tools.alsoAllow '["message","grix_query","grix_group"]' --strict-json`
     - `openclaw config set tools.sessions.visibility '"agent"' --strict-json`
     - 不要调用 `grix_agent_bind.py`，也不要直接编辑 `~/.openclaw/openclaw.json`
 13. 执行 `openclaw config validate`，再用 `openclaw config get --json` 检查刚写入的 account / agent / tools 都已存在且值正确，并用 `openclaw agents bindings --agent <agent_name> --json` 确认目标绑定已经存在。

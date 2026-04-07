@@ -1,7 +1,11 @@
-import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
+/**
+ * @layer pending-migration - Marked for server-side migration. Card format should migrate to server-side adapter (openclaw NormalizeOutbound). Plugin only passes through server-defined card structure.
+ * Do not add new functionality. See docs/04_grix_plugin_server_boundary_refactor_plan.md §8.3
+ */
 
-const BIZ_CARD_EXTRA_KEY = "biz_card";
-const BIZ_CARD_VERSION = 1;
+import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
+import { buildGrixCardLink } from "./grix-card-uri.ts";
+
 const EXEC_APPROVAL_CARD_TYPE = "exec_approval";
 
 type ExecApprovalDecision = "allow-once" | "allow-always" | "deny";
@@ -67,8 +71,8 @@ export type ExecApprovalCardDiagnostic = {
 };
 
 export type ExecApprovalCardEnvelope = {
-  extra: Record<string, unknown>;
-  fallbackText: string;
+  content: string;
+  extra?: Record<string, unknown>;
 };
 
 function normalizeDecision(value: unknown): ExecApprovalDecision | undefined {
@@ -393,19 +397,17 @@ export function buildExecApprovalCardEnvelope(
     cardPayload.expires_at_ms = structured.expiresAtMs;
   }
 
+  const fallbackText = buildExecApprovalFallbackText({
+    approvalCommandId: structured.approvalCommandId,
+    command: structured.command,
+    host: structured.host,
+  });
+  const content = buildGrixCardLink(fallbackText, EXEC_APPROVAL_CARD_TYPE, cardPayload);
+
   return {
+    content,
     extra: {
-      [BIZ_CARD_EXTRA_KEY]: {
-        version: BIZ_CARD_VERSION,
-        type: EXEC_APPROVAL_CARD_TYPE,
-        payload: cardPayload,
-      },
       channel_data: payload.channelData ?? {},
     },
-    fallbackText: buildExecApprovalFallbackText({
-      approvalCommandId: structured.approvalCommandId,
-      command: structured.command,
-      host: structured.host,
-    }),
   };
 }

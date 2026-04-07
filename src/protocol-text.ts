@@ -1,3 +1,8 @@
+/**
+ * @layer core - Transport core layer. Stable, protected.
+ * Changes require review: only modify for transport protocol or local host interface changes.
+ */
+
 const AIBOT_PROTOCOL_MAX_RUNES = 2_000;
 const AIBOT_PROTOCOL_MAX_BYTES = 12 * 1024;
 export const DEFAULT_OUTBOUND_TEXT_CHUNK_LIMIT = 1_200;

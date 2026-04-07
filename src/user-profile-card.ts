@@ -1,7 +1,11 @@
-import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
+/**
+ * @layer pending-migration - Marked for server-side migration. Card format should migrate to server-side adapter. Plugin only passes through server-defined card structure.
+ * Do not add new functionality. See docs/04_grix_plugin_server_boundary_refactor_plan.md §8.3
+ */
 
-const BIZ_CARD_EXTRA_KEY = "biz_card";
-const BIZ_CARD_VERSION = 1;
+import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
+import { buildGrixCardLink } from "./grix-card-uri.ts";
+
 const USER_PROFILE_CARD_TYPE = "user_profile";
 
 type UserProfilePeerType = 1 | 2;
@@ -16,8 +20,8 @@ type UserProfileCardPayload = {
 type ParsedUserProfileCard = UserProfileCardPayload;
 
 export type UserProfileCardEnvelope = {
-  extra: Record<string, unknown>;
-  fallbackText: string;
+  content: string;
+  extra?: Record<string, unknown>;
 };
 
 function normalizeText(value: unknown): string {
@@ -50,13 +54,14 @@ function buildFallbackText(parsed: ParsedUserProfileCard): string {
   return `[Profile Card] ${compactNickname}`;
 }
 
+function buildContent(parsed: ParsedUserProfileCard): string {
+  const fallbackText = buildFallbackText(parsed);
+  const cleanPayload = stripUndefinedFields(parsed);
+  return buildGrixCardLink(fallbackText, USER_PROFILE_CARD_TYPE, cleanPayload);
+}
+
 function buildExtra(parsed: ParsedUserProfileCard): Record<string, unknown> {
   return {
-    [BIZ_CARD_EXTRA_KEY]: {
-      version: BIZ_CARD_VERSION,
-      type: USER_PROFILE_CARD_TYPE,
-      payload: stripUndefinedFields(parsed),
-    },
     channel_data: {
       grix: {
         userProfile: stripUndefinedFields(parsed),
@@ -125,7 +130,7 @@ export function buildUserProfileCardEnvelope(
   }
 
   return {
+    content: buildContent(parsed),
     extra: buildExtra(parsed),
-    fallbackText: buildFallbackText(parsed),
   };
 }

@@ -83,24 +83,28 @@ test("sendText retries once when ws returns send too fast", async () => {
   assert.equal(ack.msg_id, "18889990099");
 });
 
-test("buildAuthPayload pins openclaw client_type", () => {
-  assert.deepEqual(
-    buildAuthPayload({
-      accountId: "default",
-      enabled: true,
-      configured: true,
-      wsUrl: "ws://localhost:18080/ws",
-      agentId: "9001",
-      apiKey: "test-api-key",
-      config: {},
-    }),
-    {
-      agent_id: "9001",
-      api_key: "test-api-key",
-      client: "openclaw-grix",
-      client_type: "openclaw",
-    },
-  );
+test("buildAuthPayload pins openclaw client_type and contract fields", () => {
+  const payload = buildAuthPayload({
+    accountId: "default",
+    enabled: true,
+    configured: true,
+    wsUrl: "ws://localhost:18080/ws",
+    agentId: "9001",
+    apiKey: "test-api-key",
+    config: {},
+  });
+  assert.equal(payload.agent_id, "9001");
+  assert.equal(payload.api_key, "test-api-key");
+  assert.equal(payload.client, "openclaw-grix");
+  assert.equal(payload.client_type, "openclaw");
+  assert.equal(payload.host_type, "openclaw");
+  assert.equal(payload.protocol_version, "aibot-agent-api-v1");
+  assert.equal(payload.contract_version, 1);
+  assert.ok(Array.isArray(payload.capabilities));
+  assert.ok(payload.capabilities.includes("stream_chunk"));
+  assert.ok(payload.capabilities.includes("local_action_v1"));
+  assert.ok(payload.capabilities.includes("agent_invoke"));
+  assert.deepEqual(payload.local_actions, ["exec_approve", "exec_reject"]);
 });
 
 test("sendText adapts message too large by splitting into smaller messages", async () => {

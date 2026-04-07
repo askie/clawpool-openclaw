@@ -1,3 +1,8 @@
+/**
+ * @layer business - Business extension layer. FROZEN: no new logic should be added here.
+ * Future changes should migrate to server-side adapter. See docs/04_grix_plugin_server_boundary_refactor_plan.md §8.2
+ */
+
 export function resolveGrixGroupRequireMention(): boolean {
   return false;
 }

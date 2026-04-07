@@ -3,28 +3,8 @@ import test from "node:test";
 
 import {
   buildExecApprovalResolveArgv,
-  handleExecApprovalCommand,
   submitExecApprovalDecision,
 } from "./exec-approvals.ts";
-import type { ResolvedAibotAccount } from "./types.ts";
-
-function buildAccount(overrides?: Partial<ResolvedAibotAccount>): ResolvedAibotAccount {
-  return {
-    accountId: "main",
-    enabled: true,
-    configured: true,
-    wsUrl: "wss://example.invalid/ws",
-    agentId: "agent-1",
-    apiKey: "token",
-    config: {
-      execApprovals: {
-        enabled: true,
-        approvers: ["u_1", "u_2"],
-      },
-    },
-    ...overrides,
-  };
-}
 
 function buildRuntime() {
   return {
@@ -88,37 +68,12 @@ test("submitExecApprovalDecision fails on non-zero command result", async () => 
   );
 });
 
-test("handleExecApprovalCommand ignores non-approval text", async () => {
-  const result = await handleExecApprovalCommand({
-    rawBody: "hello",
-    senderId: "u_1",
-    account: buildAccount(),
-    runtime: buildRuntime() as never,
-  });
-  assert.deepEqual(result, { handled: false });
-});
-
-test("handleExecApprovalCommand rejects unauthorized approver", async () => {
-  const result = await handleExecApprovalCommand({
-    rawBody: "/approve req_123 deny",
-    senderId: "u_9",
-    account: buildAccount(),
-    runtime: buildRuntime() as never,
-  });
-  assert.deepEqual(result, {
-    handled: true,
-    replyText: "❌ You are not authorized to approve exec requests on Grix.",
-  });
-});
-
-test("handleExecApprovalCommand resolves approval for configured approver", async () => {
+test("submitExecApprovalDecision sends expected gateway command", async () => {
   const calls: string[][] = [];
-  const result = await handleExecApprovalCommand({
-    rawBody:
-      "[[exec-approval-resolution|approval_id=approval_full_123|approval_command_id=req_123|decision=allow-always|reason=trusted%20build]]",
-    senderId: "u_1",
-    account: buildAccount(),
+  await submitExecApprovalDecision({
     runtime: buildRuntime() as never,
+    id: "req_123",
+    decision: "allow-always",
     cliArgvPrefix: ["openclaw"],
     runner: async (argv) => {
       calls.push(argv);
@@ -133,62 +88,20 @@ test("handleExecApprovalCommand resolves approval for configured approver", asyn
       };
     },
   });
+
   assert.equal(calls.length, 1);
-  assert.equal(calls[0][0], "openclaw");
-  assert.deepEqual(result, {
-    handled: true,
-    replyText: "✅ Exec approval allow-always submitted for req_123.",
-    replyExtra: {
-      biz_card: {
-        version: 1,
-        type: "exec_status",
-        payload: {
-          status: "resolved-allow-always",
-          summary: "Allow always selected by u_1.",
-          detail_text: "Reason: trusted build",
-          approval_id: "approval_full_123",
-          approval_command_id: "req_123",
-          decision: "allow-always",
-          reason: "trusted build",
-          resolved_by_id: "u_1",
-        },
-      },
-      channel_data: {
-        grix: {
-          execStatus: {
-            status: "resolved-allow-always",
-            summary: "Allow always selected by u_1.",
-            detail_text: "Reason: trusted build",
-            approval_id: "approval_full_123",
-            approval_command_id: "req_123",
-            decision: "allow-always",
-            reason: "trusted build",
-            resolved_by_id: "u_1",
-          },
-        },
-      },
-    },
-  });
-});
-
-test("handleExecApprovalCommand keeps legacy slash approval compatible without structured result card", async () => {
-  const result = await handleExecApprovalCommand({
-    rawBody: "/approve req_123 allow-once",
-    senderId: "u_1",
-    account: buildAccount(),
-    runtime: buildRuntime() as never,
-    runner: async () => ({
-      stdout: '{"ok":true}',
-      stderr: "",
-      code: 0,
-      signal: null,
-      killed: false,
-      termination: "exit",
+  assert.deepEqual(calls[0], [
+    "openclaw",
+    "gateway",
+    "call",
+    "exec.approval.resolve",
+    "--json",
+    "--timeout",
+    "15000",
+    "--params",
+    JSON.stringify({
+      id: "req_123",
+      decision: "allow-always",
     }),
-  });
-
-  assert.deepEqual(result, {
-    handled: true,
-    replyText: "✅ Exec approval allow-once submitted for req_123.",
-  });
+  ]);
 });

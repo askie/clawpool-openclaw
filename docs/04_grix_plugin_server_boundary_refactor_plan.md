@@ -1,8 +1,11 @@
 # Grix 插件 / Server 职责边界改造计划
 
-> 更新时间：2026-04-07  
-> 状态：规划中  
-> 适用范围：`index.ts`、`src/channel.ts`、`src/monitor.ts`、`src/exec-approvals.ts`、`src/group-semantics.ts`、`src/admin/*`，以及 server 侧对应的调度、协议适配、版本匹配模块
+> 更新时间：2026-04-08
+> 状态：实施中（阶段 0–1 已完成，阶段 2 部分完成，阶段 3 部分完成）
+> 适用范围：`index.ts`、`src/channel.ts`、`src/monitor.ts`、`src/exec-approvals.ts`、`src/group-semantics.ts`、`src/admin/*`，以及 server 侧对应的调度、协议适配、版本匹配模块  
+> 关联文档：  
+> - 稳定合同：`（backend 仓库）backend/docs/plugin_backend_stable_contract.md`  
+> - 跨项目阶段对齐：`docs/05_cross_project_phase_alignment.md`
 
 这份文档只回答一件事：
 
@@ -187,17 +190,21 @@ flowchart LR
 
 | 能力 | 当前落点 | 目标归属 | 改造方向 |
 |---|---|---|---|
-| WebSocket 建连、鉴权、保活、重连 | `src/client.ts` | 插件 | 保留 |
+| WebSocket 建连、鉴权、保活、重连 | `src/client.ts` | 插件 | 保留 ✅ |
 | AIBot 入站事件 -> OpenClaw 上下文映射 | `src/monitor.ts` | 插件 | 收敛为最小字段映射 |
-| 出站 `send_msg` / `client_stream_chunk` / `delete_msg` | `src/channel.ts`、`src/aibot-payload-delivery.ts` | 插件 | 保留 |
-| 路由绑定与解析 | `src/client.ts`、`src/target-resolver.ts` | 插件 | 保留 |
-| 群聊“是不是该回复”的策略提示 | `src/group-semantics.ts` | Server 主导 | 插件只保留事实字段，不保留策略文案 |
+| 出站 `send_msg` / `client_stream_chunk` / `delete_msg` | `src/channel.ts`、`src/aibot-payload-delivery.ts` | 插件 | 保留 ✅ |
+| 路由绑定与解析 | `src/client.ts`、`src/target-resolver.ts` | 插件 | 保留 ✅ |
+| 群聊”是不是该回复”的策略提示 | `src/group-semantics.ts` | Server 主导 | 插件只保留事实字段，不保留策略文案 ✅（策略文案已剥离，仅保留 wasMentioned/mentionsOther 事实） |
 | 群聊目标分发策略 | 文档约定 + 本地辅助逻辑 | Server | 明确完全归 server |
 | 审批命令语法识别 | `src/exec-approvals.ts` | Server | 改为 server 下发标准本地动作 |
 | 审批结果卡片和业务语义 | `src/exec-status-card.ts` 等 | Server | 插件只做标准载荷透传或最小渲染桥接 |
-| 远端管理工具 | `src/admin/*` | Server | 从插件主能力中拆出，避免继续扩大 |
-| Prompt 级行为提示 | `src/group-semantics.ts`、`src/inbound-context.ts` | Server 主导，插件最小化 | 本地只保留必要上下文注入 |
+| 远端管理工具 | `src/admin/*` | Server | 从插件主能力中拆出，避免继续扩大 ✅（已标记 DEPRECATED） |
+| Prompt 级行为提示 | `src/group-semantics.ts`、`src/inbound-context.ts` | Server 主导，插件最小化 | 本地只保留必要上下文注入 ✅（`inbound-context.ts` 策略提示已移除） |
 | 本地 `doctor` / 最小配置检查 | `src/admin/cli.ts` | 插件 | 保留最小诊断，不扩展成远端编排入口 |
+| HTTP 查询类工具调用（联系人 / 会话 / 消息搜索） | `src/admin/query-service.ts` + `agent-api-http.ts` | 插件→WS | 改为通过现有 WS 连接发 `agent_invoke`，删除 HTTP 信道 ✅ |
+| HTTP 群组管理工具调用 | `src/admin/group-service.ts` + `agent-api-http.ts` | 插件→WS | 同上，统一走 WS ✅ |
+| Agent 创建管理 | `src/admin/agent-admin-service.ts` | Server 直接 API | 从插件移除，改为 backend admin 接口，不经插件 ✅（插件入口、实现与 CLI 旧入口均已移除） |
+| HTTP Base URL 推导逻辑 | `src/admin/agent-api-http.ts` | 删除 | WS 信道统一后无需维护独立 HTTP 地址 ✅（已删除） |
 
 ---
 
@@ -235,22 +242,25 @@ flowchart LR
 
 ### 8.3 应迁出插件主边界的部分
 
-这些能力后续要逐步从“插件主职责”中拿出去：
+这些能力后续要逐步从”插件主职责”中拿出去：
 
-1. `src/admin/*`
+1. `src/admin/*`（除 `cli.ts` 的最小诊断能力外）
 2. `src/exec-approvals.ts`
-3. `src/exec-approval-command.ts`
+3. 聊天审批命令解析（原 `src/exec-approval-command.ts`，已删除）
 4. `src/exec-approval-card.ts`
 5. `src/exec-status-card.ts`
 6. `src/egg-install-status-card.ts`
 7. `src/user-profile-card.ts`
 8. `src/tool-execution-card.ts`
+9. `src/admin/agent-api-http.ts`（HTTP 信道整体删除，已完成）
+10. `src/admin/agent-api-actions.ts`（保留 `agent_invoke` 参数打包与校验，不再承担 HTTP / create 分支）
 
 这里的原则是：
 
 1. 远端业务管理能力，不应该继续绑定在客户机插件上
 2. 高频变化的业务卡片协议，不应该由插件主导演进
 3. 本地若还需要执行动作，只保留一个稳定的本地动作执行入口
+4. 与 server 之间只维护一条 WS 信道，不再额外维护 HTTP 信道和 URL 推导逻辑
 
 ### 8.4 `index.ts` 的目标形态
 
@@ -266,67 +276,98 @@ flowchart LR
 
 ## 9. 分阶段迁移计划
 
-### 阶段 0：冻结边界并立规则
+### 阶段 0：冻结边界并立规则 ✅ COMPLETE
 
 先做定义，不急着改行为：
 
 1. 明确一份稳定的插件对 server 合同，定义 `contract_version`
-2. 把当前插件里的模块逐个标注“传输层 / 本地执行层 / 业务策略层 / 远端管理层”
+2. 把当前插件里的模块逐个标注”传输层 / 本地执行层 / 业务策略层 / 远端管理层”
 3. 明确红线：后续新增 AI 适配逻辑，默认不允许直接写进插件
 
 这一阶段的产出：
 
-1. 边界文档
-2. 模块归属清单
-3. 迁移优先级清单
+1. 边界文档 ✅
+2. 模块归属清单 ✅（当前计划范围内的入口文件与 `src/admin/*` 已标注 `@layer`：core / business / pending-migration）
+3. 迁移优先级清单 ✅
 
-### 阶段 1：先拆代码层次，不先大改行为
+### 阶段 1：先拆代码层次，同步建立 WS 请求-响应基础 ✅ COMPLETE
 
-这一阶段重点是“拆干净”，不是“全迁完”：
+这一阶段重点是”拆干净”，并为 HTTP → WS 迁移打好基础：
 
-1. 在插件内部先把传输核心层和业务扩展层隔开
-2. 给传输核心层补稳定合同测试
-3. 给高变化模块打上弃扩标记，不再继续堆逻辑
+1. 在插件内部先把传输核心层和业务扩展层隔开 ✅
+2. 给传输核心层补稳定合同测试 ✅
+3. 给高变化模块打上弃扩标记，不再继续堆逻辑 ✅
+4. 在 `src/client.ts` 基于现有 `request()` 方法封装 `agentInvoke()` 接口，发送 `agent_invoke` 并等待 `agent_invoke_result`（无需鉴权变更，复用已有 WS 会话） ✅（已实现，8 个测试通过）
+5. backend 同步实现 `agent_invoke` 命令的路由和响应 ✅
 
-目标是先让代码层次清楚，避免后面迁移时越改越乱。
+已实现的关键交付：
 
-### 阶段 2：把高变化规则迁到 server
+- `agentInvoke()` 在 `src/client.ts` 中实现，复用 `request()` 基础设施 ✅
+- `buildAgentInvokeParams()` 在 `src/admin/agent-api-actions.ts` 中实现，覆盖 13 个 action 的参数提取 ✅（7 个测试通过）
+- `group-service.ts` 从 HTTP 迁移到 WS，使用 `agentInvoke` + `_client` 依赖注入 ✅（7 个测试通过）
+- `query-service.ts` 从 HTTP 迁移到 WS，使用 `agentInvoke` + `_client` 依赖注入 ✅（6 个测试通过）
+- 当前计划范围内的入口文件与 `src/admin/*` 已标注 `@layer` 分类（core / business-frozen / pending-migration） ✅
+
+`agentInvoke` 的形态：
+
+```typescript
+// 复用 client.ts 现有 request() 基础设施
+async agentInvoke(action: string, params: Record<string, unknown>, timeoutMs = 15_000) {
+  return this.request(“agent_invoke”, {
+    invoke_id: randomUUID(),
+    action,
+    params,
+    timeout_ms: timeoutMs,
+  }, { expected: [“agent_invoke_result”], timeoutMs });
+}
+```
+
+WS 是会话级鉴权，`agent_invoke` 发送在已鉴权的 WS 连接上，**不需要重复鉴权**，也不需要单独管理 API key 或 HTTP base URL。
+
+### 阶段 2：把高变化规则迁到 server，同步迁移 HTTP 信道 🔶 PARTIAL
 
 优先迁这些：
 
-1. AI 类型差异逻辑
-2. AI 版本适配逻辑
-3. 审批语法和审批交互
-4. 群聊策略判断
-5. 卡片协议演进
+1. AI 类型差异逻辑 ✅（B2 已完成：主链路通过 adapter 路由，不再有 OpenClaw 专属分支）
+2. AI 版本适配逻辑 ✅（B2 已完成：adapter 运行时被使用，NormalizeOutbound/NormalizeApproval/NormalizeStatus 接入）
+3. 审批语法和审批交互 ✅（聊天里的 `/approve` / `[[exec-approval-resolution|...]]` 已迁出插件主流程，backend 统一转 `local_action`，插件只执行 `exec_approve` / `exec_reject`）
+4. 群聊策略判断 ✅（`group-semantics.ts` 策略文案已剥离为纯事实描述，`inbound-context.ts` 策略提示已移除）
+5. 卡片协议演进 ⬜（等待 backend 统一 card domain model）
+6. **`grix_query` 工具（contact_search / session_search / message_history / message_search）改用 `agent_invoke` 替代 HTTP** ✅（已在阶段 1 完成）
+7. **`grix_group` 工具（9 个群组管理动作）改用 `agent_invoke` 替代 HTTP** ✅（已在阶段 1 完成）
+8. **`src/admin/agent-api-http.ts`（HTTP 信道）删除** ✅（HTTP 通道与 URL 推导逻辑已移除）
+9. **`local_action` / `local_action_result` 最小稳定子集** ✅（auth 已声明 `local_action_v1` + `local_actions=["exec_approve","exec_reject"]`，`monitor.ts` 已接入稳定 handler 和单测）
 
-插件侧保留的形态应该变成：
+迁移后插件侧的形态：
 
-1. 接收 server 下发的标准动作
-2. 在本地执行稳定动作
-3. 回传标准结果
+1. 接收 server 下发的 `local_action`（审批、管理动作）
+2. 在本地执行稳定动作，回传 `local_action_result`
+3. 主动发起远端查询和操作，通过 `agent_invoke` / `agent_invoke_result`
+4. 不再持有 HTTP 信道，不再维护 API base URL 推导逻辑
 
-### 阶段 3：缩减插件公开能力面
+### 阶段 3：缩减插件公开能力面，移除 agent_api_create ✅ DONE
 
 这一阶段要开始收口：
 
-1. 逐步弱化 `src/admin/*` 这类远端管理型入口
-2. README 和安装文档里，强调 server 侧适配才是主路径
-3. 插件 CLI 只保留本地诊断，不继续扩充远端编排能力
+1. 逐步弱化 `src/admin/*` 这类远端管理型入口 ✅（`grix_agent_admin` 已不再注册到插件入口）
+2. `agent_api_create`（创建 agent）从插件移除，改为 backend admin 接口直接提供，不经插件 ✅（插件入口、CLI 和残留实现已移除）
+3. README 和安装文档里，强调 server 侧适配才是主路径 ✅（README 已改为要求先通过 backend admin 路径准备远端 agent）
+4. 插件 CLI 只保留本地诊断，不继续扩充远端编排能力 ✅（`openclaw grix create-agent` 已移除，CLI 仅保留 `doctor`）
+5. 删除旧 HTTP 通道与创建分支，保留 `agent_invoke` 参数打包 ✅（`src/admin/agent-api-http.ts` 已删除，`src/admin/agent-api-actions.ts` 仅保留 WS 参数校验）
 
-### 阶段 4：建立 server 端版本矩阵
+### 阶段 4：建立 server 端版本矩阵 ✅ COMPLETE
 
 server 端需要补上正式的适配治理能力：
 
 1. AI family registry
 2. version matrix
-3. feature flags
+3. capability matrix
 4. downgrade rules
 5. compatibility alerts
 
 做到这里之后，新增和跟进版本的主战场就不会再落在插件仓库。
 
-### 阶段 5：清理遗留实现
+### 阶段 5：清理遗留实现 ⬜ NOT STARTED
 
 最后再做清理，避免一开始大爆改：
 
@@ -342,16 +383,20 @@ server 端需要补上正式的适配治理能力：
 为了避免大改过猛，建议按下面顺序推进：
 
 1. 先冻结边界和合同
-2. 再迁审批交互
-3. 再迁群聊策略文案和策略判断
-4. 再迁远端管理能力
-5. 最后收敛卡片协议和扩展入口
+2. 建立 `agent_invoke` / `agent_invoke_result` WS 请求-响应机制（消除 HTTP 信道的前提）
+3. 再迁 `grix_query` 和 `grix_group` 工具（HTTP → WS，改造收益最直接）
+4. 再迁审批交互（改为 `local_action` 下发）
+5. 再迁群聊策略文案和策略判断
+6. 再迁远端管理能力（`src/admin/*`），同步移除 `agent_api_create`
+7. 最后收敛卡片协议和扩展入口
 
-这个顺序的原因很简单：
+这个顺序的原因：
 
-1. 审批和群聊策略变化最快
-2. 管理能力天然更偏 server
-3. 传输核心层最稳定，最后只需要被保护，不需要被反复重写
+1. `agent_invoke` 机制是后续所有"插件发起远端调用"的统一基础，优先建立
+2. `grix_query` / `grix_group` 迁到 WS 后，HTTP 信道可以完全退出，减少维护面
+3. 审批和群聊策略变化最快，迁出收益大
+4. 管理能力天然更偏 server，且 `agent_api_create` 应该脱离插件
+5. 传输核心层最稳定，最后只需要被保护，不需要被反复重写
 
 ---
 

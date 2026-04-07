@@ -1,5 +1,11 @@
+/**
+ * @layer core - Transport core layer. Stable, protected.
+ * Changes require review: only modify for transport protocol or local host interface changes.
+ */
+
 import { randomUUID } from "node:crypto";
 import type {
+  AibotAgentInvokeResultPayload,
   AibotConnectionStatus,
   AibotDeleteAckPayload,
   AibotEventMsgPayload,
@@ -8,6 +14,8 @@ import type {
   AibotEventStopAckPayload,
   AibotEventStopPayload,
   AibotEventStopResultPayload,
+  AibotLocalActionPayload,
+  AibotLocalActionResultPayload,
   AibotPacket,
   AibotSessionRouteAckPayload,
   AibotSendAckPayload,
@@ -22,6 +30,7 @@ import {
   resolveAibotSendRetryMaxAttempts,
 } from "./protocol-send.ts";
 import { DEFAULT_OUTBOUND_TEXT_CHUNK_LIMIT, splitTextForAibotProtocol } from "./protocol-text.ts";
+import { STABLE_LOCAL_ACTION_TYPES } from "./local-actions.ts";
 
 type AibotLogger = {
   info?: (message: string) => void;
@@ -42,6 +51,7 @@ type AibotWsClientCallbacks = {
   onEventReact?: (payload: Record<string, unknown>) => void;
   onEventRevoke?: (payload: AibotEventRevokePayload) => void;
   onEventStop?: (payload: AibotEventStopPayload) => void;
+  onLocalAction?: (payload: AibotLocalActionPayload, respond: (result: AibotLocalActionResultPayload) => void) => void;
   onStatus?: (status: AibotConnectionStatus) => void;
   logger?: AibotLogger;
 };
@@ -113,13 +123,26 @@ const DEFAULT_RECONNECT_MAX_MS = 30_000;
 const DEFAULT_RECONNECT_STABLE_MS = 30_000;
 const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
 const DEFAULT_HEARTBEAT_SEC = 30;
+const PLUGIN_VERSION = "0.4.31";
+const STABLE_AUTH_CAPABILITIES = [
+  "stream_chunk",
+  "session_route",
+  "local_action_v1",
+  "agent_invoke",
+] as const;
 
-export function buildAuthPayload(account: ResolvedAibotAccount): Record<string, string> {
+export function buildAuthPayload(account: ResolvedAibotAccount): Record<string, unknown> {
   return {
     agent_id: account.agentId,
     api_key: account.apiKey,
     client: "openclaw-grix",
     client_type: "openclaw",
+    client_version: PLUGIN_VERSION,
+    protocol_version: "aibot-agent-api-v1",
+    contract_version: 1,
+    host_type: "openclaw",
+    capabilities: [...STABLE_AUTH_CAPABILITIES],
+    local_actions: [...STABLE_LOCAL_ACTION_TYPES],
   };
 }
 
@@ -640,6 +663,98 @@ export class AibotWsClient {
     return packet.payload as AibotDeleteAckPayload;
   }
 
+  async agentInvoke(
+    action: string,
+    params: Record<string, unknown> = {},
+    opts: { timeoutMs?: number } = {},
+  ): Promise<unknown> {
+    this.ensureReady();
+    const normalizedAction = String(action ?? "").trim();
+    if (!normalizedAction) {
+      throw new Error("grix agent_invoke requires action");
+    }
+    const timeoutMs = Number.isFinite(opts.timeoutMs)
+      ? Math.max(1_000, Math.floor(opts.timeoutMs as number))
+      : 15_000;
+
+    const packet = await this.request(
+      "agent_invoke",
+      {
+        invoke_id: randomUUID(),
+        action: normalizedAction,
+        params,
+        timeout_ms: timeoutMs,
+      },
+      { expected: ["agent_invoke_result"], timeoutMs },
+    );
+
+    const payload = packet.payload as AibotAgentInvokeResultPayload;
+    const code = Number(payload.code ?? 0);
+    if (code !== 0) {
+      const msg = String(payload.msg ?? "").trim() || "agent_invoke failed";
+      throw new AibotPacketError("agent_invoke_result", code, msg);
+    }
+    return payload.data;
+  }
+
+  private handleLocalAction(payload: AibotLocalActionPayload): void {
+    const actionId = String(payload?.action_id ?? "").trim();
+    const actionType = String(payload?.action_type ?? "").trim();
+    if (!actionId || !actionType) {
+      this.logWarn(`local_action missing action_id or action_type`);
+      this.sendLocalActionResult({
+        action_id: actionId || "unknown",
+        status: "failed",
+        error_code: "invalid_payload",
+        error_msg: "missing action_id or action_type",
+      });
+      return;
+    }
+
+    this.logInfo(`received local_action action_id=${actionId} action_type=${actionType}`);
+
+    if (!this.callbacks.onLocalAction) {
+      this.logWarn(`local_action unsupported action_id=${actionId}`);
+      this.sendLocalActionResult({
+        action_id: actionId,
+        status: "unsupported",
+        error_code: "no_handler",
+        error_msg: "no local_action handler registered",
+      });
+      return;
+    }
+
+    this.callbacks.onLocalAction(payload, (result) => {
+      this.sendLocalActionResult(result);
+    });
+  }
+
+  sendLocalActionResult(result: AibotLocalActionResultPayload): void {
+    const actionId = String(result?.action_id ?? "").trim();
+    if (!actionId) {
+      throw new Error("grix local_action_result requires action_id");
+    }
+    const status = String(result?.status ?? "").trim();
+    if (!status) {
+      throw new Error("grix local_action_result requires status");
+    }
+    this.ensureReady();
+    const payload: Record<string, unknown> = {
+      action_id: actionId,
+      status,
+    };
+    if (result.result !== undefined) {
+      payload.result = result.result;
+    }
+    if (result.error_code) {
+      payload.error_code = result.error_code;
+    }
+    if (result.error_msg) {
+      payload.error_msg = result.error_msg;
+    }
+    this.sendPacket("local_action_result", payload);
+  }
+
   ackEvent(eventId: string, payload: {
     sessionId?: string;
     msgId?: string | number;
@@ -1108,6 +1223,10 @@ export class AibotWsClient {
         `received event_stop eventId=${String(payload.event_id ?? "").trim() || "-"} sessionId=${String(payload.session_id ?? "").trim() || "-"} stopId=${String(payload.stop_id ?? "").trim() || "-"} seq=${seq}`,
       );
       this.callbacks.onEventStop?.(packet.payload as unknown as AibotEventStopPayload);
+      return;
+    }
+    if (cmd === "local_action") {
+      this.handleLocalAction(packet.payload as unknown as AibotLocalActionPayload);
       return;
     }
     if (cmd === "kicked") {

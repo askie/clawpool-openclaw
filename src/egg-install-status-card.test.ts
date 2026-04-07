@@ -40,14 +40,20 @@ test("buildEggInstallStatusCardEnvelope keeps structured channel data when alrea
   );
 
   assert.ok(envelope);
-  assert.equal(envelope?.fallbackText, "[Egg Install] Installation failed: download_failed");
-  assert.deepEqual((envelope?.extra.biz_card as { payload?: unknown })?.payload, {
-    install_id: "eggins_2",
-    status: "failed",
-    step: "download_failed",
-    summary: "Installation failed: download_failed",
-    error_code: "download_failed",
-    error_msg: "download failed",
+  assert.match(
+    envelope?.content ?? "",
+    /\[\[Egg Install\] .+\]\(grix:\/\/card\/egg_install_status\?.+\)$/,
+  );
+  assert.ok(!(envelope && "biz_card" in envelope.extra), "should not contain biz_card");
+  assert.deepEqual((envelope?.extra.channel_data as { grix?: unknown })?.grix, {
+    eggInstall: {
+      install_id: "eggins_2",
+      status: "failed",
+      step: "download_failed",
+      summary: "Installation failed: download_failed",
+      error_code: "download_failed",
+      error_msg: "download failed",
+    },
   });
 });
 

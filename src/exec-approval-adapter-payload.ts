@@ -1,3 +1,8 @@
+/**
+ * @layer pending-migration - Marked for server-side migration.
+ * Do not add new functionality. See docs/04_grix_plugin_server_boundary_refactor_plan.md §8.3
+ */
+
 import type { ChannelPlugin } from "openclaw/plugin-sdk/core";
 import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
 

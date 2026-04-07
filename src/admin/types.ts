@@ -1,3 +1,8 @@
+/**
+ * @layer pending-migration - Admin/remote management types. Marked for server-side migration.
+ * Do not add new functionality. See docs/04_grix_plugin_server_boundary_refactor_plan.md §8.3
+ */
+
 export type GrixAccountConfig = {
   enabled?: boolean;
   name?: string;

@@ -1,3 +1,8 @@
+/**
+ * @layer pending-migration - Admin/remote management layer. Marked for server-side migration.
+ * Do not add new functionality. See docs/04_grix_plugin_server_boundary_refactor_plan.md §8.3
+ */
+
 import type { AnyAgentTool, OpenClawPluginApi, OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import { jsonToolResult } from "./json-result.js";
 import { runGrixGroupAction } from "./group-service.js";

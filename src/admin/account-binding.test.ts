@@ -27,7 +27,7 @@ test("resolveStrictToolAccountId rejects cross-account mismatch", () => {
 
 test("resolveStrictToolAccountId accepts matched context account", () => {
   const resolved = resolveStrictToolAccountId({
-    toolName: "grix_agent_admin",
+    toolName: "grix_group",
     toolAccountId: "  ops  ",
     contextAccountId: "ops",
   });

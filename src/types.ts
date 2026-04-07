@@ -1,3 +1,7 @@
+/**
+ * @layer core - Shared transport and boundary contract types.
+ */
+
 export type AibotEventType = "user_chat" | "group_message" | "group_mention" | string;
 
 export type AibotPacket<TPayload = unknown> = {
@@ -116,6 +120,30 @@ export type AibotSendNackPayload = {
   code?: number;
   msg?: string;
   [key: string]: unknown;
+};
+
+export type AibotAgentInvokeResultPayload = {
+  invoke_id?: string;
+  code?: number;
+  msg?: string;
+  data?: unknown;
+  [key: string]: unknown;
+};
+
+export type AibotLocalActionPayload = {
+  action_id: string;
+  event_id?: string;
+  action_type: string;
+  params?: Record<string, unknown>;
+  timeout_ms?: number;
+};
+
+export type AibotLocalActionResultPayload = {
+  action_id: string;
+  status: "ok" | "failed" | "unsupported" | "timeout";
+  result?: unknown;
+  error_code?: string;
+  error_msg?: string;
 };
 
 export type AibotAccountConfig = {

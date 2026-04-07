@@ -1,3 +1,8 @@
+/**
+ * @layer core - Transport core layer. Stable, protected.
+ * Changes require review: only modify for transport protocol or local host interface changes.
+ */
+
 export const AIBOT_PROTOCOL_SEND_RATE_LIMIT = 8;
 export const AIBOT_PROTOCOL_SEND_RATE_WINDOW_MS = 10_000;
 export const AIBOT_PROTOCOL_SEND_RETRYABLE_CODE = 4_008;

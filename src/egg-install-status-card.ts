@@ -1,7 +1,11 @@
-import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
+/**
+ * @layer pending-migration - Marked for server-side migration. Card format should migrate to server-side adapter. Plugin only passes through server-defined card structure.
+ * Do not add new functionality. See docs/04_grix_plugin_server_boundary_refactor_plan.md §8.3
+ */
 
-const BIZ_CARD_EXTRA_KEY = "biz_card";
-const BIZ_CARD_VERSION = 1;
+import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
+import { buildGrixCardLink } from "./grix-card-uri.ts";
+
 const EGG_INSTALL_STATUS_CARD_TYPE = "egg_install_status";
 
 type EggInstallStatusKind = "running" | "success" | "failed";
@@ -20,8 +24,8 @@ type EggInstallStatusCardPayload = {
 type ParsedEggInstallStatusCard = EggInstallStatusCardPayload;
 
 export type EggInstallStatusCardEnvelope = {
-  extra: Record<string, unknown>;
-  fallbackText: string;
+  content: string;
+  extra?: Record<string, unknown>;
 };
 
 function normalizeText(value: unknown): string {
@@ -66,13 +70,14 @@ function buildFallbackText(parsed: ParsedEggInstallStatusCard): string {
   return `[Egg Install] ${compactSummary}`;
 }
 
+function buildContent(parsed: ParsedEggInstallStatusCard): string {
+  const fallbackText = buildFallbackText(parsed);
+  const cleanPayload = stripUndefinedFields(parsed);
+  return buildGrixCardLink(fallbackText, EGG_INSTALL_STATUS_CARD_TYPE, cleanPayload);
+}
+
 function buildExtra(parsed: ParsedEggInstallStatusCard): Record<string, unknown> {
   return {
-    [BIZ_CARD_EXTRA_KEY]: {
-      version: BIZ_CARD_VERSION,
-      type: EGG_INSTALL_STATUS_CARD_TYPE,
-      payload: stripUndefinedFields(parsed),
-    },
     channel_data: {
       grix: {
         eggInstall: stripUndefinedFields(parsed),
@@ -90,7 +95,7 @@ function finalizeParsed(
     return null;
   }
 
-  const next = stripUndefinedFields<ParsedEggInstallStatusCard>({
+  return stripUndefinedFields<ParsedEggInstallStatusCard>({
     install_id: installId,
     status,
     step: normalizeText(parsed.step) || undefined,
@@ -108,7 +113,6 @@ function finalizeParsed(
     error_code: normalizeText(parsed.error_code) || undefined,
     error_msg: normalizeText(parsed.error_msg) || undefined,
   });
-  return next;
 }
 
 function extractEggInstallRecord(channelData: unknown): Record<string, unknown> | null {
@@ -156,7 +160,7 @@ export function buildEggInstallStatusCardEnvelope(
   }
 
   return {
+    content: buildContent(parsed),
     extra: buildExtra(parsed),
-    fallbackText: buildFallbackText(parsed),
   };
 }

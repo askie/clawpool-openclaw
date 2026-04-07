@@ -1,3 +1,8 @@
+/**
+ * @layer business - Business extension layer. FROZEN: no new logic should be added here.
+ * Future changes should migrate to server-side adapter. See docs/04_grix_plugin_server_boundary_refactor_plan.md §8.2
+ */
+
 import type { AibotEventMsgPayload } from "./types.js";
 
 export type GrixInboundSemantics = {
@@ -59,37 +64,24 @@ export function buildGrixGroupSystemPrompt(
     return undefined;
   }
 
+  // NOTE: Strategy text has been moved to the backend adapter layer.
+  // The plugin now only emits factual group context. The backend OpenClaw
+  // adapter's NormalizeInbound will inject strategy hints based on these facts.
+  const parts: string[] = ["Group turn."];
+
   if (semantics.wasMentioned) {
-    return [
-      "This group turn explicitly targeted you.",
-      "Recent unseen visible context may already be attached before the current message.",
-      "Reply when it is useful or needed to complete the task.",
-      "If you need more earlier context, use grix_query with action=\"message_history\" or action=\"message_search\" first.",
-      "If no reply is needed, you may return NO_REPLY.",
-    ].join(" ");
+    parts.push("Explicit mention of you.");
+  } else if (semantics.mentionsOther) {
+    parts.push("Mention of someone else, not you.");
+  } else {
+    parts.push("No explicit mention of you.");
   }
 
-  if (semantics.mentionsOther) {
-    return [
-      "This group turn explicitly targeted someone else, not you.",
-      "If recent queued context is attached, treat it as background unless it clearly pulls you in.",
-      "You may reply only if you add clear value.",
-      "If earlier details matter before deciding, you may inspect them with grix_query history tools.",
-      "Otherwise return NO_REPLY.",
-      "Do not take action unless the task is clearly yours.",
-    ].join(" ");
+  if (semantics.hasAnyMention) {
+    parts.push(`Mentioned users: ${semantics.mentionUserIds.join(", ")}.`);
   }
 
-  return [
-    "This group turn is not an explicit mention for you.",
-    "It may be shared context, or it may be a routed follow-up that is still addressed to you.",
-    "Recent unseen visible context may already be attached before the current message.",
-    "Use recent context to decide whether the speaker is still talking to you.",
-    "If recent context is not enough, you may inspect older context with grix_query history tools before deciding.",
-    "Reply when it clearly helps the conversation.",
-    "Otherwise return NO_REPLY.",
-    "Do not take action unless the task is clearly yours.",
-  ].join(" ");
+  return parts.join(" ");
 }
 
 export function resolveGrixDispatchResolution(params: {

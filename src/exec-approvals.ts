@@ -1,38 +1,12 @@
-import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-import type {
-  AibotExecApprovalConfig,
-  AibotExecApprovalDecision,
-  ResolvedAibotAccount,
-} from "./types.ts";
-import { parseExecApprovalCommand, type ParsedExecApprovalCommand } from "./exec-approval-command.ts";
-import { buildExecApprovalResolutionReply } from "./exec-status-card.ts";
+/**
+ * @layer pending-migration - Marked for server-side migration.
+ * Do not add new functionality. See docs/04_grix_plugin_server_boundary_refactor_plan.md §8.3
+ */
 
-type ResolvedExecApprovalConfig = {
-  enabled: boolean;
-  approvers: string[];
-};
+import type { PluginRuntime } from "openclaw/plugin-sdk/core";
+import type { AibotExecApprovalDecision } from "./types.ts";
 
 type CommandRunner = PluginRuntime["system"]["runCommandWithTimeout"];
-
-export type ExecApprovalCommandOutcome =
-  | {
-      handled: false;
-    }
-  | {
-      handled: true;
-      replyText: string;
-      replyExtra?: Record<string, unknown>;
-    };
-
-function normalizeExecApprovalConfig(config?: AibotExecApprovalConfig): ResolvedExecApprovalConfig {
-  const approvers = (config?.approvers ?? [])
-    .map((value) => String(value ?? "").trim())
-    .filter(Boolean);
-  return {
-    enabled: Boolean(config?.enabled && approvers.length > 0),
-    approvers,
-  };
-}
 
 function formatCommandFailure(result: {
   code: number | null;
@@ -113,104 +87,5 @@ export async function submitExecApprovalDecision(params: {
   const result = await runner(argv, { timeoutMs });
   if (result.termination !== "exit" || result.code !== 0) {
     throw new Error(formatCommandFailure(result));
-  }
-}
-
-function isExecApprovalApprover(params: {
-  account: ResolvedAibotAccount;
-  senderId?: string;
-}): boolean {
-  const senderId = String(params.senderId ?? "").trim();
-  if (!senderId) {
-    return false;
-  }
-  const config = normalizeExecApprovalConfig(params.account.config.execApprovals);
-  if (!config.enabled) {
-    return false;
-  }
-  return config.approvers.includes(senderId);
-}
-
-function disabledReplyText(accountId: string): string {
-  return `❌ Grix exec approvals are not enabled for account ${accountId}.`;
-}
-
-function unauthorizedReplyText(): string {
-  return "❌ You are not authorized to approve exec requests on Grix.";
-}
-
-function successReplyText(command: Extract<ParsedExecApprovalCommand, { matched: true; ok: true }>): string {
-  return `✅ Exec approval ${command.decision} submitted for ${command.id}.`;
-}
-
-function failureReplyText(message: string): string {
-  return `❌ Failed to submit approval: ${message}`;
-}
-
-export async function handleExecApprovalCommand(params: {
-  rawBody: string;
-  senderId?: string;
-  account: ResolvedAibotAccount;
-  runtime: PluginRuntime;
-  timeoutMs?: number;
-  runner?: CommandRunner;
-  cliArgvPrefix?: string[];
-}): Promise<ExecApprovalCommandOutcome> {
-  const parsed = parseExecApprovalCommand(params.rawBody);
-  if (!parsed.matched) {
-    return { handled: false };
-  }
-  if (!parsed.ok) {
-    return {
-      handled: true,
-      replyText: parsed.error,
-    };
-  }
-
-  const config = normalizeExecApprovalConfig(params.account.config.execApprovals);
-  if (!config.enabled) {
-    return {
-      handled: true,
-      replyText: disabledReplyText(params.account.accountId),
-    };
-  }
-  if (!isExecApprovalApprover({ account: params.account, senderId: params.senderId })) {
-    return {
-      handled: true,
-      replyText: unauthorizedReplyText(),
-    };
-  }
-
-  try {
-    await submitExecApprovalDecision({
-      runtime: params.runtime,
-      id: parsed.id,
-      decision: parsed.decision,
-      timeoutMs: params.timeoutMs,
-      runner: params.runner,
-      cliArgvPrefix: params.cliArgvPrefix,
-    });
-    const actorId = String(params.senderId ?? "").trim();
-    const approvalId = String(parsed.approvalId ?? "").trim();
-    return {
-      handled: true,
-      replyText: successReplyText(parsed),
-      ...(approvalId
-        ? {
-            replyExtra: buildExecApprovalResolutionReply({
-              approvalId,
-              approvalCommandId: parsed.approvalCommandId,
-              decision: parsed.decision,
-              actorId: actorId || "unknown",
-              reason: parsed.reason,
-            }).extra,
-          }
-        : {}),
-    };
-  } catch (err) {
-    return {
-      handled: true,
-      replyText: failureReplyText(err instanceof Error ? err.message : String(err)),
-    };
   }
 }

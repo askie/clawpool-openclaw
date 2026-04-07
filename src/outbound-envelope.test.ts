@@ -21,10 +21,11 @@ test("buildAibotOutboundEnvelope returns exec approval fallback text for structu
   });
 
   assert.equal(envelope.cardKind, "exec_approval");
-  assert.equal(
+  assert.match(
     envelope.text,
-    "[Exec Approval] npm run deploy (gateway)\n/approve approval_full_123 allow-once",
+    /\[\[Exec Approval\] npm run deploy \(gateway\)/,
   );
+  assert.match(envelope.text, /grix:\/\/card\/exec_approval\?/);
 });
 
 test("buildAibotOutboundEnvelope keeps raw text when payload has no structured grix card data", () => {
@@ -65,7 +66,8 @@ test("buildAibotOutboundEnvelope recognizes structured user profile card payload
   });
 
   assert.equal(envelope.cardKind, "user_profile");
-  assert.equal(envelope.text, "[Profile Card] Ops Agent");
+  assert.match(envelope.text, /\[\[Profile Card\] Ops Agent\]/);
+  assert.match(envelope.text, /grix:\/\/card\/user_profile\?/);
 });
 
 test("buildAibotOutboundEnvelope recognizes structured tool execution card payload", () => {
@@ -82,7 +84,8 @@ test("buildAibotOutboundEnvelope recognizes structured tool execution card paylo
   });
 
   assert.equal(envelope.cardKind, "tool_execution");
-  assert.equal(envelope.text, "[Tool] Tool: read /tmp/demo");
+  assert.match(envelope.text, /\[\[Tool\] Tool: read \/tmp\/demo\]/);
+  assert.match(envelope.text, /grix:\/\/card\/tool_execution\?/);
 });
 
 test("buildAibotOutboundTextEnvelope keeps embedded egg install json text unchanged", () => {

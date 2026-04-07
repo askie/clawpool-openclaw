@@ -1,4 +1,7 @@
-const AGENT_NAME_RE = /^[a-z][a-z0-9-]{2,31}$/;
+/**
+ * @layer pending-migration - Admin/remote management layer. Marked for server-side migration.
+ * Do not add new functionality. See docs/04_grix_plugin_server_boundary_refactor_plan.md §8.3
+ */
 
 export const AGENT_HTTP_ACTION_NAMES = [
   "contact_search",
@@ -14,7 +17,6 @@ export const AGENT_HTTP_ACTION_NAMES = [
   "group_member_speaking_update",
   "group_dissolve",
   "group_detail_read",
-  "agent_api_create",
 ] as const;
 
 export type AgentHTTPActionName = (typeof AGENT_HTTP_ACTION_NAMES)[number];
@@ -32,10 +34,6 @@ function readRawParam(params: Record<string, unknown>, key: string): unknown {
     return params[key];
   }
   return undefined;
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return value != null && typeof value === "object" && !Array.isArray(value);
 }
 
 function readStringParam(params: Record<string, unknown>, key: string): string {
@@ -160,92 +158,6 @@ function readRequiredBool(params: Record<string, unknown>, key: string): boolean
     throw new Error(`Grix action requires ${key}.`);
   }
   return value;
-}
-
-function normalizeStringList(raw: unknown, key: string, required: boolean): string[] {
-  if (!Array.isArray(raw)) {
-    if (required) {
-      throw new Error(`Grix action requires ${key}.`);
-    }
-    return [];
-  }
-  if (required && raw.length === 0) {
-    throw new Error(`Grix action requires non-empty ${key}.`);
-  }
-
-  const normalized: string[] = [];
-  for (const value of raw) {
-    if (typeof value !== "string") {
-      throw new Error(`Grix action ${key} must contain strings.`);
-    }
-    const trimmed = value.trim();
-    if (!trimmed) {
-      throw new Error(`Grix action ${key} must not contain empty strings.`);
-    }
-    normalized.push(trimmed);
-  }
-  return normalized;
-}
-
-function normalizeSchemaContribution(
-  raw: unknown,
-  key: string,
-): Record<string, unknown> {
-  if (!isPlainObject(raw)) {
-    throw new Error(`Grix action ${key} must be an object.`);
-  }
-  if (!isPlainObject(raw.properties)) {
-    throw new Error(`Grix action ${key}.properties must be an object.`);
-  }
-
-  const contribution: Record<string, unknown> = {
-    properties: raw.properties,
-  };
-  if (Object.hasOwn(raw, "visibility")) {
-    const visibility = readStringParam(raw, "visibility");
-    if (visibility !== "current-channel" && visibility !== "all-configured") {
-      throw new Error(
-        `Grix action ${key}.visibility must be current-channel or all-configured.`,
-      );
-    }
-    contribution.visibility = visibility;
-  }
-  return contribution;
-}
-
-function readRequiredDescribeMessageTool(
-  params: Record<string, unknown>,
-): Record<string, unknown> {
-  const raw = readRawParam(params, "describeMessageTool");
-  if (!isPlainObject(raw)) {
-    throw new Error("Grix action requires describeMessageTool as object.");
-  }
-
-  const actions = normalizeStringList(raw.actions, "describeMessageTool.actions", true);
-  const payload: Record<string, unknown> = { actions };
-
-  if (Object.hasOwn(raw, "capabilities")) {
-    payload.capabilities = normalizeStringList(
-      raw.capabilities,
-      "describeMessageTool.capabilities",
-      false,
-    );
-  }
-  if (Object.hasOwn(raw, "schema")) {
-    const schema = raw.schema;
-    if (Array.isArray(schema)) {
-      if (schema.length === 0) {
-        throw new Error("Grix action describeMessageTool.schema must not be empty.");
-      }
-      payload.schema = schema.map((item, idx) =>
-        normalizeSchemaContribution(item, `describeMessageTool.schema[${idx}]`),
-      );
-    } else {
-      payload.schema = normalizeSchemaContribution(schema, "describeMessageTool.schema");
-    }
-  }
-
-  return payload;
 }
 
 function ensureMemberTypes(types: number[]): void {
@@ -569,28 +481,97 @@ function buildMessageSearchRequest(params: Record<string, unknown>): AgentHTTPRe
   };
 }
 
-function buildAgentAPICreateRequest(params: Record<string, unknown>): AgentHTTPRequest {
-  const agentName = readRequiredStringParam(params, "agentName");
-  if (!AGENT_NAME_RE.test(agentName)) {
-    throw new Error("Grix action agentName must match ^[a-z][a-z0-9-]{2,31}$.");
-  }
-  const describeMessageTool = readRequiredDescribeMessageTool(params);
+// ---------- WS agentInvoke param builders ----------
+// Unlike HTTP builders, numeric params (limit, offset) keep their original types.
+// POST-based actions reuse the existing body directly.
 
-  const avatarURL = readStringParam(params, "avatarUrl");
-  const body: Record<string, unknown> = {
-    agent_name: agentName,
-    describe_message_tool: describeMessageTool,
-  };
-  if (avatarURL) {
-    body.avatar_url = avatarURL;
-  }
+export type AgentInvokeRequest = {
+  action: string;
+  params: Record<string, unknown>;
+};
 
-  return {
-    actionName: "agent_api_create",
-    method: "POST",
-    path: "/agents/create",
-    body,
-  };
+function buildContactSearchInvokeParams(rawParams: Record<string, unknown>): Record<string, unknown> {
+  const id = readStringParam(rawParams, "id");
+  const keyword = readStringParam(rawParams, "keyword");
+  const limit = readOptionalInt(rawParams, "limit");
+  const offset = readOptionalInt(rawParams, "offset");
+  const result: Record<string, unknown> = {};
+  if (id) result.id = id;
+  if (keyword) result.keyword = keyword;
+  if (limit != null) result.limit = limit;
+  if (offset != null) result.offset = offset;
+  return result;
+}
+
+function buildSessionSearchInvokeParams(rawParams: Record<string, unknown>): Record<string, unknown> {
+  const id = readStringParam(rawParams, "id");
+  const keyword = readStringParam(rawParams, "keyword");
+  const limit = readOptionalInt(rawParams, "limit");
+  const offset = readOptionalInt(rawParams, "offset");
+  const result: Record<string, unknown> = {};
+  if (id) result.id = id;
+  if (keyword) result.keyword = keyword;
+  if (limit != null) result.limit = limit;
+  if (offset != null) result.offset = offset;
+  return result;
+}
+
+function buildMessageHistoryInvokeParams(rawParams: Record<string, unknown>): Record<string, unknown> {
+  const sessionID = readRequiredStringParam(rawParams, "sessionId");
+  const beforeID = readStringParam(rawParams, "beforeId");
+  const limit = readOptionalInt(rawParams, "limit");
+  const result: Record<string, unknown> = { session_id: sessionID };
+  if (beforeID) result.before_id = beforeID;
+  if (limit != null) result.limit = limit;
+  return result;
+}
+
+function buildMessageSearchInvokeParams(rawParams: Record<string, unknown>): Record<string, unknown> {
+  const sessionID = readRequiredStringParam(rawParams, "sessionId");
+  const keyword = readRequiredStringParam(rawParams, "keyword");
+  const beforeID = readStringParam(rawParams, "beforeId");
+  const limit = readOptionalInt(rawParams, "limit");
+  const result: Record<string, unknown> = { session_id: sessionID, keyword };
+  if (beforeID) result.before_id = beforeID;
+  if (limit != null) result.limit = limit;
+  return result;
+}
+
+export function buildAgentInvokeParams(
+  action: AgentHTTPActionName,
+  rawParams: Record<string, unknown>,
+): AgentInvokeRequest {
+  switch (action) {
+    case "contact_search":
+      return { action, params: buildContactSearchInvokeParams(rawParams) };
+    case "session_search":
+      return { action, params: buildSessionSearchInvokeParams(rawParams) };
+    case "message_history":
+      return { action, params: buildMessageHistoryInvokeParams(rawParams) };
+    case "message_search":
+      return { action, params: buildMessageSearchInvokeParams(rawParams) };
+    // POST actions: body already has correct types — reuse existing builders
+    case "group_create":
+      return { action, params: buildGroupCreateRequest(rawParams).body ?? {} };
+    case "group_leave_self":
+      return { action, params: buildGroupLeaveSelfRequest(rawParams).body ?? {} };
+    case "group_member_add":
+      return { action, params: buildGroupMemberAddRequest(rawParams).body ?? {} };
+    case "group_member_remove":
+      return { action, params: buildGroupMemberRemoveRequest(rawParams).body ?? {} };
+    case "group_member_role_update":
+      return { action, params: buildGroupMemberRoleUpdateRequest(rawParams).body ?? {} };
+    case "group_all_members_muted_update":
+      return { action, params: buildGroupAllMembersMutedUpdateRequest(rawParams).body ?? {} };
+    case "group_member_speaking_update":
+      return { action, params: buildGroupMemberSpeakingUpdateRequest(rawParams).body ?? {} };
+    case "group_dissolve":
+      return { action, params: buildGroupDissolveRequest(rawParams).body ?? {} };
+    case "group_detail_read":
+      return { action, params: buildGroupDetailReadRequest(rawParams).query ?? {} };
+    default:
+      throw new Error(`Grix agentInvoke action ${String(action)} is not supported.`);
+  }
 }
 
 export function isAgentHTTPActionName(action: string): action is AgentHTTPActionName {
@@ -628,8 +609,6 @@ export function buildAgentHTTPRequest(
       return buildGroupDissolveRequest(params);
     case "group_detail_read":
       return buildGroupDetailReadRequest(params);
-    case "agent_api_create":
-      return buildAgentAPICreateRequest(params);
     default:
       throw new Error(`Grix action ${action} is not supported.`);
   }

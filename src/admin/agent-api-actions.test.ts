@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildAgentHTTPRequest, isAgentHTTPActionName } from "./agent-api-actions.ts";
+import { buildAgentHTTPRequest, buildAgentInvokeParams, isAgentHTTPActionName } from "./agent-api-actions.ts";
 
 test("isAgentHTTPActionName recognizes supported actions", () => {
   assert.equal(isAgentHTTPActionName("contact_search"), true);
@@ -10,7 +10,6 @@ test("isAgentHTTPActionName recognizes supported actions", () => {
   assert.equal(isAgentHTTPActionName("group_create"), true);
   assert.equal(isAgentHTTPActionName("group_leave_self"), true);
   assert.equal(isAgentHTTPActionName("group_member_speaking_update"), true);
-  assert.equal(isAgentHTTPActionName("agent_api_create"), true);
   assert.equal(isAgentHTTPActionName("unsend"), false);
 });
 
@@ -211,27 +210,6 @@ test("buildAgentHTTPRequest rejects empty member speaking update body", () => {
   );
 });
 
-test("buildAgentHTTPRequest rejects invalid agent_name format", () => {
-  assert.throws(
-    () =>
-      buildAgentHTTPRequest("agent_api_create", {
-        agentName: "BadName",
-        describeMessageTool: { actions: ["unsend"] },
-      }),
-    /must match/,
-  );
-});
-
-test("buildAgentHTTPRequest requires describeMessageTool for agent_api_create", () => {
-  assert.throws(
-    () =>
-      buildAgentHTTPRequest("agent_api_create", {
-        agentName: "api-agent-x1",
-      }),
-    /requires describeMessageTool/,
-  );
-});
-
 test("buildAgentHTTPRequest builds group_detail_read query", () => {
   const req = buildAgentHTTPRequest("group_detail_read", {
     sessionId: "task_room_1",
@@ -265,33 +243,68 @@ test("buildAgentHTTPRequest builds group_dissolve payload from explicit sessionI
   });
 });
 
-test("buildAgentHTTPRequest builds agent_api_create payload from explicit agentName", () => {
-  const req = buildAgentHTTPRequest("agent_api_create", {
-    agentName: "api-agent-x1",
-    describeMessageTool: {
-      actions: ["unsend", "delete"],
-      capabilities: ["soft-delete"],
-      schema: {
-        properties: {
-          messageId: { type: "string" },
-        },
-        visibility: "current-channel",
-      },
-    },
+// ---------- buildAgentInvokeParams ----------
+
+test("buildAgentInvokeParams contact_search keeps limit as number", () => {
+  const req = buildAgentInvokeParams("contact_search", { keyword: "alice", limit: 10, offset: 5 });
+  assert.equal(req.action, "contact_search");
+  assert.equal(req.params.keyword, "alice");
+  assert.equal(req.params.limit, 10);
+  assert.equal(typeof req.params.limit, "number");
+  assert.equal(req.params.offset, 5);
+  assert.equal(typeof req.params.offset, "number");
+});
+
+test("buildAgentInvokeParams contact_search omits empty optionals", () => {
+  const req = buildAgentInvokeParams("contact_search", {});
+  assert.equal(req.action, "contact_search");
+  assert.equal(Object.keys(req.params).length, 0);
+});
+
+test("buildAgentInvokeParams message_history keeps limit as number", () => {
+  const req = buildAgentInvokeParams("message_history", {
+    sessionId: "s_001",
+    beforeId: "98721",
+    limit: 20,
   });
-  assert.equal(req.method, "POST");
-  assert.equal(req.path, "/agents/create");
-  assert.deepEqual(req.body, {
-    agent_name: "api-agent-x1",
-    describe_message_tool: {
-      actions: ["unsend", "delete"],
-      capabilities: ["soft-delete"],
-      schema: {
-        properties: {
-          messageId: { type: "string" },
-        },
-        visibility: "current-channel",
-      },
-    },
+  assert.equal(req.params.session_id, "s_001");
+  assert.equal(req.params.before_id, "98721");
+  assert.equal(req.params.limit, 20);
+  assert.equal(typeof req.params.limit, "number");
+});
+
+test("buildAgentInvokeParams message_search requires keyword", () => {
+  assert.throws(
+    () => buildAgentInvokeParams("message_search", { sessionId: "s_001" }),
+    /keyword/,
+  );
+});
+
+test("buildAgentInvokeParams group_create produces correct body params", () => {
+  const req = buildAgentInvokeParams("group_create", {
+    name: "ops-room",
+    memberIds: ["1001", "1002"],
+    memberTypes: [1, 2],
   });
+  assert.equal(req.action, "group_create");
+  assert.equal(req.params.name, "ops-room");
+  assert.deepEqual(req.params.member_ids, ["1001", "1002"]);
+  assert.deepEqual(req.params.member_types, [1, 2]);
+});
+
+test("buildAgentInvokeParams group_detail_read returns session_id", () => {
+  const req = buildAgentInvokeParams("group_detail_read", { sessionId: "g_001" });
+  assert.equal(req.action, "group_detail_read");
+  assert.equal(req.params.session_id, "g_001");
+});
+
+test("buildAgentInvokeParams group_member_speaking_update validates required fields", () => {
+  assert.throws(
+    () => buildAgentInvokeParams("group_member_speaking_update", {
+      sessionId: "g_001",
+      memberId: "1002",
+      // missing isSpeakMuted and canSpeakWhenAllMuted
+    }),
+    /requires isSpeakMuted or canSpeakWhenAllMuted/,
+  );
 });

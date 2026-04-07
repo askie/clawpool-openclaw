@@ -1,3 +1,8 @@
+/**
+ * @layer business - Business extension layer. FROZEN: no new logic should be added here.
+ * Future changes should migrate to server-side adapter. See docs/04_grix_plugin_server_boundary_refactor_plan.md §8.2
+ */
+
 import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 import type { ReplyPayload as OutboundReplyPayload, RuntimeEnv } from "openclaw/plugin-sdk";
 import type { ResolvedAibotAccount, AibotEventMsgPayload, AibotEventStopPayload } from "./types.js";
@@ -15,7 +20,7 @@ import { getAibotRuntime } from "./runtime.js";
 import { buildBodyWithQuotedReplyId } from "./quoted-reply-body.js";
 import { claimInboundEvent, confirmInboundEvent, releaseInboundEvent } from "./inbound-event-dedupe.js";
 import { buildAibotOutboundEnvelope } from "./outbound-envelope.ts";
-import { handleExecApprovalCommand } from "./exec-approvals.ts";
+import { handleStableLocalAction } from "./local-actions.ts";
 import { enqueueRevokeSystemEvent } from "./revoke-event.js";
 import { shouldTreatDispatchAsRespondedWithoutVisibleOutput } from "./reply-dispatch-outcome.js";
 import { consumeSilentUnsendCompleted } from "./silent-unsend-completion.js";
@@ -309,69 +314,6 @@ function handleEventStop(params: {
   );
 }
 
-function reportHandledCommandResult(params: {
-  client: AibotWsClient;
-  eventId?: string;
-  status: "responded" | "failed";
-  code: string;
-  msg: string;
-  account: ResolvedAibotAccount;
-  runtime: RuntimeEnv;
-  statusSink?: (patch: {
-    lastError?: string | null;
-    lastOutboundAt?: number;
-  }) => void;
-}): boolean {
-  if (!params.eventId) {
-    return true;
-  }
-  try {
-    params.client.sendEventResult({
-      event_id: params.eventId,
-      status: params.status,
-      code: params.code,
-      msg: params.msg,
-      updated_at: Date.now(),
-    });
-    params.statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
-    return true;
-  } catch (err) {
-    params.runtime.error(
-      `[grix:${params.account.accountId}] command event result send failed eventId=${params.eventId} status=${params.status}: ${String(err)}`,
-    );
-    params.statusSink?.({ lastError: String(err) });
-    return false;
-  }
-}
-
-async function sendHandledCommandReply(params: {
-  client: AibotWsClient;
-  sessionId: string;
-  messageSid: string;
-  replyText: string;
-  replyExtra?: Record<string, unknown>;
-  eventId?: string;
-  quotedMessageId?: string;
-  account: ResolvedAibotAccount;
-  runtime: RuntimeEnv;
-  statusSink?: (patch: {
-    lastError?: string | null;
-    lastOutboundAt?: number;
-  }) => void;
-}): Promise<void> {
-  const clientMsgId = `reply_${params.messageSid}_command`;
-  await params.client.sendText(params.sessionId, params.replyText, {
-    eventId: params.eventId,
-    clientMsgId,
-    quotedMessageId: params.quotedMessageId,
-    extra: params.replyExtra,
-  });
-  params.statusSink?.({ lastOutboundAt: Date.now(), lastError: null });
-  params.runtime.log(
-    `[grix:${params.account.accountId}] command reply sent eventId=${params.eventId || "-"} sessionId=${params.sessionId} clientMsgId=${clientMsgId} quotedMessageId=${params.quotedMessageId || "-"} textLen=${params.replyText.length}`,
-  );
-}
-
 async function processEvent(params: {
   event: AibotEventMsgPayload;
   account: ResolvedAibotAccount;
@@ -511,61 +453,6 @@ async function processEvent(params: {
       releaseInboundEvent(inboundEvent.claim);
     }
   };
-
-  const commandOutcome = await handleExecApprovalCommand({
-    rawBody,
-    senderId,
-    account,
-    runtime: core,
-  });
-  if (commandOutcome.handled) {
-    try {
-      await acceptInboundEvent();
-      await sendHandledCommandReply({
-        client,
-        sessionId,
-        messageSid,
-        replyText: commandOutcome.replyText,
-        replyExtra: commandOutcome.replyExtra,
-        eventId,
-        quotedMessageId: normalizeNumericMessageId(messageSid),
-        account,
-        runtime,
-        statusSink,
-      });
-      eventResultDelivered = reportHandledCommandResult({
-        client,
-        eventId,
-        status: "responded",
-        code: "grix_exec_approval_command_handled",
-        msg: "exec approval command handled",
-        account,
-        runtime,
-        statusSink,
-      });
-      terminalCompletionRecorded = !eventId || eventResultDelivered;
-      return;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      runtime.error(
-        `[grix:${account.accountId}] exec approval command failed ${baseLogContext}: ${message}`,
-      );
-      statusSink?.({ lastError: message });
-      eventResultDelivered = reportHandledCommandResult({
-        client,
-        eventId,
-        status: "failed",
-        code: "grix_exec_approval_command_failed",
-        msg: message,
-        account,
-        runtime,
-        statusSink,
-      });
-      throw err;
-    } finally {
-      await finalizeInboundEvent();
-    }
-  }
 
   const runAbortController = new AbortController();
   const activeRun = registerActiveReplyRun({
@@ -1248,6 +1135,32 @@ export async function monitorAibotProvider(options: AibotMonitorOptions): Promis
         runtime,
         client,
         statusSink: guardedStatusSink,
+      });
+    },
+    onLocalAction: (payload, respond) => {
+      if (!isActiveMonitor(account.accountId, client)) {
+        respond({
+          action_id: payload.action_id,
+          status: "failed",
+          error_code: "inactive",
+          error_msg: "monitor not active",
+        });
+        return;
+      }
+      runtime.log(`[grix:${account.accountId}] local_action action_id=${payload.action_id} action_type=${payload.action_type}`);
+      void handleStableLocalAction({
+        runtime,
+        payload,
+        account,
+      }).then((result) => {
+        respond(result);
+      }).catch((error) => {
+        respond({
+          action_id: payload.action_id,
+          status: "failed",
+          error_code: "local_action_unhandled_error",
+          error_msg: error instanceof Error ? error.message : String(error),
+        });
       });
     },
   });

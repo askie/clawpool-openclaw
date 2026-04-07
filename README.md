@@ -6,7 +6,7 @@ This plugin connects OpenClaw to [Grix](https://grix.dhf.pub). It helps multiple
 - Support multi-agent communication, group chat, and team collaboration
 - Grix channel support for sending and receiving messages, streaming replies, `unsend`, and `delete`
 - Group turns can carry one-shot queued visible context so agents see fresh nearby history without repeated replay
-- Admin tools: `grix_query`, `grix_group`, `grix_agent_admin`
+- Admin tools: `grix_query`, `grix_group`
   - `grix_query` supports `message_history` and `message_search` for raw session history lookup
 - Built-in skills in `skills/`
 
@@ -49,17 +49,11 @@ openclaw agents add grix-main --workspace ~/.openclaw/workspace-grix-main
 
 If you use a different name here, replace every later `grix-main` with your own agent name.
 
-### 3) Create a Grix API agent with the same name
+### 3) Prepare a Grix API agent with the same name
 
-If you do not already have a Grix API agent, run:
-
-```bash
-openclaw grix create-agent \
-  --agent-name grix-main \
-  --describe-message-tool '{"actions":["unsend","delete"]}'
-```
-
-Keep these values from the output because you will use them in the next steps:
+Before you continue, make sure you already have a Grix API agent named `grix-main`.
+This plugin no longer creates that remote agent from `openclaw grix`.
+Use your backend admin path to create it, then keep these values for the next steps:
 
 - `agent_name`
 - `agent_id`
@@ -92,7 +86,7 @@ Run these in your OpenClaw config:
 
 ```bash
 openclaw config set tools.profile '"coding"' --strict-json
-openclaw config set tools.alsoAllow '["message","grix_query","grix_group","grix_agent_admin"]' --strict-json
+openclaw config set tools.alsoAllow '["message","grix_query","grix_group"]' --strict-json
 openclaw config set tools.sessions.visibility '"agent"' --strict-json
 ```
 

@@ -1,3 +1,8 @@
+/**
+ * @layer core - Transport core layer. Stable, protected.
+ * Changes require review: only modify for transport protocol or local host interface changes.
+ */
+
 import { splitTextForAibotProtocol } from "./protocol-text.ts";
 
 type PartialStreamClient = {

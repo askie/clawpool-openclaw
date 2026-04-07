@@ -32,7 +32,7 @@ test("buildPendingInboundContextPrompt only includes unseen history before the c
     sessionKey: "grix-session-1",
   });
 
-  assert.match(prompt ?? "", /Recent visible group context queued before the current message:/);
+  assert.match(prompt ?? "", /Recent group context before this message:/);
   assert.match(prompt ?? "", /User 42: 第一句先给别人说/);
   assert.doesNotMatch(prompt ?? "", /现在轮到你/);
 
@@ -92,12 +92,12 @@ test("mergePromptHookResults combines dynamic context blocks without duplication
     },
     {
       prependContext:
-        "Recent visible group context queued before the current message:\n- User 1: 新鲜前文",
+        "Recent group context before this message:\n- User 1: 新鲜前文",
       prependSystemContext: "static-a",
     },
   );
 
   assert.match(merged?.prependContext ?? "", /Resume context:/);
-  assert.match(merged?.prependContext ?? "", /Recent visible group context queued/);
+  assert.match(merged?.prependContext ?? "", /Recent group context before this message/);
   assert.equal(merged?.prependSystemContext, "static-a");
 });

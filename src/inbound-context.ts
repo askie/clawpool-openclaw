@@ -1,3 +1,8 @@
+/**
+ * @layer business - Business extension layer. FROZEN: no new logic should be added here.
+ * Future changes should migrate to server-side adapter. See docs/04_grix_plugin_server_boundary_refactor_plan.md §8.2
+ */
+
 import type { AibotContextMessagePayload } from "./types.js";
 
 type PromptHookResult = {
@@ -155,9 +160,8 @@ export function buildPendingInboundContextPrompt(params: {
   }
 
   const lines = [
-    "Recent visible group context queued before the current message:",
+    "Recent group context before this message:",
     ...historyOnly.map((message) => formatContextLine(message)),
-    "Use this only as fresh nearby context. If you need older details, query history explicitly.",
   ];
   return lines.join("\n");
 }

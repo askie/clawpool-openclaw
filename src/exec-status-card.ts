@@ -1,7 +1,11 @@
-import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
+/**
+ * @layer pending-migration - Marked for server-side migration. Card format should migrate to server-side adapter. Plugin only passes through server-defined card structure.
+ * Do not add new functionality. See docs/04_grix_plugin_server_boundary_refactor_plan.md §8.3
+ */
 
-const BIZ_CARD_EXTRA_KEY = "biz_card";
-const BIZ_CARD_VERSION = 1;
+import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
+import { buildGrixCardLink } from "./grix-card-uri.ts";
+
 const EXEC_STATUS_CARD_TYPE = "exec_status";
 
 type ExecStatusKind =
@@ -36,8 +40,8 @@ type ExecStatusCardPayload = {
 type ParsedExecStatusCard = ExecStatusCardPayload;
 
 export type ExecStatusCardEnvelope = {
-  extra: Record<string, unknown>;
-  fallbackText: string;
+  content: string;
+  extra?: Record<string, unknown>;
 };
 
 function normalizeText(value: unknown): string {
@@ -60,13 +64,14 @@ function buildExecStatusFallbackText(parsed: ParsedExecStatusCard): string {
   return `[Exec Status] ${compactSummary}`;
 }
 
+function buildExecStatusContent(parsed: ParsedExecStatusCard): string {
+  const fallbackText = buildExecStatusFallbackText(parsed);
+  const cleanPayload = stripUndefinedFields(parsed);
+  return buildGrixCardLink(fallbackText, EXEC_STATUS_CARD_TYPE, cleanPayload);
+}
+
 function buildExecStatusExtra(parsed: ParsedExecStatusCard): Record<string, unknown> {
   return {
-    [BIZ_CARD_EXTRA_KEY]: {
-      version: BIZ_CARD_VERSION,
-      type: EXEC_STATUS_CARD_TYPE,
-      payload: stripUndefinedFields(parsed),
-    },
     channel_data: {
       grix: {
         execStatus: stripUndefinedFields(parsed),
@@ -142,46 +147,7 @@ export function buildExecStatusCardEnvelope(
   }
 
   return {
+    content: buildExecStatusContent(parsed),
     extra: buildExecStatusExtra(parsed),
-    fallbackText: buildExecStatusFallbackText(parsed),
-  };
-}
-
-export function buildExecApprovalResolutionReply(params: {
-  approvalId: string;
-  approvalCommandId: string;
-  decision: "allow-once" | "allow-always" | "deny";
-  actorId: string;
-  reason?: string;
-}): ExecStatusCardEnvelope {
-  const decisionLabel =
-    params.decision === "allow-once"
-      ? "Allow once"
-      : params.decision === "allow-always"
-        ? "Allow always"
-        : "Deny";
-  const actorId = params.actorId.trim() || "unknown";
-  const summary = `${decisionLabel} selected by ${actorId}.`;
-  const detailText = params.reason?.trim()
-    ? `Reason: ${params.reason.trim()}`
-    : undefined;
-  const payload: ParsedExecStatusCard = stripUndefinedFields({
-    status:
-      params.decision === "allow-once"
-        ? "resolved-allow-once"
-        : params.decision === "allow-always"
-          ? "resolved-allow-always"
-          : "resolved-deny",
-    summary,
-    detail_text: detailText,
-    approval_id: params.approvalId.trim(),
-    approval_command_id: params.approvalCommandId.trim(),
-    decision: params.decision,
-    reason: params.reason?.trim() || undefined,
-    resolved_by_id: actorId,
-  });
-  return {
-    extra: buildExecStatusExtra(payload),
-    fallbackText: buildExecStatusFallbackText(payload),
   };
 }

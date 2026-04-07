@@ -1,7 +1,11 @@
-import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
+/**
+ * @layer pending-migration - Marked for server-side migration. Card format should migrate to server-side adapter. Plugin only passes through server-defined card structure.
+ * Do not add new functionality. See docs/04_grix_plugin_server_boundary_refactor_plan.md §8.3
+ */
 
-const BIZ_CARD_EXTRA_KEY = "biz_card";
-const BIZ_CARD_VERSION = 1;
+import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
+import { buildGrixCardLink } from "./grix-card-uri.ts";
+
 const TOOL_EXECUTION_CARD_TYPE = "tool_execution";
 
 type ToolExecutionCardPayload = {
@@ -10,8 +14,8 @@ type ToolExecutionCardPayload = {
 };
 
 export type ToolExecutionCardEnvelope = {
-  extra: Record<string, unknown>;
-  fallbackText: string;
+  content: string;
+  extra?: Record<string, unknown>;
 };
 
 function normalizeText(value: unknown): string {
@@ -28,25 +32,26 @@ function stripUndefinedFields<T extends Record<string, unknown>>(record: T): T {
   return next as T;
 }
 
+function buildToolExecutionFallbackText(parsed: ToolExecutionCardPayload): string {
+  const summary = parsed.summary_text.replace(/\s+/g, " ").trim();
+  const compactSummary = summary.length > 180 ? `${summary.slice(0, 177)}...` : summary;
+  return `[Tool] ${compactSummary}`;
+}
+
+function buildToolExecutionContent(parsed: ToolExecutionCardPayload): string {
+  const fallbackText = buildToolExecutionFallbackText(parsed);
+  const cleanPayload = stripUndefinedFields(parsed);
+  return buildGrixCardLink(fallbackText, TOOL_EXECUTION_CARD_TYPE, cleanPayload);
+}
+
 function buildToolExecutionExtra(parsed: ToolExecutionCardPayload): Record<string, unknown> {
   return {
-    [BIZ_CARD_EXTRA_KEY]: {
-      version: BIZ_CARD_VERSION,
-      type: TOOL_EXECUTION_CARD_TYPE,
-      payload: parsed,
-    },
     channel_data: {
       grix: {
         toolExecution: parsed,
       },
     },
   };
-}
-
-function buildToolExecutionFallbackText(parsed: ToolExecutionCardPayload): string {
-  const summary = parsed.summary_text.replace(/\s+/g, " ").trim();
-  const compactSummary = summary.length > 180 ? `${summary.slice(0, 177)}...` : summary;
-  return `[Tool] ${compactSummary}`;
 }
 
 function parseStructuredToolExecution(payload: OutboundReplyPayload): ToolExecutionCardPayload | null {
@@ -86,7 +91,7 @@ export function buildToolExecutionCardEnvelope(
   }
 
   return {
+    content: buildToolExecutionContent(parsed),
     extra: buildToolExecutionExtra(parsed),
-    fallbackText: buildToolExecutionFallbackText(parsed),
   };
 }

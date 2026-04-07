@@ -1,8 +1,13 @@
-import { buildAgentHTTPRequest } from "./agent-api-actions.js";
-import { callAgentAPI } from "./agent-api-http.js";
-import { resolveStrictToolAccountId } from "./account-binding.js";
-import { resolveGrixAccount } from "./accounts.js";
-import type { OpenClawCoreConfig } from "./types.js";
+/**
+ * @layer pending-migration - Admin/remote management layer. Marked for server-side migration.
+ * Do not add new functionality. See docs/04_grix_plugin_server_boundary_refactor_plan.md §8.3
+ */
+
+import { buildAgentInvokeParams } from "./agent-api-actions.ts";
+import { resolveStrictToolAccountId } from "./account-binding.ts";
+import { resolveGrixAccount } from "./accounts.ts";
+import { requireActiveAibotClient } from "../client.ts";
+import type { OpenClawCoreConfig } from "./types.ts";
 
 export const GRIX_GROUP_TOOL_ACTIONS = [
   "create",
@@ -59,10 +64,13 @@ function mapGroupActionToRequestAction(action: GrixGroupToolAction) {
   }
 }
 
+type AgentInvoker = { agentInvoke: (action: string, params: Record<string, unknown>) => Promise<unknown> };
+
 export async function runGrixGroupAction(params: {
   cfg: OpenClawCoreConfig;
   toolParams: GrixGroupToolParams;
   contextAccountId?: string;
+  _client?: AgentInvoker;
 }) {
   const accountId = resolveStrictToolAccountId({
     toolName: "grix_group",
@@ -82,15 +90,9 @@ export async function runGrixGroupAction(params: {
   }
 
   const requestAction = mapGroupActionToRequestAction(params.toolParams.action);
-  const request = buildAgentHTTPRequest(requestAction, params.toolParams);
-  const data = await callAgentAPI({
-    account,
-    actionName: request.actionName,
-    method: request.method,
-    path: request.path,
-    query: request.query,
-    body: request.body,
-  });
+  const { action, params: invokeParams } = buildAgentInvokeParams(requestAction, params.toolParams);
+  const client = params._client ?? requireActiveAibotClient(accountId);
+  const data = await client.agentInvoke(action, invokeParams);
 
   if (params.toolParams.action === "leave") {
     const d = data as Record<string, unknown> | null | undefined;

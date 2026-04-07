@@ -1,3 +1,8 @@
+/**
+ * @layer pending-migration - Admin account resolution. Marked for server-side migration.
+ * Do not add new functionality. See docs/04_grix_plugin_server_boundary_refactor_plan.md §8.3
+ */
+
 import type {
   GrixAccountConfig,
   GrixConfig,
@@ -225,4 +230,11 @@ export function summarizeGrixAccounts(cfg: OpenClawCoreConfig): Array<Record<str
       agentId: account.agentId || null,
     };
   });
+}
+
+export function inspectGrixAdminConfig(cfg: OpenClawCoreConfig) {
+  return {
+    accounts: summarizeGrixAccounts(cfg),
+    defaultAccountId: resolveGrixAccount({ cfg }).accountId,
+  };
 }

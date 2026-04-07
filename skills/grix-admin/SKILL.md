@@ -1,11 +1,11 @@
 ---
 name: grix-admin
-description: 负责 OpenClaw 本地配置与后续 agent 管理；支持接收 grix-register 交接参数直接落地，也支持在已有主密钥下新建 agent 再落地。
+description: 负责 OpenClaw 本地配置与绑定；接收已有远端 agent 参数后落地，不再负责远端创建。
 ---
 
 # Grix Agent Admin
 
-`grix-admin` 只负责本地配置和管理动作。支持两个入口模式，二选一执行。
+`grix-admin` 只负责本地配置和绑定。不负责远端 agent 创建。
 
 ## Mode A: bind-local（来自 grix-register 的首次交接）
 
@@ -38,7 +38,7 @@ description: 负责 OpenClaw 本地配置与后续 agent 管理；支持接收 g
    - `agents.list`：确保存在 `id=<agent_name>`、`name=<agent_name>`、`workspace`、`agentDir`、`model`
    - Grix 绑定：确保目标 agent 最终绑定到 `grix:<agent_name>`
    - `tools.profile`：设为 `"coding"`
-   - `tools.alsoAllow`：至少包含 `message`、`grix_query`、`grix_group`、`grix_agent_admin`
+   - `tools.alsoAllow`：至少包含 `message`、`grix_query`、`grix_group`
    - `tools.sessions.visibility`：设为 `"agent"`
    - 如果 `channels.grix.enabled=false`，改回 `true`
 5. `model` 的确定规则：
@@ -50,7 +50,7 @@ description: 负责 OpenClaw 本地配置与后续 agent 管理；支持接收 g
    - `openclaw config set agents.list '<NEXT_AGENTS_LIST_JSON>' --strict-json`
    - `openclaw agents bind --agent <agent_name> --bind grix:<agent_name>`
    - `openclaw config set tools.profile '"coding"' --strict-json`
-   - `openclaw config set tools.alsoAllow '["message","grix_query","grix_group","grix_agent_admin"]' --strict-json`
+   - `openclaw config set tools.alsoAllow '["message","grix_query","grix_group"]' --strict-json`
    - `openclaw config set tools.sessions.visibility '"agent"' --strict-json`
    - 仅当当前配置明确把 `channels.grix.enabled` 关掉时，再执行 `openclaw config set channels.grix.enabled true --strict-json`
 7. 写完后必须执行校验：
@@ -61,28 +61,15 @@ description: 负责 OpenClaw 本地配置与后续 agent 管理；支持接收 g
 8. 安装私聊进行中时不要主动执行 `openclaw gateway restart`；先完成 `openclaw config set`、`openclaw agents bind`、`openclaw config validate` 和读取校验。
 9. 如果安装已经完成、配置和绑定都确认正确，但后续实际对话里仍然表现成旧运行态，再使用官方命令 `openclaw gateway restart` 做一次定向补救，然后重新校验绑定和实际行为。
 
-## Mode B: create-and-bind（已有主密钥时的后续管理）
+## 远端创建前置条件
 
-输入参数：
-
-1. `agentName`（必填）：`^[a-z][a-z0-9-]{2,31}$`
-2. `describeMessageTool`（必填）：`actions` 非空
-3. `accountId`（必填）：当前 Grix 账号 ID；如果上下文没明给，先从本地默认账号解析出确切值再传给 `grix_agent_admin`
-4. `avatarUrl`（可选）
-
-执行规则：
-
-1. 先确认本地已经有可用的 Grix 账号配置，位置是 `channels.grix.accounts.<accountId>`。
-2. 若目标账号缺失、禁用，或 `apiKey` / `wsUrl` / `agentId` 任一为空，说明主通道还没完成，不做本模式，立刻切回 `grix-register`。
-3. 若本地主通道已存在，再调用 `grix_agent_admin` 创建远端 agent（仅一次，不自动重试）。
-4. 创建成功后，执行本地绑定（同 Mode A）。
-5. 整个 `create-and-bind` 流程里不要主动执行 `openclaw gateway restart`；只有后续验证确认配置正确但运行态仍旧时，才把它当成补救动作。
+如果当前任务还没有远端 agent 的 `agent_name`、`agent_id`、`api_endpoint`、`api_key`，先停止本技能，明确提示用户通过 backend admin 路径创建远端 agent。拿到这些参数后，再按 `bind-local` 执行。
 
 ## Guardrails（两种模式都适用）
 
 1. Never ask user for website account/password.
 2. `bind-local` 模式禁止再次回调 `grix-register`，避免循环路由。
-3. 远端创建（Mode B）视为非幂等，不确认不自动重试。
+3. 远端创建已经移出插件；缺少远端 agent 参数时，不要在本技能里自行补做。
 4. 完整 `api_key` 仅一次性回传，不要重复明文回显。
 5. 本地 `openclaw config set` / `validate` 没成功前，不得宣称配置完成。
 6. 安装私聊进行中时，禁止手工修改 `openclaw.json` 后再执行 `openclaw gateway restart`。
@@ -91,16 +78,13 @@ description: 负责 OpenClaw 本地配置与后续 agent 管理；支持接收 g
 ## Error Handling Rules
 
 1. `bind-local` 缺少字段：明确指出缺哪个字段并停止。
-2. invalid name（Mode B）：要求用户提供合法小写英文名。
-3. `403/20011`：提示 owner 授权 `agent.api.create`。
-4. `401/10001`：检查当前 Grix 账号配置里的 `apiKey` / `wsUrl` / `agentId` 是否正确。
-5. `409/20002`：要求更换 agent 名称。
-6. 本地配置失败：返回失败命令与结果并停止；重点说明是哪一步 `get` / `set` / `validate` 失败。
+2. 缺少远端 agent 参数：明确要求先完成 backend admin 创建。
+3. 本地配置失败：返回失败命令与结果并停止；重点说明是哪一步 `get` / `set` / `validate` 失败。
 
 ## Response Style
 
-1. 明确写出当前执行的是 `bind-local` 还是 `create-and-bind`。
-2. 分阶段汇报：远端（如有）+ 本地绑定。
+1. 明确写出当前执行的是本地绑定。
+2. 分阶段汇报：配置写入 + 校验结果。
 3. 明确说明本地是否已生效，失败则给具体原因。
 
 ## References

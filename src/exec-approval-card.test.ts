@@ -27,45 +27,30 @@ function buildPayload(overrides: Partial<OutboundReplyPayload> = {}): OutboundRe
   };
 }
 
-test("buildExecApprovalCardEnvelope maps structured grix approval payload to biz_card", () => {
+test("buildExecApprovalCardEnvelope maps structured grix approval payload to content and channel_data", () => {
   const envelope = buildExecApprovalCardEnvelope(buildPayload());
-  assert.deepEqual(envelope, {
-    extra: {
-      biz_card: {
-        version: 1,
-        type: "exec_approval",
-        payload: {
-          approval_id: "approval_full_123",
-          approval_slug: "req_123",
-          approval_command_id: "approval_full_123",
-          command: "rm -rf /tmp/demo && echo done",
-          host: "gateway",
-          node_id: "node-1",
-          cwd: "/tmp/demo",
-          expires_in_seconds: 45,
-          allowed_decisions: ["allow-once", "allow-always", "deny"],
-        },
-      },
-      channel_data: {
-        execApproval: {
-          approvalId: "approval_full_123",
-          approvalSlug: "req_123",
-          allowedDecisions: ["allow-once", "allow-always", "deny"],
-        },
-        grix: {
-          execApproval: {
-            approval_command_id: "approval_full_123",
-            command: "rm -rf /tmp/demo && echo done",
-            host: "gateway",
-            node_id: "node-1",
-            cwd: "/tmp/demo",
-            expires_in_seconds: 45,
-          },
-        },
+  assert.ok(envelope);
+  assert.match(
+    envelope?.content ?? "",
+    /\[\[Exec Approval\][\s\S]+\]\(grix:\/\/card\/exec_approval\?.+\)/,
+  );
+  assert.ok(!("biz_card" in envelope.extra), "should not contain biz_card");
+  assert.deepEqual(envelope.extra.channel_data, {
+    execApproval: {
+      approvalId: "approval_full_123",
+      approvalSlug: "req_123",
+      allowedDecisions: ["allow-once", "allow-always", "deny"],
+    },
+    grix: {
+      execApproval: {
+        approval_command_id: "approval_full_123",
+        command: "rm -rf /tmp/demo && echo done",
+        host: "gateway",
+        node_id: "node-1",
+        cwd: "/tmp/demo",
+        expires_in_seconds: 45,
       },
     },
-    fallbackText:
-      "[Exec Approval] rm -rf /tmp/demo && echo done (gateway)\n/approve approval_full_123 allow-once",
   });
 });
 
@@ -91,7 +76,7 @@ test("buildExecApprovalCardEnvelope preserves warning text from structured chann
   );
 
   assert.equal(
-    (envelope?.extra.biz_card as { payload?: { warning_text?: string } })?.payload?.warning_text,
+    ((envelope?.extra.channel_data as { grix?: { execApproval?: { warning_text?: string } } })?.grix?.execApproval?.warning_text),
     "High-risk deploy command.",
   );
 });
@@ -115,9 +100,11 @@ test("buildExecApprovalCardEnvelope defaults allowed decisions when metadata omi
     }),
   );
 
-  assert.deepEqual(
-    (envelope?.extra.biz_card as { payload?: { allowed_decisions?: string[] } })?.payload?.allowed_decisions,
-    ["allow-once", "allow-always", "deny"],
+  assert.ok(envelope);
+  // Default decisions are embedded in the grix:// URI via d= JSON parameter
+  assert.match(
+    envelope.content,
+    /%22allowed_decisions%22%3A%5B%22allow-once%22%2C%22allow-always%22%2C%22deny%22%5D/,
   );
 });
 

@@ -42,4 +42,14 @@ test("build keeps visibleOutputSent scoped consistently in processEvent cleanup 
     /closeActiveStream\(/,
     "bundled output should not reference the removed closeActiveStream helper",
   );
+  assert.doesNotMatch(
+    code,
+    /handleExecApprovalCommand/,
+    "bundled output should not reference the removed local exec approval command handler",
+  );
+  assert.doesNotMatch(
+    code,
+    /grix_exec_approval_command_(handled|failed)/,
+    "bundled output should not keep legacy local approval command result codes",
+  );
 });

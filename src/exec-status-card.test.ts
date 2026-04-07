@@ -1,10 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
-import {
-  buildExecApprovalResolutionReply,
-  buildExecStatusCardEnvelope,
-} from "./exec-status-card.ts";
+import { buildExecStatusCardEnvelope } from "./exec-status-card.ts";
 
 function buildPayload(channelData: Record<string, unknown>): OutboundReplyPayload {
   return {
@@ -13,7 +10,7 @@ function buildPayload(channelData: Record<string, unknown>): OutboundReplyPayloa
   };
 }
 
-test("buildExecStatusCardEnvelope maps structured grix exec status payload to biz_card", () => {
+test("buildExecStatusCardEnvelope maps structured grix exec status payload to content and channel_data", () => {
   const envelope = buildExecStatusCardEnvelope(
     buildPayload({
       grix: {
@@ -31,16 +28,11 @@ test("buildExecStatusCardEnvelope maps structured grix exec status payload to bi
     }),
   );
 
-  assert.deepEqual((envelope?.extra.biz_card as { payload?: unknown }).payload, {
-    status: "resolved-deny",
-    summary: "Exec approval denied.",
-    detail_text: "Resolved by operator-1.",
-    approval_id: "approval_full_321",
-    approval_command_id: "approval_full_321",
-    decision: "deny",
-    resolved_by_id: "operator-1",
-    host: "gateway",
-  });
+  assert.match(
+    envelope?.content ?? "",
+    /\[\[Exec Status\] .+\]\(grix:\/\/card\/exec_status\?.+\)$/,
+  );
+  assert.ok(!(envelope && "biz_card" in envelope.extra), "should not contain biz_card");
   assert.deepEqual((envelope?.extra.channel_data as { grix?: unknown }).grix, {
     execStatus: {
       status: "resolved-deny",
@@ -53,7 +45,6 @@ test("buildExecStatusCardEnvelope maps structured grix exec status payload to bi
       host: "gateway",
     },
   });
-  assert.equal(envelope?.fallbackText, "[Exec Status] Exec approval denied.");
 });
 
 test("buildExecStatusCardEnvelope returns undefined for raw text-only approval status", () => {
@@ -63,38 +54,4 @@ test("buildExecStatusCardEnvelope returns undefined for raw text-only approval s
   });
 
   assert.equal(envelope, undefined);
-});
-
-test("buildExecApprovalResolutionReply builds structured resolution card payload", () => {
-  const reply = buildExecApprovalResolutionReply({
-    approvalId: "approval_full_123",
-    approvalCommandId: "req_123",
-    decision: "allow-once",
-    actorId: "agent-1",
-    reason: "safe build command",
-  });
-
-  assert.equal(reply.fallbackText, "[Exec Status] Allow once selected by agent-1.");
-  assert.deepEqual((reply.extra.biz_card as { payload?: unknown }).payload, {
-    status: "resolved-allow-once",
-    summary: "Allow once selected by agent-1.",
-    detail_text: "Reason: safe build command",
-    approval_id: "approval_full_123",
-    approval_command_id: "req_123",
-    decision: "allow-once",
-    reason: "safe build command",
-    resolved_by_id: "agent-1",
-  });
-  assert.deepEqual((reply.extra.channel_data as { grix?: unknown }).grix, {
-    execStatus: {
-      status: "resolved-allow-once",
-      summary: "Allow once selected by agent-1.",
-      detail_text: "Reason: safe build command",
-      approval_id: "approval_full_123",
-      approval_command_id: "req_123",
-      decision: "allow-once",
-      reason: "safe build command",
-      resolved_by_id: "agent-1",
-    },
-  });
 });

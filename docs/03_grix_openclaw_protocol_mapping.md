@@ -1,6 +1,6 @@
 # Grix 插件对接的 OpenClaw 协议 / 命令与 AIBot 映射
 
-> 更新时间：2026-04-07  
+> 更新时间：2026-04-08  
 > 状态：已落地  
 > 适用范围：`index.ts`、`src/channel.ts`、`src/monitor.ts`、`src/client.ts`、`src/actions.ts`、`src/channel-exec-approvals.ts`、`src/admin/*`
 
@@ -8,7 +8,7 @@
 
 1. `grix` 插件在 OpenClaw 侧到底接了哪些协议能力、命令入口和工具入口
 2. 这些入口最终被翻译成了 AIBot WebSocket 的什么命令
-3. 哪些能力其实没有走 AIBot，而是走了 Grix Agent API HTTP
+3. 哪些能力没有走聊天通道，而是走了本地配置读取
 
 ---
 
@@ -18,19 +18,18 @@
 |---|---|---|
 | Channel 插件 `grix` | `src/channel.ts` | AIBot WebSocket |
 | 消息动作 `unsend` / `delete` | `src/actions.ts` | AIBot WebSocket |
-| Exec Approval 适配 | `src/channel-exec-approvals.ts` | AIBot WebSocket + 本地 OpenClaw Gateway 命令 |
-| 工具 `grix_query` | `src/admin/query-tool.ts` | Grix Agent API HTTP |
-| 工具 `grix_group` | `src/admin/group-tool.ts` | Grix Agent API HTTP |
-| 工具 `grix_agent_admin` | `src/admin/agent-admin-tool.ts` | Grix Agent API HTTP |
+| Exec Approval 展示适配 | `src/channel-exec-approvals.ts` | AIBot WebSocket |
+| Exec Approval 本地动作执行 | `src/local-actions.ts` | AIBot WebSocket (`local_action`) + 本地 OpenClaw Gateway 命令 |
+| 工具 `grix_query` | `src/admin/query-tool.ts` | AIBot WebSocket (`agent_invoke`) |
+| 工具 `grix_group` | `src/admin/group-tool.ts` | AIBot WebSocket (`agent_invoke`) |
 | CLI `openclaw grix doctor` | `src/admin/cli.ts` | 本地配置读取，不走 AIBot |
-| CLI `openclaw grix create-agent` | `src/admin/cli.ts` | Grix Agent API HTTP |
 | Hook `before_prompt_build` | `index.ts` | OpenClaw 内部 Hook，不走 AIBot |
 
 结论先说清楚:
 
 1. 真正和 AIBot 直连的是聊天收发、流式回复、撤回、停止、审批卡片这些通道能力
-2. `grix_query`、`grix_group`、`grix_agent_admin` 不是 AIBot 协议，它们走的是 Grix Agent API HTTP
-3. 插件没有把 Grix 收到的普通文本当成 OpenClaw 原生命令解析；唯一特判的是审批命令 `/approve`
+2. `grix_query`、`grix_group` 已经走统一的 AIBot WebSocket 请求-响应
+3. 插件没有把 Grix 收到的普通文本当成 OpenClaw 原生命令解析；审批也不再在插件里解析，改由 backend 转成标准 `local_action`
 
 ---
 
@@ -76,6 +75,7 @@
 | `event_stop` | `src/monitor.ts` `handleEventStop(...)` | 中止当前 reply run | 先 `event_stop_ack`，结束后 `event_stop_result` |
 | `event_revoke` | `src/monitor.ts` `onEventRevoke` | 转成 OpenClaw 侧撤回系统事件 | `event_ack` |
 | `event_react` | `src/client.ts` 回调透出 | 目前只保留入口，没有继续翻成插件业务动作 | 无专门回包 |
+| `local_action` | `src/monitor.ts` `handleStableLocalAction(...)` | 执行 backend 下发的稳定本地动作（如审批） | `local_action_result` |
 
 ### 3.3 `event_msg` 具体被翻成什么 OpenClaw 输入
 
@@ -172,7 +172,7 @@
 
 1. OpenClaw 产出审批请求
 2. 插件把它变成 AIBot 可展示的审批卡片
-3. 用户在 Grix 里回审批命令后，插件再反向调用 OpenClaw Gateway 完成审批
+3. backend 把用户在 Grix 里的审批输入转成 `local_action`，插件执行后回 `local_action_result`
 
 ### 6.1 OpenClaw -> AIBot
 
@@ -182,24 +182,19 @@
 | `channel.execApprovals.buildResolvedPayload` | 生成 `exec_status` 卡片 | `send_msg` |
 | `shouldSuppressLocalPrompt` | 本地不再额外弹重复审批提示 | AIBot 聊天面板承担展示 |
 
-### 6.2 AIBot 聊天里的审批命令 -> OpenClaw Gateway
+### 6.2 Backend 下发的审批动作 -> OpenClaw Gateway
 
-插件只特判这两类审批输入：
+插件不再解析聊天里的 `/approve` 或 `[[exec-approval-resolution|...]]`。这些输入先由 backend 识别，再转换成标准本地动作下发给插件：
 
-1. `/approve <id> allow-once|allow-always|deny`
-2. `[[exec-approval-resolution|...]]`
-
-命中后不会进入普通聊天分发，而是直接在插件内执行：
-
-| Grix / AIBot 侧输入 | 插件动作 | OpenClaw 侧命令 |
+| AIBot 入站命令 | 插件动作 | OpenClaw 侧命令 |
 |---|---|---|
-| `/approve ...` | `handleExecApprovalCommand(...)` | `openclaw gateway call exec.approval.resolve --json --params ...` |
-| `[[exec-approval-resolution|...]]` | 同上 | 同上 |
+| `local_action` (`exec_approve`) | `handleStableLocalAction(...)` | `openclaw gateway call exec.approval.resolve --json --params ...` |
+| `local_action` (`exec_reject`) | `handleStableLocalAction(...)` | 同上 |
 
-命令执行成功后，插件会：
+动作执行完成后，插件会：
 
-1. 在当前会话发一条审批结果文本 / 状态卡片
-2. 再回 `event_result`
+1. 回 `local_action_result`
+2. 由 backend 统一把审批结果回写到当前会话
 
 ---
 
@@ -224,43 +219,36 @@
 
 ## 8. OpenClaw 工具和 CLI 映射到什么下游命令
 
-这一部分不走 AIBot WebSocket，而是走 Grix Agent API HTTP。
+这一部分说明工具和 CLI 现在各自走哪条线。
 
 ### 8.1 `grix_query`
 
 | OpenClaw 工具 | action | 下游 actionName | HTTP |
 |---|---|---|---|
-| `grix_query` | `contact_search` | `contact_search` | `GET /contacts/search` |
-| `grix_query` | `session_search` | `session_search` | `GET /sessions/search` |
-| `grix_query` | `message_history` | `message_history` | `GET /messages/history` |
-| `grix_query` | `message_search` | `message_search` | `GET /messages/search` |
+| `grix_query` | `contact_search` | `contact_search` | `agent_invoke` |
+| `grix_query` | `session_search` | `session_search` | `agent_invoke` |
+| `grix_query` | `message_history` | `message_history` | `agent_invoke` |
+| `grix_query` | `message_search` | `message_search` | `agent_invoke` |
 
 ### 8.2 `grix_group`
 
 | OpenClaw 工具 | action | 下游 actionName | HTTP |
 |---|---|---|---|
-| `grix_group` | `create` | `group_create` | `POST /sessions/create_group` |
-| `grix_group` | `detail` | `group_detail_read` | `GET /sessions/group/detail` |
-| `grix_group` | `leave` | `group_leave_self` | `POST /sessions/leave` |
-| `grix_group` | `add_members` | `group_member_add` | `POST /sessions/members/add` |
-| `grix_group` | `remove_members` | `group_member_remove` | `POST /sessions/members/remove` |
-| `grix_group` | `update_member_role` | `group_member_role_update` | `POST /sessions/members/role` |
-| `grix_group` | `update_all_members_muted` | `group_all_members_muted_update` | `POST /sessions/speaking/all_muted` |
-| `grix_group` | `update_member_speaking` | `group_member_speaking_update` | `POST /sessions/members/speaking` |
-| `grix_group` | `dissolve` | `group_dissolve` | `POST /sessions/dissolve` |
+| `grix_group` | `create` | `group_create` | `agent_invoke` |
+| `grix_group` | `detail` | `group_detail_read` | `agent_invoke` |
+| `grix_group` | `leave` | `group_leave_self` | `agent_invoke` |
+| `grix_group` | `add_members` | `group_member_add` | `agent_invoke` |
+| `grix_group` | `remove_members` | `group_member_remove` | `agent_invoke` |
+| `grix_group` | `update_member_role` | `group_member_role_update` | `agent_invoke` |
+| `grix_group` | `update_all_members_muted` | `group_all_members_muted_update` | `agent_invoke` |
+| `grix_group` | `update_member_speaking` | `group_member_speaking_update` | `agent_invoke` |
+| `grix_group` | `dissolve` | `group_dissolve` | `agent_invoke` |
 
-### 8.3 `grix_agent_admin`
-
-| OpenClaw 工具 | action | 下游 actionName | HTTP |
-|---|---|---|---|
-| `grix_agent_admin` | 创建 API Agent | `agent_api_create` | `POST /agents/create` |
-
-### 8.4 CLI `openclaw grix ...`
+### 8.3 CLI `openclaw grix ...`
 
 | OpenClaw CLI | 插件处理 | 下游协议 |
 |---|---|---|
 | `openclaw grix doctor` | 读取当前 OpenClaw 配置并输出账号概览 | 不走 AIBot，不走远端 HTTP |
-| `openclaw grix create-agent` | 复用 `agent_api_create` 逻辑 | Grix Agent API HTTP |
 
 ---
 
@@ -282,7 +270,7 @@
 当前 `grix` 插件其实有两条对接线：
 
 1. OpenClaw Channel / Message Action / Exec Approval 这条线，翻译到 AIBot WebSocket 命令
-2. OpenClaw Admin Tool / CLI 这条线，翻译到 Grix Agent API HTTP
+2. OpenClaw Admin Tool 里 `grix_query` / `grix_group` 现在也走 AIBot WebSocket；CLI 只保留本地检查
 
 如果只问“对接了哪些 AIBot 协议”，当前实际涉及的是这两组命令：
 
@@ -291,4 +279,4 @@
 
 如果只问“OpenClaw 侧暴露了哪些主要命令 / 工具入口”，核心就是这些：
 
-`grix` channel、`unsend`、`delete`、`grix_query`、`grix_group`、`grix_agent_admin`、`openclaw grix doctor`、`openclaw grix create-agent`
+`grix` channel、`unsend`、`delete`、`grix_query`、`grix_group`、`openclaw grix doctor`

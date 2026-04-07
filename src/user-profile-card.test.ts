@@ -10,7 +10,7 @@ function buildPayload(overrides: Partial<OutboundReplyPayload> = {}): OutboundRe
   };
 }
 
-test("buildUserProfileCardEnvelope maps structured grix profile payload to biz_card", () => {
+test("buildUserProfileCardEnvelope maps structured grix profile payload to content and channel_data", () => {
   const envelope = buildUserProfileCardEnvelope(
     buildPayload({
       channelData: {
@@ -27,13 +27,11 @@ test("buildUserProfileCardEnvelope maps structured grix profile payload to biz_c
   );
 
   assert.ok(envelope);
-  assert.equal(envelope?.fallbackText, "[Profile Card] Ops Agent");
-  assert.deepEqual((envelope?.extra.biz_card as { payload?: unknown })?.payload, {
-    user_id: "agent-9",
-    peer_type: 2,
-    nickname: "Ops Agent",
-    avatar_url: "https://example.com/avatar/agent-9.png",
-  });
+  assert.match(
+    envelope?.content ?? "",
+    /\[\[Profile Card\] .+\]\(grix:\/\/card\/user_profile\?.+\)$/,
+  );
+  assert.ok(!(envelope && "biz_card" in envelope.extra), "should not contain biz_card");
   assert.deepEqual((envelope?.extra.channel_data as { grix?: unknown })?.grix, {
     userProfile: {
       user_id: "agent-9",

@@ -1,3 +1,8 @@
+/**
+ * @layer business - Business extension layer. FROZEN: no new logic should be added here.
+ * Future changes should migrate to server-side adapter. See docs/04_grix_plugin_server_boundary_refactor_plan.md §8.2
+ */
+
 import type { ReplyPayload as OutboundReplyPayload } from "openclaw/plugin-sdk";
 import {
   buildExecApprovalCardEnvelope,
@@ -38,7 +43,7 @@ export function buildAibotOutboundEnvelope(payload: OutboundReplyPayload): Aibot
     execApprovalCard ?? execStatusCard ?? eggInstallStatusCard ?? userProfileCard ?? toolExecutionCard;
 
   return {
-    text: envelope?.fallbackText ?? String(payload.text ?? ""),
+    text: envelope?.content ?? String(payload.text ?? ""),
     extra: envelope?.extra,
     cardKind: execApprovalCard
       ? "exec_approval"

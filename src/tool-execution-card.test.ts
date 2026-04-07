@@ -16,25 +16,16 @@ test("buildToolExecutionCardEnvelope returns structured tool execution card", ()
     },
   });
 
-  assert.deepEqual(envelope, {
-    fallbackText: "[Tool] Tool: exec pwd",
-    extra: {
-      biz_card: {
-        version: 1,
-        type: "tool_execution",
-        payload: {
-          summary_text: "Tool: exec pwd",
-          detail_text: "```txt\n/tmp/demo\n```",
-        },
-      },
-      channel_data: {
-        grix: {
-          toolExecution: {
-            summary_text: "Tool: exec pwd",
-            detail_text: "```txt\n/tmp/demo\n```",
-          },
-        },
-      },
+  assert.ok(envelope);
+  assert.match(
+    envelope?.content ?? "",
+    /\[\[Tool\] .+\]\(grix:\/\/card\/tool_execution\?.+\)$/,
+  );
+  assert.ok(!(envelope && "biz_card" in envelope.extra), "should not contain biz_card");
+  assert.deepEqual((envelope?.extra.channel_data as { grix?: unknown }).grix, {
+    toolExecution: {
+      summary_text: "Tool: exec pwd",
+      detail_text: "```txt\n/tmp/demo\n```",
     },
   });
 });
