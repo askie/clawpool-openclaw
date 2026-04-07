@@ -57,7 +57,7 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 - 没完成校验前，绝不能宣称安装成功。
 - 如果新建目标后又失败了，能安全回滚就先回滚；不能回滚就如实告诉用户当前残留状态。
 - 上下文已经给出 `install.target_agent_id` 或 `install.suggested_agent_name` 时，直接继续执行，不要再向用户确认目标、命名或用途；只有信息缺失、冲突或执行阻塞时才提问。
-- 安装私聊进行中时，禁止主动执行 `openclaw gateway restart`；本流程涉及的本地 OpenClaw 配置必须通过官方 CLI 写入：`channels.grix.accounts.<agent_name>`、`agents.list`、`tools.*` 继续使用 `openclaw config set`，Grix 绑定使用 `openclaw agents bind`；禁止调用会直接改 `openclaw.json` 的脚本，也不要手工编辑 JSON。OpenClaw 官方默认是 `gateway.reload.mode="hybrid"`，先写配置并完成校验；只有在安装已经成功、流程进入拉群验收、并且确认配置正确但运行态仍然是旧结果时，才允许用官方命令 `openclaw gateway restart` 做一次定向补救。
+- 安装私聊进行中时，禁止主动执行 `openclaw gateway restart`；本流程涉及的本地 OpenClaw 配置必须通过官方 CLI 写入：`channels.grix.accounts.<agent_name>`、`agents.list`、`tools.*` 继续使用 `openclaw config set`，Grix 绑定使用 `openclaw agents bind`；禁止调用会直接改 `openclaw.json` 的脚本，也不要手工编辑 JSON。先写配置并完成校验；只有在安装已经成功、流程进入拉群验收、并且确认配置正确但运行态仍然是旧结果时，才允许用官方命令 `openclaw gateway restart` 做一次定向补救。
 - 对 `@dhf-openclaw/grix` 的安装，安装成功后还必须确保存在一个自动更新 cron 任务，定期执行 `grix-update`；优先复用同名任务 `grix auto update`，避免重复创建。
 - 对 `@dhf-openclaw/grix` 的安装，自动更新 cron 不是“提醒项”，而是安装完成条件的一部分；在实际执行 `openclaw cron add` 或 `openclaw cron edit` 并确认任务存在之前，不得宣称安装完成。
 - 最终成功或失败时，必须发送一条独立的结构化安装状态消息。

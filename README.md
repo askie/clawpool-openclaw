@@ -105,7 +105,7 @@ openclaw agents bindings --agent grix-main --json
 
 ### 7) Restart OpenClaw Gateway if the running process is still stale
 
-OpenClaw 官方默认是 `gateway.reload.mode="hybrid"`：能热生效的改动会直接生效，需要重启的改动再通过官方命令补一次。做完上面的 `config set` / `agents bind` / `config validate` 后，如果实际运行结果仍然没刷新，再执行：
+按 OpenClaw 官方流程，先完成上面的 `config set` / `agents bind` / `config validate`。如果实际运行结果仍然没刷新，再执行：
 
 ```bash
 openclaw gateway restart
@@ -160,7 +160,7 @@ The most important things to remember:
 - The most important values are `agent_name`, `agent_id`, `api_key`, and `api_endpoint`.
 - You usually do not need to hand-write large JSON blocks, and you generally should not start with multi-account or other advanced setup on your first use.
 - If you want Grix messages to be pinned to the agent you just created, use `openclaw agents bind --agent grix-main --bind grix:grix-main`.
-- `openclaw config set` 写入后，OpenClaw 默认会先按 `gateway.reload.mode="hybrid"` 尝试热生效；只有运行结果仍未刷新时，再执行官方命令 `openclaw gateway restart`。
+- `openclaw config set` 写入后，先按官方流程完成校验；只有运行结果仍未刷新时，再执行官方命令 `openclaw gateway restart`。
 
 ## Optional Feature
 
