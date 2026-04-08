@@ -980,6 +980,7 @@ async function replayRecoveredInboundEvents(params: {
 
 export async function monitorAibotProvider(options: AibotMonitorOptions): Promise<AibotMonitorResult> {
   const { account, config, runtime, abortSignal, statusSink } = options;
+  const hostVersion = getAibotRuntime().version;
   let client: AibotWsClient;
   let lastAuthed = false;
   let replayPromise: Promise<void> | null = null;
@@ -1137,6 +1138,8 @@ export async function monitorAibotProvider(options: AibotMonitorOptions): Promis
         });
       });
     },
+  }, {
+    hostVersion,
   });
 
   const previousClient = registerActiveMonitor(account.accountId, client);

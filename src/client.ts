@@ -56,6 +56,10 @@ type AibotWsClientCallbacks = {
   logger?: AibotLogger;
 };
 
+type AibotAuthMetadata = {
+  hostVersion?: string;
+};
+
 type SendMessageOptions = {
   eventId?: string;
   clientMsgId?: string;
@@ -131,7 +135,15 @@ const STABLE_AUTH_CAPABILITIES = [
   "agent_invoke",
 ] as const;
 
-export function buildAuthPayload(account: ResolvedAibotAccount): Record<string, unknown> {
+function normalizeAuthVersion(value: unknown): string | undefined {
+  const normalized = String(value ?? "").trim();
+  return normalized || undefined;
+}
+
+export function buildAuthPayload(
+  account: ResolvedAibotAccount,
+  authMetadata: AibotAuthMetadata = {},
+): Record<string, unknown> {
   return {
     agent_id: account.agentId,
     api_key: account.apiKey,
@@ -141,6 +153,7 @@ export function buildAuthPayload(account: ResolvedAibotAccount): Record<string, 
     protocol_version: "aibot-agent-api-v1",
     contract_version: 1,
     host_type: "openclaw",
+    host_version: normalizeAuthVersion(authMetadata.hostVersion),
     capabilities: [...STABLE_AUTH_CAPABILITIES],
     local_actions: [...STABLE_LOCAL_ACTION_TYPES],
   };
@@ -321,6 +334,7 @@ export class AibotWsClient {
   private readonly account: ResolvedAibotAccount;
   private readonly callbacks: AibotWsClientCallbacks;
   private readonly reconnectPolicy: ReconnectPolicy;
+  private readonly authMetadata: AibotAuthMetadata;
 
   private ws: WebSocket | null = null;
   private running = false;
@@ -349,10 +363,17 @@ export class AibotWsClient {
     lastDisconnectAt: null,
   };
 
-  constructor(account: ResolvedAibotAccount, callbacks: AibotWsClientCallbacks = {}) {
+  constructor(
+    account: ResolvedAibotAccount,
+    callbacks: AibotWsClientCallbacks = {},
+    authMetadata: AibotAuthMetadata = {},
+  ) {
     this.account = account;
     this.callbacks = callbacks;
     this.reconnectPolicy = resolveReconnectPolicy(account);
+    this.authMetadata = {
+      hostVersion: normalizeAuthVersion(authMetadata.hostVersion),
+    };
   }
 
   private logInfo(message: string): void {
@@ -1145,7 +1166,7 @@ export class AibotWsClient {
     this.logInfo(`auth begin conn=${connSerial}`);
     const packet = await this.request(
       "auth",
-      buildAuthPayload(this.account),
+      buildAuthPayload(this.account, this.authMetadata),
       {
         expected: ["auth_ack"],
         timeoutMs: 10_000,

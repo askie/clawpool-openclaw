@@ -83,7 +83,7 @@ test("sendText retries once when ws returns send too fast", async () => {
   assert.equal(ack.msg_id, "18889990099");
 });
 
-test("buildAuthPayload pins openclaw client_type and contract fields", () => {
+test("buildAuthPayload pins openclaw client_type, contract fields, and host version", () => {
   const payload = buildAuthPayload({
     accountId: "default",
     enabled: true,
@@ -92,12 +92,15 @@ test("buildAuthPayload pins openclaw client_type and contract fields", () => {
     agentId: "9001",
     apiKey: "test-api-key",
     config: {},
+  }, {
+    hostVersion: "2026.3.23-1",
   });
   assert.equal(payload.agent_id, "9001");
   assert.equal(payload.api_key, "test-api-key");
   assert.equal(payload.client, "openclaw-grix");
   assert.equal(payload.client_type, "openclaw");
   assert.equal(payload.host_type, "openclaw");
+  assert.equal(payload.host_version, "2026.3.23-1");
   assert.equal(payload.protocol_version, "aibot-agent-api-v1");
   assert.equal(payload.contract_version, 1);
   assert.ok(Array.isArray(payload.capabilities));
