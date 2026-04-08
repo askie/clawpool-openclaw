@@ -270,6 +270,9 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
       hasRepliedRef,
     }),
   },
+  agentPrompt: {
+    suppressDefaultInboundMetaPrompt: () => true,
+  },
   groups: {
     resolveRequireMention: () => false,
     suppressDefaultGroupChatContext: () => true,

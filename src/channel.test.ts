@@ -12,11 +12,21 @@ test("grix channel suppresses default group behavior intro", () => {
     accountId: "default",
   };
 
+  const shouldSuppressInboundMeta = aibotPlugin.agentPrompt?.suppressDefaultInboundMetaPrompt?.({
+    cfg: {},
+    accountId: "default",
+    ctx: {
+      OriginatingChannel: "grix",
+      Provider: "grix",
+      Surface: "grix",
+    },
+  });
   const shouldSuppressChatContext = aibotPlugin.groups?.suppressDefaultGroupChatContext?.(ctx);
   const shouldSuppressIntro = aibotPlugin.groups?.suppressDefaultGroupIntro?.({
     ...ctx,
   });
 
+  assert.equal(shouldSuppressInboundMeta, true);
   assert.equal(shouldSuppressChatContext, true);
   assert.equal(shouldSuppressIntro, true);
 });
