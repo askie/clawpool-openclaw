@@ -4,6 +4,7 @@
 
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import { submitExecApprovalDecision } from "./exec-approvals.ts";
+import { getAibotRuntime } from "./runtime.ts";
 import type {
   AibotExecApprovalConfig,
   AibotExecApprovalDecision,
@@ -194,4 +195,15 @@ export async function handleStableLocalAction(params: {
     default:
       return unsupportedResult(actionID, actionType);
   }
+}
+
+export async function handleStableLocalActionWithCoreRuntime(params: {
+  payload: AibotLocalActionPayload;
+  account?: LocalActionAccountContext;
+}): Promise<AibotLocalActionResultPayload> {
+  return handleStableLocalAction({
+    runtime: getAibotRuntime(),
+    payload: params.payload,
+    account: params.account,
+  });
 }

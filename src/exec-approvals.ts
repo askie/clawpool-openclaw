@@ -8,6 +8,21 @@ import type { AibotExecApprovalDecision } from "./types.ts";
 
 type CommandRunner = PluginRuntime["system"]["runCommandWithTimeout"];
 
+function resolveCommandRunner(params: {
+  runtime: PluginRuntime;
+  runner?: CommandRunner;
+}): CommandRunner {
+  if (params.runner) {
+    return params.runner;
+  }
+  const runtimeSystem = params.runtime.system;
+  const runner = runtimeSystem?.runCommandWithTimeout;
+  if (typeof runner !== "function") {
+    throw new Error("plugin runtime.system.runCommandWithTimeout is unavailable");
+  }
+  return runner;
+}
+
 function formatCommandFailure(result: {
   code: number | null;
   signal: NodeJS.Signals | null;
@@ -76,7 +91,10 @@ export async function submitExecApprovalDecision(params: {
   runner?: CommandRunner;
   cliArgvPrefix?: string[];
 }): Promise<void> {
-  const runner = params.runner ?? params.runtime.system.runCommandWithTimeout;
+  const runner = resolveCommandRunner({
+    runtime: params.runtime,
+    runner: params.runner,
+  });
   const timeoutMs = Math.max(1_000, Math.floor(params.timeoutMs ?? 15_000));
   const argv = buildExecApprovalResolveArgv({
     cliArgvPrefix: params.cliArgvPrefix,

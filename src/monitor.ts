@@ -19,7 +19,7 @@ import { isRetryableGuardedReply, resolveUpstreamRetryDelayMs, resolveUpstreamRe
 import { getAibotRuntime } from "./runtime.js";
 import { buildBodyWithQuotedReplyId } from "./quoted-reply-body.js";
 import { claimInboundEvent, confirmInboundEvent, releaseInboundEvent } from "./inbound-event-dedupe.js";
-import { handleStableLocalAction } from "./local-actions.ts";
+import { handleStableLocalActionWithCoreRuntime } from "./local-actions.ts";
 import { enqueueRevokeSystemEvent } from "./revoke-event.js";
 import { shouldTreatDispatchAsRespondedWithoutVisibleOutput } from "./reply-dispatch-outcome.js";
 import { consumeSilentUnsendCompleted } from "./silent-unsend-completion.js";
@@ -1147,8 +1147,7 @@ export async function monitorAibotProvider(options: AibotMonitorOptions): Promis
         return;
       }
       runtime.log(`[grix:${account.accountId}] local_action action_id=${payload.action_id} action_type=${payload.action_type}`);
-      void handleStableLocalAction({
-        runtime,
+      void handleStableLocalActionWithCoreRuntime({
         payload,
         account,
       }).then((result) => {

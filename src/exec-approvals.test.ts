@@ -105,3 +105,14 @@ test("submitExecApprovalDecision sends expected gateway command", async () => {
     }),
   ]);
 });
+
+test("submitExecApprovalDecision reports missing runtime system runner clearly", async () => {
+  await assert.rejects(
+    submitExecApprovalDecision({
+      runtime: {} as never,
+      id: "req_123",
+      decision: "allow-once",
+    }),
+    /plugin runtime\.system\.runCommandWithTimeout is unavailable/,
+  );
+});
