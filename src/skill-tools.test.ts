@@ -148,7 +148,8 @@ test("grix_admin delegated tool uses the single tool name and direct-create guid
 
   assert.equal(runArgs?.sessionKey, "agent:main:chat:skill:grix-admin");
   assert.match(String(runArgs?.message), /Do not call the grix_admin tool again with a task/i);
-  assert.match(String(runArgs?.message), /call grix_admin once with accountId, agentName/i);
+  assert.match(String(runArgs?.message), /call grix_admin directly without task/i);
+  assert.match(String(runArgs?.message), /Pass accountId, agentName/i);
 });
 
 test("grix_admin rejects mixing task mode with direct create params", async () => {

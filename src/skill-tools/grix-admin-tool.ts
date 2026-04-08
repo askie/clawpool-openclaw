@@ -36,7 +36,7 @@ function buildGrixAdminTaskMessage(task: string): string {
   return [
     "Use the grix-admin skill to complete the request below.",
     "Do not call the grix_admin tool again with a task from this delegated run.",
-    "If the workflow needs remote API agent creation, you may call grix_admin once with accountId, agentName, and optional introduction/isMain, without task.",
+    "If the workflow needs remote API agent creation, call grix_admin directly without task for that step. Pass accountId, agentName, and only optional introduction/isMain.",
     `Request: ${task}`,
   ].join("\n");
 }
