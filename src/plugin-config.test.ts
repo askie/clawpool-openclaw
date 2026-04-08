@@ -7,53 +7,22 @@ import {
 } from "./plugin-config.ts";
 
 test("resolveGrixPluginConfig returns defaults for empty config", () => {
-  assert.deepEqual(resolveGrixPluginConfig(undefined), {
-    resumeContext: {
-      enabled: true,
-      idleMinutes: 120,
-      recentMessages: 6,
-      recentToolResults: 2,
-      maxCharsPerItem: 220,
-    },
-  });
+  assert.deepEqual(resolveGrixPluginConfig(undefined), {});
 });
 
-test("plugin config schema accepts tuned resume context settings", () => {
-  const schema = createGrixPluginConfigSchema();
-  const result = schema.safeParse?.({
-    resumeContext: {
-      enabled: true,
-      idleMinutes: 360,
-      recentMessages: 4,
-      recentToolResults: 1,
-      maxCharsPerItem: 180,
-    },
-  });
+test("plugin config schema accepts an empty object", () => {
+  const schema = createGrixPluginConfigSchema()();
+  const result = schema.safeParse?.({});
 
   assert.equal(result?.success, true);
-  assert.deepEqual(result?.data, {
-    resumeContext: {
-      enabled: true,
-      idleMinutes: 360,
-      recentMessages: 4,
-      recentToolResults: 1,
-      maxCharsPerItem: 180,
-    },
-  });
+  assert.deepEqual(result?.data, {});
 });
 
 test("plugin config schema rejects unknown fields", () => {
-  const schema = createGrixPluginConfigSchema();
+  const schema = createGrixPluginConfigSchema()();
   const result = schema.safeParse?.({
-    resumeContext: {
-      enabled: true,
-      extra: true,
-    },
+    resumeContext: true,
   });
 
   assert.equal(result?.success, false);
-  assert.match(
-    result?.error?.issues?.[0]?.message ?? "",
-    /unexpected config field/i,
-  );
 });

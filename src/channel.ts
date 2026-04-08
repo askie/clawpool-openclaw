@@ -24,11 +24,6 @@ import {
 } from "./openclaw-compat.js";
 import { resolveAibotOutboundTarget } from "./target-resolver.js";
 import { deliverAibotPayload } from "./aibot-payload-delivery.ts";
-import {
-  resolveGrixGroupIntroHint,
-  resolveGrixGroupRequireMention,
-} from "./group-adapter.js";
-import { resolveGrixGroupToolPolicy } from "./group-tool-policy.js";
 import type { AibotConfig, ResolvedAibotAccount } from "./types.js";
 
 const meta = {
@@ -274,14 +269,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
     }),
   },
   groups: {
-    resolveRequireMention: () => resolveGrixGroupRequireMention(),
-    resolveGroupIntroHint: () => resolveGrixGroupIntroHint(),
-    resolveToolPolicy: () => resolveGrixGroupToolPolicy(),
-  },
-  agentPrompt: {
-    messageToolHints: () => [
-      "- Grix `action=unsend` is a silent cleanup action: unsend the target `messageId`, unsend the recall command message when applicable, then end with `NO_REPLY` and do not send any confirmation text. Omit `sessionId`/`to` only when targeting the current Grix chat.",
-    ],
+    resolveRequireMention: () => false,
   },
   outbound: {
     deliveryMode: "direct",

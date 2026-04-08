@@ -14,10 +14,6 @@ export type GrixInboundSemantics = {
   mentionUserIds: string[];
 };
 
-export type GrixDispatchResolution = {
-  shouldCompleteSilently: boolean;
-};
-
 function normalizeEventType(value: unknown): string {
   return String(value ?? "").trim().toLowerCase();
 }
@@ -54,48 +50,5 @@ export function resolveGrixInboundSemantics(event: AibotEventMsgPayload): GrixIn
     hasAnyMention,
     mentionsOther,
     mentionUserIds,
-  };
-}
-
-export function buildGrixGroupSystemPrompt(
-  semantics: GrixInboundSemantics,
-): string | undefined {
-  if (!semantics.isGroup) {
-    return undefined;
-  }
-
-  // NOTE: Strategy text has been moved to the backend adapter layer.
-  // The plugin now only emits factual group context. The backend OpenClaw
-  // adapter's NormalizeInbound will inject strategy hints based on these facts.
-  const parts: string[] = ["Group turn."];
-
-  if (semantics.wasMentioned) {
-    parts.push("Explicit mention of you.");
-  } else if (semantics.mentionsOther) {
-    parts.push("Mention of someone else, not you.");
-  } else {
-    parts.push("No explicit mention of you.");
-  }
-
-  if (semantics.hasAnyMention) {
-    parts.push(`Mentioned users: ${semantics.mentionUserIds.join(", ")}.`);
-  }
-
-  return parts.join(" ");
-}
-
-export function resolveGrixDispatchResolution(params: {
-  semantics: GrixInboundSemantics;
-  visibleOutputSent: boolean;
-  eventResultReported: boolean;
-}): GrixDispatchResolution {
-  if (params.visibleOutputSent || params.eventResultReported) {
-    return {
-      shouldCompleteSilently: false,
-    };
-  }
-
-  return {
-    shouldCompleteSilently: params.semantics.isGroup,
   };
 }

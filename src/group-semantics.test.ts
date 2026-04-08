@@ -2,8 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  buildGrixGroupSystemPrompt,
-  resolveGrixDispatchResolution,
   resolveGrixInboundSemantics,
 } from "./group-semantics.ts";
 
@@ -20,12 +18,10 @@ test("group_mention marks the current agent as explicitly mentioned", () => {
   assert.equal(semantics.isGroup, true);
   assert.equal(semantics.wasMentioned, true);
   assert.equal(semantics.mentionsOther, false);
-  const prompt = buildGrixGroupSystemPrompt(semantics) ?? "";
-  assert.match(prompt, /explicit mention of you/i);
-  assert.match(prompt, /mentioned users:/i);
+  assert.deepEqual(semantics.mentionUserIds, ["42", "99"]);
 });
 
-test("group_message with other mentions stays visible but optional", () => {
+test("group_message with other mentions keeps mention metadata", () => {
   const semantics = resolveGrixInboundSemantics({
     session_id: "s1",
     msg_id: "m2",
@@ -38,12 +34,10 @@ test("group_message with other mentions stays visible but optional", () => {
   assert.equal(semantics.isGroup, true);
   assert.equal(semantics.wasMentioned, false);
   assert.equal(semantics.mentionsOther, true);
-  const prompt = buildGrixGroupSystemPrompt(semantics) ?? "";
-  assert.match(prompt, /someone else/i);
-  assert.match(prompt, /mentioned users:/i);
+  assert.deepEqual(semantics.mentionUserIds, ["other-agent"]);
 });
 
-test("direct messages do not use group prompting", () => {
+test("direct messages do not set group flags", () => {
   const semantics = resolveGrixInboundSemantics({
     session_id: "s1",
     msg_id: "m3",
@@ -54,68 +48,6 @@ test("direct messages do not use group prompting", () => {
 
   assert.equal(semantics.isGroup, false);
   assert.equal(semantics.wasMentioned, false);
-  assert.equal(buildGrixGroupSystemPrompt(semantics), undefined);
-});
-
-test("ordinary group silence is treated as a valid completion", () => {
-  const semantics = resolveGrixInboundSemantics({
-    session_id: "s1",
-    msg_id: "m4",
-    session_type: 2,
-    event_type: "group_message",
-    content: "just context",
-  });
-
-  assert.deepEqual(
-    resolveGrixDispatchResolution({
-      semantics,
-      visibleOutputSent: false,
-      eventResultReported: false,
-    }),
-    {
-      shouldCompleteSilently: true,
-    },
-  );
-});
-
-test("explicit mention silence now completes silently without synthetic text", () => {
-  const semantics = resolveGrixInboundSemantics({
-    session_id: "s1",
-    msg_id: "m5",
-    session_type: 2,
-    event_type: "group_mention",
-    content: "answer me",
-  });
-
-  assert.deepEqual(
-    resolveGrixDispatchResolution({
-      semantics,
-      visibleOutputSent: false,
-      eventResultReported: false,
-    }),
-    {
-      shouldCompleteSilently: true,
-    },
-  );
-});
-
-test("visible output disables silent completion handling", () => {
-  const semantics = resolveGrixInboundSemantics({
-    session_id: "s1",
-    msg_id: "m6",
-    session_type: 2,
-    event_type: "group_mention",
-    content: "answer me",
-  });
-
-  assert.deepEqual(
-    resolveGrixDispatchResolution({
-      semantics,
-      visibleOutputSent: true,
-      eventResultReported: false,
-    }),
-    {
-      shouldCompleteSilently: false,
-    },
-  );
+  assert.equal(semantics.hasAnyMention, false);
+  assert.deepEqual(semantics.mentionUserIds, []);
 });

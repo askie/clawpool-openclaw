@@ -17,7 +17,6 @@ import {
 import { guardInternalReplyText } from "./reply-text-guard.js";
 import { isRetryableGuardedReply, resolveUpstreamRetryDelayMs, resolveUpstreamRetryPolicy } from "./upstream-retry.js";
 import { getAibotRuntime } from "./runtime.js";
-import { buildBodyWithQuotedReplyId } from "./quoted-reply-body.js";
 import { claimInboundEvent, confirmInboundEvent, releaseInboundEvent } from "./inbound-event-dedupe.js";
 import { handleStableLocalActionWithCoreRuntime } from "./local-actions.ts";
 import { enqueueRevokeSystemEvent } from "./revoke-event.js";
@@ -33,15 +32,8 @@ import {
   persistPendingInboundEvent,
   type PendingInboundEventHandle,
 } from "./inbound-event-recovery.ts";
-import {
-  buildGrixGroupSystemPrompt,
-  resolveGrixDispatchResolution,
-  resolveGrixInboundSemantics,
-} from "./group-semantics.js";
-import {
-  clearPendingInboundContext,
-  stagePendingInboundContext,
-} from "./inbound-context.js";
+import { resolveGrixInboundSemantics } from "./group-semantics.js";
+import { buildGrixInboundHistory } from "./inbound-history.ts";
 import {
   type AppendOnlyReplyStream,
   buildPartialReplyClientMsgId,
@@ -341,14 +333,16 @@ async function processEvent(params: {
   }
   const eventId = toStringId(event.event_id);
   const quotedMessageId = normalizeNumericMessageId(event.quoted_message_id);
-  const bodyForAgent = buildBodyWithQuotedReplyId(rawBody, quotedMessageId);
-  let stagedRouteSessionKey = "";
+  const bodyForAgent = rawBody;
 
   const senderId = toStringId(event.sender_id);
   const semantics = resolveGrixInboundSemantics(event);
   const isGroup = semantics.isGroup;
   const chatType = isGroup ? "group" : "direct";
-  const groupSystemPrompt = buildGrixGroupSystemPrompt(semantics);
+  const inboundHistory = buildGrixInboundHistory({
+    contextMessages: event.context_messages,
+    currentMessageId: messageSid,
+  });
   const createdAt = toTimestampMs(event.created_at);
   const baseLogContext = buildEventLogContext({
     eventId,
@@ -501,6 +495,7 @@ async function processEvent(params: {
     const ctxPayload = core.channel.reply.finalizeInboundContext({
       Body: body,
       BodyForAgent: bodyForAgent,
+      InboundHistory: inboundHistory,
       RawBody: rawBody,
       CommandBody: rawBody,
       // Grix inbound text is end-user chat content; do not parse it as OpenClaw slash/bang commands.
@@ -510,7 +505,6 @@ async function processEvent(params: {
       SessionKey: route.sessionKey,
       AccountId: route.accountId,
       ChatType: chatType,
-      GroupSystemPrompt: groupSystemPrompt,
       ConversationLabel: fromLabel,
       SenderName: senderId || undefined,
       SenderId: senderId || undefined,
@@ -518,21 +512,14 @@ async function processEvent(params: {
       Provider: "grix",
       Surface: "grix",
       MessageSid: messageSid,
-      // This field carries the inbound quoted message id from end user (event.quoted_message_id).
-      // It is not the outbound reply anchor used when plugin sends replies back to Aibot.
-      ReplyToMessageSid: quotedMessageId,
+      ReplyToId: quotedMessageId,
+      ReplyToIdFull: quotedMessageId,
       WasMentioned: isGroup ? semantics.wasMentioned : undefined,
       OriginatingChannel: "grix",
       OriginatingTo: to,
     });
 
     const routeSessionKey = ctxPayload.SessionKey ?? route.sessionKey;
-    stagePendingInboundContext({
-      sessionKey: routeSessionKey,
-      messageSid,
-      contextMessages: event.context_messages,
-    });
-    stagedRouteSessionKey = routeSessionKey;
     await core.channel.session.recordInboundSession({
       storePath,
       sessionKey: routeSessionKey,
@@ -897,19 +884,6 @@ async function processEvent(params: {
           }
         }
 
-        const dispatchResolution = resolveGrixDispatchResolution({
-          semantics,
-          visibleOutputSent,
-          eventResultReported,
-        });
-
-        if (dispatchResolution.shouldCompleteSilently) {
-          runtime.log(
-            `[grix:${account.accountId}] group dispatch completed silently ${baseLogContext} attempt=${attemptLabel} wasMentioned=${semantics.wasMentioned ? "true" : "false"}`,
-          );
-          reportEventResult("responded");
-        }
-
         break;
       }
       if (!visibleOutputSent && !eventResultReported) {
@@ -947,10 +921,6 @@ async function processEvent(params: {
     runtime.log(
       `[grix:${account.accountId}] active reply run clearing eventId=${activeRun?.eventId || "-"} stopRequested=${activeRun?.stopRequested === true} abortReason=${activeRun ? resolveAbortReason(activeRun.controller.signal) : "-"} visibleOutputSent=${visibleOutputSent}`,
     );
-    clearPendingInboundContext({
-      sessionKey: stagedRouteSessionKey,
-      expectedMessageSid: messageSid,
-    });
     clearActiveReplyRun(activeRun);
     await finalizeInboundEvent();
   }
