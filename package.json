@@ -1,6 +1,6 @@
 {
   "name": "@dhf-openclaw/grix",
-  "version": "0.4.31",
+  "version": "0.4.32",
   "description": "Unified Grix OpenClaw plugin with channel transport, typed admin tools, and operator CLI",
   "type": "module",
   "main": "./dist/index.js",
