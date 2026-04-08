@@ -44,7 +44,7 @@ test("applyAppendOnlyStreamUpdate appends a new paragraph when the snapshot rest
 });
 
 test("createAppendOnlyReplyStream streams snapshot deltas into one client message and finishes once", async () => {
-  const calls: Array<{ delta: string; isFinish: boolean; clientMsgId: string }> = [];
+  const calls: Array<{ delta: string; isFinish: boolean; clientMsgId: string; threadId?: string | number }> = [];
   const stream = createAppendOnlyReplyStream({
     client: {
       sendStreamChunk: async (_sessionId, deltaContent, opts) => {
@@ -52,11 +52,13 @@ test("createAppendOnlyReplyStream streams snapshot deltas into one client messag
           delta: deltaContent,
           isFinish: opts.isFinish === true,
           clientMsgId: opts.clientMsgId,
+          threadId: opts.threadId,
         });
       },
     },
     sessionId: "sess-1",
     eventId: "evt-1",
+    threadId: "th-9",
     clientMsgId: buildPartialReplyClientMsgId("msg-1"),
     chunkChars: 10_000,
     chunkDelayMs: 0,
@@ -72,21 +74,25 @@ test("createAppendOnlyReplyStream streams snapshot deltas into one client messag
       delta: "```latex\n\\begin{document}",
       isFinish: false,
       clientMsgId: "reply_msg-1_stream",
+      threadId: "th-9",
     },
     {
       delta: "\n\\section{公式}",
       isFinish: false,
       clientMsgId: "reply_msg-1_stream",
+      threadId: "th-9",
     },
     {
       delta: "\n\\end{document}\n```",
       isFinish: false,
       clientMsgId: "reply_msg-1_stream",
+      threadId: "th-9",
     },
     {
       delta: "",
       isFinish: true,
       clientMsgId: "reply_msg-1_stream",
+      threadId: "th-9",
     },
   ]);
 });

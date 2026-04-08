@@ -13,6 +13,7 @@ type PartialStreamClient = {
       eventId?: string;
       clientMsgId: string;
       quotedMessageId?: string;
+      threadId?: string | number;
       isFinish?: boolean;
       timeoutMs?: number;
     },
@@ -126,6 +127,7 @@ export function createAppendOnlyReplyStream(params: {
   sessionId: string;
   eventId?: string;
   quotedMessageId?: string;
+  threadId?: string | number;
   clientMsgId: string;
   chunkChars: number;
   chunkDelayMs: number;
@@ -159,6 +161,7 @@ export function createAppendOnlyReplyStream(params: {
         eventId: params.eventId,
         clientMsgId: params.clientMsgId,
         quotedMessageId: params.quotedMessageId,
+        threadId: params.threadId,
         isFinish: false,
       });
       visibleText = true;
@@ -225,6 +228,7 @@ export function createAppendOnlyReplyStream(params: {
           eventId: params.eventId,
           clientMsgId: params.clientMsgId,
           quotedMessageId: params.quotedMessageId,
+          threadId: params.threadId,
           isFinish: true,
         });
         params.onSent?.();

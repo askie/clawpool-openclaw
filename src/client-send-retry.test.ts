@@ -99,14 +99,19 @@ test("buildAuthPayload pins openclaw client_type, contract fields, and host vers
   assert.equal(payload.api_key, "test-api-key");
   assert.equal(payload.client, "openclaw-grix");
   assert.equal(payload.client_type, "openclaw");
+  assert.equal(payload.plugin_id, "grix");
+  assert.equal(payload.plugin_version, "0.4.31");
   assert.equal(payload.host_type, "openclaw");
   assert.equal(payload.host_version, "2026.3.23-1");
   assert.equal(payload.protocol_version, "aibot-agent-api-v1");
   assert.equal(payload.contract_version, 1);
   assert.ok(Array.isArray(payload.capabilities));
   assert.ok(payload.capabilities.includes("stream_chunk"));
+  assert.ok(payload.capabilities.includes("inbound_media_v1"));
   assert.ok(payload.capabilities.includes("local_action_v1"));
   assert.ok(payload.capabilities.includes("agent_invoke"));
+  assert.ok(payload.capabilities.includes("reaction_v1"));
+  assert.ok(payload.capabilities.includes("thread_v1"));
   assert.deepEqual(payload.local_actions, ["exec_approve", "exec_reject"]);
 });
 

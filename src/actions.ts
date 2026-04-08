@@ -1,12 +1,12 @@
 import type { ChannelMessageActionAdapter } from "openclaw/plugin-sdk";
-import { listAibotAccountIds, resolveAibotAccount } from "./accounts.js";
-import { requireActiveAibotClient } from "./client.js";
-import { markSilentUnsendCompleted } from "./silent-unsend-completion.js";
-import { resolveSilentUnsendPlan } from "./silent-unsend-plan.js";
-import { jsonResult, readStringParam } from "./openclaw-compat.js";
+import { listAibotAccountIds, resolveAibotAccount } from "./accounts.ts";
+import { requireActiveAibotClient } from "./client.ts";
+import { markSilentUnsendCompleted } from "./silent-unsend-completion.ts";
+import { resolveSilentUnsendPlan } from "./silent-unsend-plan.ts";
+import { jsonResult, readStringParam } from "./openclaw-compat.ts";
 
-const WS_ACTIONS = new Set<string>(["unsend", "delete"]);
-const DISCOVERABLE_ACTIONS = ["unsend", "delete"];
+const WS_ACTIONS = new Set<string>(["unsend", "delete", "react"]);
+const DISCOVERABLE_ACTIONS = ["react", "unsend", "delete"];
 type MessageToolDiscoveryCfg =
   Parameters<ChannelMessageActionAdapter["describeMessageTool"]>[0]["cfg"];
 
@@ -35,6 +35,26 @@ function readStringishParam(params: Record<string, unknown>, key: string): strin
     (snakeKey !== key && Object.hasOwn(params, snakeKey) ? params[snakeKey] : undefined);
   if (typeof raw === "number" && Number.isFinite(raw)) {
     return String(raw);
+  }
+  return undefined;
+}
+
+function readBooleanishParam(params: Record<string, unknown>, key: string): boolean | undefined {
+  const snakeKey = toSnakeCaseKey(key);
+  const raw =
+    (Object.hasOwn(params, key) ? params[key] : undefined) ??
+    (snakeKey !== key && Object.hasOwn(params, snakeKey) ? params[snakeKey] : undefined);
+  if (typeof raw === "boolean") {
+    return raw;
+  }
+  if (typeof raw === "string") {
+    const normalized = raw.trim().toLowerCase();
+    if (normalized === "true" || normalized === "1" || normalized === "yes") {
+      return true;
+    }
+    if (normalized === "false" || normalized === "0" || normalized === "no") {
+      return false;
+    }
   }
   return undefined;
 }
@@ -68,7 +88,31 @@ export const aibotMessageActions: ChannelMessageActionAdapter = {
     const messageId =
       readStringishParam(params, "messageId") ?? readStringishParam(params, "msgId");
     if (!messageId) {
-      throw new Error("Grix unsend requires messageId.");
+      throw new Error(`Grix ${normalizedAction} requires messageId.`);
+    }
+
+    if (normalizedAction === "react") {
+      const emoji = readStringParam(params, "emoji", { required: true });
+      const remove = readBooleanishParam(params, "remove") === true;
+      const sessionId =
+        readStringishParam(params, "sessionId") ??
+        readStringishParam(params, "to") ??
+        toolContext?.currentChannelId;
+      if (!sessionId) {
+        throw new Error("Grix react requires sessionId.");
+      }
+
+      const ack = await client.sendReaction(sessionId, messageId, emoji, {
+        op: remove ? "remove" : "add",
+      });
+      return jsonResult({
+        ok: true,
+        messageId: String(ack.msg_id ?? messageId),
+        sessionId,
+        emoji,
+        removed: remove,
+        added: !remove,
+      });
     }
 
     const plan = await resolveSilentUnsendPlan({

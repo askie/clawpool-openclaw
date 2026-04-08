@@ -34,6 +34,7 @@ import {
 } from "./inbound-event-recovery.ts";
 import { resolveGrixInboundSemantics } from "./group-semantics.js";
 import { buildGrixInboundHistory } from "./inbound-history.ts";
+import { buildInboundMediaFields, buildInboundThreadFields } from "./inbound-openclaw-fields.js";
 import {
   type AppendOnlyReplyStream,
   buildPartialReplyClientMsgId,
@@ -172,6 +173,7 @@ async function deliverAibotMessage(params: {
   runtime: RuntimeEnv;
   statusSink?: (patch: { lastOutboundAt?: number; lastError?: string | null }) => void;
   stableClientMsgId?: string;
+  threadId?: string | number;
 }): Promise<boolean> {
   const { payload, client, account, sessionId, quotedMessageId, runtime, statusSink, stableClientMsgId } = params;
   const structuredCardKind = detectAibotStructuredCardKind(payload);
@@ -191,6 +193,7 @@ async function deliverAibotMessage(params: {
     abortSignal: params.abortSignal,
     eventId: params.eventId,
     quotedMessageId,
+    threadId: params.threadId,
     stableClientMsgId,
     onMediaError: (error) => {
       runtime.error(`grix media send failed: ${String(error)}`);
@@ -325,7 +328,10 @@ async function processEvent(params: {
   const sessionId = toStringId(event.session_id);
   const messageSid = toStringId(event.msg_id);
   const rawBody = String(event.content ?? "").trim();
-  if (!sessionId || !messageSid || !rawBody) {
+  const inboundMediaFields = buildInboundMediaFields(event);
+  const inboundThreadFields = buildInboundThreadFields(event);
+  const hasInboundMedia = inboundMediaFields.attachmentCount > 0;
+  if (!sessionId || !messageSid || (!rawBody && !hasInboundMedia)) {
     const reason = `invalid event_msg payload: session_id=${sessionId || "<empty>"} msg_id=${messageSid || "<empty>"}`;
     runtime.error(`[grix:${account.accountId}] ${reason}`);
     statusSink?.({ lastError: reason });
@@ -390,7 +396,7 @@ async function processEvent(params: {
     return;
   }
   runtime.log(
-    `[grix:${account.accountId}] inbound event ${baseLogContext} chatType=${chatType} eventType=${semantics.eventType || "-"} wasMentioned=${semantics.wasMentioned ? "true" : "false"} mentionsOther=${semantics.mentionsOther ? "true" : "false"} bodyLen=${rawBody.length} quotedMessageId=${quotedMessageId || "-"}`,
+    `[grix:${account.accountId}] inbound event ${baseLogContext} chatType=${chatType} eventType=${semantics.eventType || "-"} wasMentioned=${semantics.wasMentioned ? "true" : "false"} mentionsOther=${semantics.mentionsOther ? "true" : "false"} bodyLen=${rawBody.length} attachmentCount=${inboundMediaFields.attachmentCount} quotedMessageId=${quotedMessageId || "-"} threadId=${inboundThreadFields.MessageThreadId ?? "-"}`,
   );
 
   if (!recoveryHandle) {
@@ -514,6 +520,8 @@ async function processEvent(params: {
       MessageSid: messageSid,
       ReplyToId: quotedMessageId,
       ReplyToIdFull: quotedMessageId,
+      ...inboundMediaFields,
+      ...inboundThreadFields,
       WasMentioned: isGroup ? semantics.wasMentioned : undefined,
       OriginatingChannel: "grix",
       OriginatingTo: to,
@@ -538,6 +546,7 @@ async function processEvent(params: {
 
     // Outbound replies should anchor to the trigger message itself.
     const outboundQuotedMessageId = normalizeNumericMessageId(event.msg_id);
+    const outboundThreadId = inboundThreadFields.MessageThreadId;
     const prefixOptions = {};
     const retryPolicy = resolveUpstreamRetryPolicy(account);
     let composingSet = false;
@@ -674,6 +683,7 @@ async function processEvent(params: {
           sessionId,
           eventId,
           quotedMessageId: outboundQuotedMessageId,
+          threadId: outboundThreadId,
           clientMsgId: buildPartialReplyClientMsgId(messageSid),
           chunkChars: resolveStreamChunkChars(account),
           chunkDelayMs: resolveStreamChunkDelayMs(account),
@@ -788,6 +798,7 @@ async function processEvent(params: {
                 runtime,
                 statusSink,
                 stableClientMsgId,
+                threadId: outboundThreadId,
               });
               attemptHasOutbound = attemptHasOutbound || didSendMessage;
               if (didSendMessage) {
@@ -877,6 +888,7 @@ async function processEvent(params: {
             runtime,
             statusSink,
             stableClientMsgId,
+            threadId: outboundThreadId,
           });
           attemptHasOutbound = attemptHasOutbound || didSendMessage;
           if (didSendMessage) {
@@ -1065,6 +1077,28 @@ export async function monitorAibotProvider(options: AibotMonitorOptions): Promis
         runtime.error(`[grix:${account.accountId}] process event failed: ${msg}`);
         guardedStatusSink({ lastError: msg });
       });
+    },
+    onEventReact: (event) => {
+      if (!isActiveMonitor(account.accountId, client)) {
+        return;
+      }
+      guardedStatusSink({ lastInboundAt: Date.now() });
+      try {
+        const eventId = String(event.event_id ?? "").trim();
+        if (eventId) {
+          client.ackEvent(eventId, {
+            sessionId: event.session_id,
+            msgId: event.msg_id,
+          });
+        }
+        runtime.log(
+          `[grix:${account.accountId}] inbound react sessionId=${String(event.session_id ?? "").trim() || "-"} messageSid=${String(event.msg_id ?? "").trim() || "-"} emoji=${String(event.emoji ?? "").trim() || "-"} op=${String(event.op ?? "add").trim() || "add"}`,
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        runtime.error(`[grix:${account.accountId}] process react event failed: ${msg}`);
+        guardedStatusSink({ lastError: msg });
+      }
     },
     onEventRevoke: (event) => {
       if (!isActiveMonitor(account.accountId, client)) {

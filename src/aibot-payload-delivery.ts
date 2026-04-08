@@ -73,6 +73,7 @@ export async function deliverAibotPayload(params: {
   abortSignal?: AbortSignal;
   eventId?: string;
   quotedMessageId?: string;
+  threadId?: string | number;
   stableClientMsgId?: string;
   onFirstVisibleSend?: () => void;
   onMediaError?: (error: unknown) => void;
@@ -110,6 +111,7 @@ export async function deliverAibotPayload(params: {
       const ack = await params.client.sendMedia(params.sessionId, mediaUrl, caption ?? "", {
         eventId: params.eventId,
         quotedMessageId: params.quotedMessageId,
+        threadId: params.threadId,
         clientMsgId: params.stableClientMsgId ? `${params.stableClientMsgId}_media` : undefined,
         extra: params.extra,
       });
@@ -135,6 +137,7 @@ export async function deliverAibotPayload(params: {
       const ack = await params.client.sendText(params.sessionId, chunkPlan.text, {
         eventId: params.eventId,
         quotedMessageId: params.quotedMessageId,
+        threadId: params.threadId,
         clientMsgId: chunkPlan.clientMsgId,
       });
       firstMessageId ??= resolveAckMessageId(ack, chunkPlan.clientMsgId);
@@ -155,6 +158,7 @@ export async function deliverAibotPayload(params: {
     const ack = await params.client.sendText(params.sessionId, chunkPlan.text, {
       eventId: params.eventId,
       quotedMessageId: params.quotedMessageId,
+      threadId: params.threadId,
       clientMsgId: chunkPlan.clientMsgId,
       extra: chunkPlan.extra,
     });

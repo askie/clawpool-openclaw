@@ -28,6 +28,20 @@ export type AibotContextMessagePayload = {
   created_at?: number;
 };
 
+export type AibotMediaAttachmentKind = "image" | "audio" | "video" | "file" | string;
+
+export type AibotMediaAttachmentPayload = {
+  attachment_id?: string;
+  kind: AibotMediaAttachmentKind;
+  url?: string;
+  mime?: string;
+  name?: string;
+  size_bytes?: number;
+  width?: number;
+  height?: number;
+  duration_ms?: number;
+};
+
 export type AibotEventMsgPayload = {
   event_id?: string;
   event_type?: AibotEventType;
@@ -37,10 +51,26 @@ export type AibotEventMsgPayload = {
   session_type?: number;
   msg_id: string | number;
   quoted_message_id?: string | number;
+  thread_id?: string | number;
+  root_msg_id?: string | number;
+  thread_label?: string;
   sender_id?: string | number;
   content?: string;
   mention_user_ids?: Array<string | number>;
+  attachments?: AibotMediaAttachmentPayload[];
   context_messages?: AibotContextMessagePayload[];
+  created_at?: number;
+};
+
+export type AibotReactionOp = "add" | "remove";
+
+export type AibotEventReactionPayload = {
+  event_id?: string;
+  session_id: string;
+  msg_id: string | number;
+  actor_id?: string | number;
+  emoji: string;
+  op?: AibotReactionOp;
   created_at?: number;
 };
 
@@ -107,6 +137,23 @@ export type AibotDeleteAckPayload = {
   msg_id?: string | number;
   session_id?: string;
   deleted?: boolean;
+  [key: string]: unknown;
+};
+
+export type AibotMediaUploadInitPayload = {
+  upload_id: string;
+  name: string;
+  mime?: string;
+  size_bytes: number;
+  purpose?: string;
+};
+
+export type AibotMediaUploadInitAckPayload = {
+  upload_id?: string;
+  upload_url?: string;
+  method?: string;
+  media_url?: string;
+  headers?: Record<string, string>;
   [key: string]: unknown;
 };
 

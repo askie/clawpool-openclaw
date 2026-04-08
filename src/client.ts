@@ -9,6 +9,7 @@ import type {
   AibotConnectionStatus,
   AibotDeleteAckPayload,
   AibotEventMsgPayload,
+  AibotEventReactionPayload,
   AibotEventResultPayload,
   AibotEventRevokePayload,
   AibotEventStopAckPayload,
@@ -16,7 +17,10 @@ import type {
   AibotEventStopResultPayload,
   AibotLocalActionPayload,
   AibotLocalActionResultPayload,
+  AibotMediaUploadInitAckPayload,
+  AibotMediaUploadInitPayload,
   AibotPacket,
+  AibotReactionOp,
   AibotSessionRouteAckPayload,
   AibotSendAckPayload,
   AibotSendNackPayload,
@@ -48,7 +52,7 @@ type PendingRequest = {
 
 type AibotWsClientCallbacks = {
   onEventMsg?: (payload: AibotEventMsgPayload) => void;
-  onEventReact?: (payload: Record<string, unknown>) => void;
+  onEventReact?: (payload: AibotEventReactionPayload) => void;
   onEventRevoke?: (payload: AibotEventRevokePayload) => void;
   onEventStop?: (payload: AibotEventStopPayload) => void;
   onLocalAction?: (payload: AibotLocalActionPayload, respond: (result: AibotLocalActionResultPayload) => void) => void;
@@ -64,6 +68,7 @@ type SendMessageOptions = {
   eventId?: string;
   clientMsgId?: string;
   quotedMessageId?: string;
+  threadId?: string | number;
   timeoutMs?: number;
   extra?: Record<string, unknown>;
 };
@@ -76,11 +81,17 @@ type SendStreamChunkOptions = {
   eventId?: string;
   clientMsgId: string;
   quotedMessageId?: string;
+  threadId?: string | number;
   isFinish?: boolean;
   timeoutMs?: number;
 };
 
 type DeleteMessageOptions = {
+  timeoutMs?: number;
+};
+
+type SendReactionOptions = {
+  op?: AibotReactionOp;
   timeoutMs?: number;
 };
 
@@ -133,6 +144,9 @@ const STABLE_AUTH_CAPABILITIES = [
   "session_route",
   "local_action_v1",
   "agent_invoke",
+  "inbound_media_v1",
+  "reaction_v1",
+  "thread_v1",
 ] as const;
 
 function normalizeAuthVersion(value: unknown): string | undefined {
@@ -150,6 +164,8 @@ export function buildAuthPayload(
     client: "openclaw-grix",
     client_type: "openclaw",
     client_version: PLUGIN_VERSION,
+    plugin_id: "grix",
+    plugin_version: PLUGIN_VERSION,
     protocol_version: "aibot-agent-api-v1",
     contract_version: 1,
     host_type: "openclaw",
@@ -636,6 +652,12 @@ export class AibotWsClient {
     if (opts.quotedMessageId) {
       payload.quoted_message_id = opts.quotedMessageId;
     }
+    if (opts.threadId != null) {
+      const threadId = String(opts.threadId).trim();
+      if (threadId) {
+        payload.thread_id = threadId;
+      }
+    }
 
     if (opts.isFinish) {
       const packet = await this.request("client_stream_chunk", payload, {
@@ -682,6 +704,93 @@ export class AibotWsClient {
       throw this.packetError(packet);
     }
     return packet.payload as AibotDeleteAckPayload;
+  }
+
+  async sendReaction(
+    sessionId: string,
+    msgId: string | number,
+    emoji: string,
+    opts: SendReactionOptions = {},
+  ): Promise<AibotSendAckPayload> {
+    this.ensureReady();
+    const normalizedSessionId = String(sessionId ?? "").trim();
+    if (!normalizedSessionId) {
+      throw new Error("grix react_msg requires session_id");
+    }
+
+    const normalizedMsgId = String(msgId ?? "").trim();
+    if (!/^\d+$/.test(normalizedMsgId)) {
+      throw new Error("grix react_msg requires numeric msg_id");
+    }
+
+    const normalizedEmoji = String(emoji ?? "").trim();
+    if (!normalizedEmoji) {
+      throw new Error("grix react_msg requires emoji");
+    }
+
+    const packet = await this.request(
+      "react_msg",
+      {
+        session_id: normalizedSessionId,
+        msg_id: normalizedMsgId,
+        emoji: normalizedEmoji,
+        op: opts.op === "remove" ? "remove" : "add",
+      },
+      {
+        expected: ["send_ack", "send_nack", "error"],
+        timeoutMs: opts.timeoutMs ?? 20_000,
+      },
+    );
+    if (packet.cmd !== "send_ack") {
+      throw this.packetError(packet);
+    }
+    return packet.payload as AibotSendAckPayload;
+  }
+
+  async initMediaUpload(
+    payload: AibotMediaUploadInitPayload,
+    opts: { timeoutMs?: number } = {},
+  ): Promise<AibotMediaUploadInitAckPayload> {
+    this.ensureReady();
+    const uploadId = String(payload.upload_id ?? "").trim();
+    const name = String(payload.name ?? "").trim();
+    const sizeBytes = Number(payload.size_bytes);
+    if (!uploadId) {
+      throw new Error("grix media_upload_init requires upload_id");
+    }
+    if (!name) {
+      throw new Error("grix media_upload_init requires name");
+    }
+    if (!Number.isFinite(sizeBytes) || sizeBytes < 0) {
+      throw new Error("grix media_upload_init requires non-negative size_bytes");
+    }
+
+    const requestPayload: Record<string, unknown> = {
+      upload_id: uploadId,
+      name,
+      size_bytes: Math.floor(sizeBytes),
+    };
+    const mime = String(payload.mime ?? "").trim();
+    if (mime) {
+      requestPayload.mime = mime;
+    }
+    const purpose = String(payload.purpose ?? "").trim();
+    if (purpose) {
+      requestPayload.purpose = purpose;
+    }
+
+    const packet = await this.request(
+      "media_upload_init",
+      requestPayload,
+      {
+        expected: ["send_ack", "send_nack", "error"],
+        timeoutMs: opts.timeoutMs ?? 20_000,
+      },
+    );
+    if (packet.cmd !== "send_ack") {
+      throw this.packetError(packet);
+    }
+    return packet.payload as AibotMediaUploadInitAckPayload;
   }
 
   async agentInvoke(
@@ -1231,7 +1340,7 @@ export class AibotWsClient {
       return;
     }
     if (cmd === "event_react") {
-      this.callbacks.onEventReact?.(packet.payload);
+      this.callbacks.onEventReact?.(packet.payload as unknown as AibotEventReactionPayload);
       return;
     }
     if (cmd === "event_revoke") {
@@ -1383,6 +1492,12 @@ export class AibotWsClient {
     if (opts.quotedMessageId) {
       payload.quoted_message_id = opts.quotedMessageId;
     }
+    if (opts.threadId != null) {
+      const threadId = String(opts.threadId).trim();
+      if (threadId) {
+        payload.thread_id = threadId;
+      }
+    }
     if (opts.extra && Object.keys(opts.extra).length > 0) {
       payload.extra = opts.extra;
     }
@@ -1409,6 +1524,12 @@ export class AibotWsClient {
     }
     if (opts.quotedMessageId) {
       payload.quoted_message_id = opts.quotedMessageId;
+    }
+    if (opts.threadId != null) {
+      const threadId = String(opts.threadId).trim();
+      if (threadId) {
+        payload.thread_id = threadId;
+      }
     }
     if (opts.extra && Object.keys(opts.extra).length > 0) {
       payload.extra = opts.extra;

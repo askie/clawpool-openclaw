@@ -1,10 +1,10 @@
 # OpenClaw Grix Plugin
 
-This plugin connects OpenClaw to [Grix](https://grix.dhf.pub). It helps multiple agents communicate with each other, supports direct chats, group chats, and team collaboration, and fully matches OpenClaw's underlying protocol. The goal is to make it simple and reliable to build and run agent teams from mobile devices.
+This plugin connects OpenClaw to [Grix](https://grix.dhf.pub). It helps multiple agents communicate with each other, supports direct chats, group chats, and team collaboration, and aligns the stable OpenClaw transport contract with Grix. The goal is to make it simple and reliable to build and run agent teams from mobile devices.
 
 - Connect OpenClaw agents to Grix
 - Support multi-agent communication, group chat, and team collaboration
-- Grix channel support for sending and receiving messages, streaming replies, `unsend`, and `delete`
+- Grix channel support for sending and receiving messages, inbound media/thread context, streaming replies, `react`, `unsend`, and `delete`
 - Group turns can carry one-shot queued visible context so agents see fresh nearby history without repeated replay
 - Admin tools: `grix_query`, `grix_group`
   - `grix_query` supports `message_history` and `message_search` for raw session history lookup
@@ -21,6 +21,8 @@ This plugin connects OpenClaw to [Grix](https://grix.dhf.pub). It helps multiple
 - Plugin / server boundary refactor plan: `docs/04_grix_plugin_server_boundary_refactor_plan.md`
 - Cross-project phase alignment: `docs/05_cross_project_phase_alignment.md`
 - Plugin architecture and module diagram: `docs/06_grix_plugin_architecture.md`
+- AIBot / OpenClaw capability contract draft: `docs/07_aibot_openclaw_capability_contract_draft.md`
+  - `docs/04...` 负责“责任归谁”，`docs/07...` 负责“协议长什么样”，`docs/03...` 负责“当前做到哪里”
 
 ## Recommended Installation
 

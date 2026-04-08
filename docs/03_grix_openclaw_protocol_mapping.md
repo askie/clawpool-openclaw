@@ -44,8 +44,8 @@
 | OpenClaw Channel 能力 | 当前实现 | AIBot 侧协议 / 命令 |
 |---|---|---|
 | 直聊 / 群聊 | `chatTypes: ["direct", "group"]` | 入站 `event_msg`，出站 `send_msg` |
-| 媒体发送 | `media: true` | `send_msg`，媒体消息带 `media_url` |
-| 反应能力声明 | `reactions: true` | 仅接收 `event_react` 回调，当前没有继续翻译成 OpenClaw 业务动作 |
+| 媒体发送 | `media: true` | 出站 `send_msg`，入站 `event_msg.attachments` 会映射到 OpenClaw 原生媒体字段 |
+| 反应能力声明 | `reactions: true` | 出站 `react_msg`，入站接收 `event_react` 并记录 |
 | 撤回 / 删除 | `unsend: true` | `delete_msg` |
 | 原生命令 | `nativeCommands: false` | 不把普通 Grix 文本当成 OpenClaw slash/bang 命令 |
 | 分块流式 | `blockStreaming: false` | 不走 block 流；改走 `client_stream_chunk` |
@@ -84,7 +84,7 @@
 | `event_msg` | `src/monitor.ts` `processEvent(...)` | 组装 `ctxPayload`，写入会话上下文，调用 OpenClaw 回复分发 | 先 `event_ack`，结束后 `event_result` |
 | `event_stop` | `src/monitor.ts` `handleEventStop(...)` | 中止当前 reply run | 先 `event_stop_ack`，结束后 `event_stop_result` |
 | `event_revoke` | `src/monitor.ts` `onEventRevoke` | 若 payload 附带 `system_event`，则按后端给定文本写入 OpenClaw 侧系统事件 | `event_ack` |
-| `event_react` | `src/client.ts` 回调透出 | 目前只保留入口，没有继续翻成插件业务动作 | 无专门回包 |
+| `event_react` | `src/monitor.ts` `onEventReact` | 记录反应事件，保留后续业务扩展入口 | `event_ack`（若 payload 带 `event_id`） |
 | `local_action` | `src/monitor.ts` `handleStableLocalAction(...)` | 执行 backend 下发的稳定本地动作（如审批） | `local_action_result` |
 
 ### 3.3 `event_msg` 具体被翻成什么 OpenClaw 输入
@@ -97,6 +97,10 @@
 | `msg_id` | 作为当前消息标识、回复锚点 |
 | `content` | 进入 `Body` / `BodyForAgent` / `RawBody` |
 | `quoted_message_id` | 进入 `ReplyToMessageSid` |
+| `attachments[*].url` | 进入 `MediaUrl` / `MediaUrls` |
+| `attachments[*].mime` / `attachments[*].kind` | 进入 `MediaType` / `MediaTypes` |
+| `thread_id` | 进入 `MessageThreadId` |
+| `root_msg_id` | 进入 `RootMessageId` |
 | `context_messages` | 作为当前轮待注入近场上下文 |
 | `sender_id` | 进入 `From`、`SenderId`、`SenderName` |
 | `event_type` / `mention_user_ids` | 推断群聊语义、是否点名 |
@@ -117,9 +121,10 @@
 | OpenClaw 侧输出 | 插件中转 | AIBot 命令 | 说明 |
 |---|---|---|---|
 | 普通文本 `sendText` | `src/channel.ts` / `src/client.ts` | `send_msg` | `msg_type=1`，正文放 `content` |
-| 媒体 `sendMedia` | `src/channel.ts` / `src/client.ts` | `send_msg` | 默认 `msg_type=2`，媒体地址放 `media_url` |
+| 媒体 `sendMedia` | `src/channel.ts` / `src/client.ts` | `send_msg` | 默认 `msg_type=2`，媒体地址放 `media_url`，线程回复会继续带 `thread_id` |
 | 通用 payload `sendPayload` | `src/channel.ts` / `src/aibot-payload-delivery.ts` | `send_msg` | 插件先把 payload 展平成文本/卡片，再发给 AIBot |
 | 引用回复 | `replyToId` -> `quoted_message_id` | `send_msg` | 把 OpenClaw 回复锚定到触发消息 |
+| 线程回复 | `threadId` -> `thread_id` | `send_msg` / `client_stream_chunk` | 把 OpenClaw 当前线程标识原样带回 AIBot |
 
 ### 4.2 流式回复
 
@@ -163,16 +168,17 @@
 
 ## 5. OpenClaw 消息动作，被映射成 AIBot 什么命令
 
-`src/actions.ts` 把 OpenClaw 的消息动作适配成了两个可发现动作：
+`src/actions.ts` 把 OpenClaw 的消息动作适配成了三个可发现动作：
 
 | OpenClaw 消息动作 | 插件处理 | AIBot 命令 | 备注 |
 |---|---|---|---|
+| `react` | 直接转发指定消息的表情新增/取消 | `react_msg` | 当前要求显式传 `emoji` |
 | `unsend` | 先解目标，再删目标消息 | `delete_msg` | 如果需要，会顺手删掉执行这次撤回的命令消息 |
 | `delete` | 先解目标，再删目标消息 | `delete_msg` | 目前底层命令与 `unsend` 一样 |
 
 这里有两个额外约束：
 
-1. `describeMessageTool` 暴露给 OpenClaw 的动作只有 `unsend` 和 `delete`
+1. `describeMessageTool` 暴露给 OpenClaw 的动作是 `react`、`unsend`、`delete`
 2. `unsend` 被当成“静默清理动作”，插件提示 agent 结束时返回 `NO_REPLY`
 
 ---
@@ -271,7 +277,7 @@
 |---|---|
 | 普通聊天文本 -> OpenClaw 原生命令解析 | 没做，明确关闭 |
 | OpenClaw block 分段流 -> AIBot block 流 | 没做，明确改成快照流 |
-| `event_react` -> OpenClaw 业务处理 | 入口已留，当前未落具体业务转换 |
+| `event_react` -> OpenClaw 更高层业务处理 | 已记录和确认，但还没继续翻成更高层业务事件 |
 | Threads / Polls | `capabilities` 里明确是 `false` |
 
 ---

@@ -265,6 +265,8 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
       currentChannelId: context.To?.trim() || undefined,
       currentMessageId:
         context.CurrentMessageId != null ? String(context.CurrentMessageId) : undefined,
+      currentThreadTs:
+        context.MessageThreadId != null ? String(context.MessageThreadId) : undefined,
       hasRepliedRef,
     }),
   },
@@ -276,7 +278,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
     chunker: chunkTextForOutbound,
     chunkerMode: "markdown",
     textChunkLimit: DEFAULT_OUTBOUND_TEXT_CHUNK_LIMIT,
-    sendText: async ({ cfg, to, text, accountId, replyToId }) => {
+    sendText: async ({ cfg, to, text, accountId, replyToId, threadId }) => {
       const account = resolveAibotAccount({ cfg, accountId });
       const client = requireActiveAibotClient(account.accountId);
       const rawTarget = String(to ?? "").trim() || "-";
@@ -298,11 +300,13 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
       }
       const sessionId = resolvedTarget.sessionId;
       const quotedMessageId = normalizeQuotedMessageId(replyToId);
+      const normalizedThreadId = threadId != null ? String(threadId).trim() || undefined : undefined;
       logAibotOutboundAdapter(
-        `sendText accountId=${account.accountId} rawTarget=${rawTarget} normalizedTarget=${resolvedTarget.normalizedTarget} resolvedSessionId=${sessionId} resolveSource=${resolvedTarget.resolveSource} textLen=${String(text ?? "").length} quotedMessageId=${quotedMessageId ?? "-"}`,
+        `sendText accountId=${account.accountId} rawTarget=${rawTarget} normalizedTarget=${resolvedTarget.normalizedTarget} resolvedSessionId=${sessionId} resolveSource=${resolvedTarget.resolveSource} textLen=${String(text ?? "").length} quotedMessageId=${quotedMessageId ?? "-"} threadId=${normalizedThreadId ?? "-"}`,
       );
       const ack = await client.sendText(sessionId, String(text ?? ""), {
         quotedMessageId,
+        threadId: normalizedThreadId,
       });
       logAibotOutboundAdapter(
         `sendText ack accountId=${account.accountId} resolvedSessionId=${sessionId} messageId=${String(ack.msg_id ?? ack.client_msg_id ?? "-")}`,
@@ -312,7 +316,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
         messageId: String(ack.msg_id ?? ack.client_msg_id ?? Date.now()),
       };
     },
-    sendMedia: async ({ cfg, to, text, mediaUrl, accountId, replyToId }) => {
+    sendMedia: async ({ cfg, to, text, mediaUrl, accountId, replyToId, threadId }) => {
       const account = resolveAibotAccount({ cfg, accountId });
       const client = requireActiveAibotClient(account.accountId);
       const rawTarget = String(to ?? "").trim() || "-";
@@ -337,11 +341,13 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
         throw new Error("grix sendMedia requires mediaUrl");
       }
       const quotedMessageId = normalizeQuotedMessageId(replyToId);
+      const normalizedThreadId = threadId != null ? String(threadId).trim() || undefined : undefined;
       logAibotOutboundAdapter(
-        `sendMedia accountId=${account.accountId} rawTarget=${rawTarget} normalizedTarget=${resolvedTarget.normalizedTarget} resolvedSessionId=${sessionId} resolveSource=${resolvedTarget.resolveSource} textLen=${(text ?? "").length} quotedMessageId=${quotedMessageId ?? "-"} mediaUrl=${mediaUrl}`,
+        `sendMedia accountId=${account.accountId} rawTarget=${rawTarget} normalizedTarget=${resolvedTarget.normalizedTarget} resolvedSessionId=${sessionId} resolveSource=${resolvedTarget.resolveSource} textLen=${(text ?? "").length} quotedMessageId=${quotedMessageId ?? "-"} threadId=${normalizedThreadId ?? "-"} mediaUrl=${mediaUrl}`,
       );
       const ack = await client.sendMedia(sessionId, mediaUrl, text ?? "", {
         quotedMessageId,
+        threadId: normalizedThreadId,
       });
       logAibotOutboundAdapter(
         `sendMedia ack accountId=${account.accountId} resolvedSessionId=${sessionId} messageId=${String(ack.msg_id ?? ack.client_msg_id ?? "-")}`,
@@ -351,7 +357,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
         messageId: String(ack.msg_id ?? ack.client_msg_id ?? Date.now()),
       };
     },
-    sendPayload: async ({ cfg, to, payload, accountId, replyToId }) => {
+    sendPayload: async ({ cfg, to, payload, accountId, replyToId, threadId }) => {
       const account = resolveAibotAccount({ cfg, accountId });
       const client = requireActiveAibotClient(account.accountId);
       const rawTarget = String(to ?? "").trim() || "-";
@@ -373,11 +379,12 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
       }
       const sessionId = resolvedTarget.sessionId;
       const quotedMessageId = normalizeQuotedMessageId(replyToId);
+      const normalizedThreadId = threadId != null ? String(threadId).trim() || undefined : undefined;
       const structuredCardKind = detectAibotStructuredCardKind(payload);
       const outboundExtra = buildAibotOutboundExtra(payload);
       const text = String(payload.text ?? "");
       logAibotOutboundAdapter(
-        `sendPayload accountId=${account.accountId} rawTarget=${rawTarget} normalizedTarget=${resolvedTarget.normalizedTarget} resolvedSessionId=${sessionId} resolveSource=${resolvedTarget.resolveSource} textLen=${text.length} quotedMessageId=${quotedMessageId ?? "-"} structuredCard=${structuredCardKind ?? "none"}`,
+        `sendPayload accountId=${account.accountId} rawTarget=${rawTarget} normalizedTarget=${resolvedTarget.normalizedTarget} resolvedSessionId=${sessionId} resolveSource=${resolvedTarget.resolveSource} textLen=${text.length} quotedMessageId=${quotedMessageId ?? "-"} threadId=${normalizedThreadId ?? "-"} structuredCard=${structuredCardKind ?? "none"}`,
       );
       const delivery = await deliverAibotPayload({
         payload,
@@ -387,6 +394,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
         account,
         sessionId,
         quotedMessageId,
+        threadId: normalizedThreadId,
       });
       if (!delivery.sent) {
         throw new Error("grix sendPayload produced no visible delivery");
