@@ -50,6 +50,7 @@ test("createAppendOnlyReplyStream streams snapshot deltas into one client messag
     clientMsgId: string;
     chunkSeq: number;
     threadId?: string | number;
+    finalContent?: string;
   }> = [];
   const stream = createAppendOnlyReplyStream({
     client: {
@@ -60,6 +61,7 @@ test("createAppendOnlyReplyStream streams snapshot deltas into one client messag
           clientMsgId: opts.clientMsgId,
           chunkSeq: opts.chunkSeq,
           threadId: opts.threadId,
+          ...(opts.finalContent != null ? { finalContent: opts.finalContent } : {}),
         });
       },
     },
@@ -104,6 +106,37 @@ test("createAppendOnlyReplyStream streams snapshot deltas into one client messag
       clientMsgId: "reply_msg-1_stream",
       chunkSeq: 4,
       threadId: "th-9",
+      finalContent: "```latex\n\\begin{document}\n\\section{公式}\n\\end{document}\n```",
     },
+  ]);
+});
+
+test("createAppendOnlyReplyStream finish without explicit final text reuses rendered content", async () => {
+  const calls: Array<{ delta: string; isFinish: boolean; finalContent?: string }> = [];
+  const stream = createAppendOnlyReplyStream({
+    client: {
+      sendStreamChunk: async (_sessionId, deltaContent, opts) => {
+        calls.push({
+          delta: deltaContent,
+          isFinish: opts.isFinish === true,
+          ...(opts.finalContent != null ? { finalContent: opts.finalContent } : {}),
+        });
+      },
+    },
+    sessionId: "sess-2",
+    clientMsgId: buildPartialReplyClientMsgId("msg-2"),
+    chunkChars: 10_000,
+    chunkDelayMs: 0,
+    finishDelayMs: 0,
+  });
+
+  await stream.pushSnapshot("第一段");
+  await stream.pushSnapshot("第二段");
+  await stream.finish();
+
+  assert.deepEqual(calls, [
+    { delta: "第一段", isFinish: false },
+    { delta: "\n第二段", isFinish: false },
+    { delta: "", isFinish: true, finalContent: "第一段\n第二段" },
   ]);
 });
