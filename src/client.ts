@@ -83,7 +83,6 @@ type SendStreamChunkOptions = {
   chunkSeq: number;
   quotedMessageId?: string;
   threadId?: string | number;
-  finalContent?: string;
   isFinish?: boolean;
   timeoutMs?: number;
 };
@@ -633,13 +632,12 @@ export class AibotWsClient {
     opts: SendStreamChunkOptions,
   ): Promise<AibotSendAckPayload | void> {
     this.ensureReady();
-    const isFinish = opts.isFinish === true;
     const normalizedDeltaContent = this.normalizeStreamDeltaContent(
       opts.clientMsgId,
       deltaContent,
-      isFinish,
+      opts.isFinish === true,
     );
-    if (!normalizedDeltaContent && !isFinish) {
+    if (!normalizedDeltaContent && !opts.isFinish) {
       return;
     }
     const payload: Record<string, unknown> = {
@@ -647,18 +645,8 @@ export class AibotWsClient {
       client_msg_id: opts.clientMsgId,
       chunk_seq: opts.chunkSeq,
       delta_content: normalizedDeltaContent,
-      is_finish: isFinish,
+      is_finish: opts.isFinish ?? false,
     };
-    if (isFinish) {
-      const normalizedFinalContent = this.normalizeStreamFinalContent(
-        opts.clientMsgId,
-        opts.finalContent ?? "",
-      );
-      if (!normalizedFinalContent) {
-        throw new Error("grix stream finish requires finalContent");
-      }
-      payload.final_content = normalizedFinalContent;
-    }
     const eventId = String(opts.eventId ?? "").trim();
     if (eventId) {
       payload.event_id = eventId;
@@ -673,7 +661,7 @@ export class AibotWsClient {
       }
     }
 
-    if (isFinish) {
+    if (opts.isFinish) {
       const packet = await this.request("client_stream_chunk", payload, {
         expected: ["send_ack", "send_nack", "error"],
         timeoutMs: opts.timeoutMs ?? 20_000,
@@ -1723,20 +1711,6 @@ export class AibotWsClient {
       normalized = normalized.slice(0, -1);
     }
 
-    return normalized;
-  }
-
-  private normalizeStreamFinalContent(clientMsgId: string, finalContent: string): string {
-    this.pendingStreamHighSurrogate.delete(clientMsgId);
-
-    let normalized = String(finalContent ?? "");
-    if (!normalized) {
-      return "";
-    }
-    if (this.endsWithHighSurrogate(normalized)) {
-      this.logWarn(`dropping dangling high surrogate at stream finish clientMsgId=${clientMsgId}`);
-      normalized = normalized.slice(0, -1);
-    }
     return normalized;
   }
 

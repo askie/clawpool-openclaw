@@ -15,7 +15,6 @@ type PartialStreamClient = {
       chunkSeq: number;
       quotedMessageId?: string;
       threadId?: string | number;
-      finalContent?: string;
       isFinish?: boolean;
       timeoutMs?: number;
     },
@@ -224,7 +223,6 @@ export function createAppendOnlyReplyStream(params: {
       }
 
       finished = true;
-      const authoritativeFinalContent = renderedText || String(finalText ?? "");
 
       try {
         if (params.finishDelayMs > 0 && !params.abortSignal?.aborted) {
@@ -236,7 +234,6 @@ export function createAppendOnlyReplyStream(params: {
           chunkSeq: nextChunkSeq,
           quotedMessageId: params.quotedMessageId,
           threadId: params.threadId,
-          finalContent: authoritativeFinalContent,
           isFinish: true,
         });
         nextChunkSeq += 1;
