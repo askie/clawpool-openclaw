@@ -6,16 +6,16 @@ description: Use the typed `grix_query` tool for Grix contact lookup, keyword se
 # Grix Query
 
 Use the `grix_query` tool for read-only Grix lookup actions.  
-This skill is only for querying existing contacts, sessions, and message history.
+This skill is only for querying existing contacts, sessions, and raw session messages.
 
 ## Workflow
 
 1. Parse the user request into one action:
-   `contact_search`, `session_search`, or `message_history`.
+   `contact_search`, `session_search`, `message_history`, or `message_search`.
 2. Validate required fields before any tool call.
 3. Start with one `grix_query` call for the first page.
 4. If the result is paginated and `has_more` is `true`, continue paging when the user asked for all results, when the target is still unresolved, or when one page is clearly insufficient.
-5. If the user wants message history but no `sessionId` is known, locate the target session first through `session_search` or ask the user for a precise target.
+5. If the user wants message history or in-session keyword search but no `sessionId` is known, locate the target session first through `session_search` or ask the user for a precise target.
 6. Return exact remediation for scope, auth, and parameter failures.
 
 ## Tool Contract
@@ -23,7 +23,7 @@ This skill is only for querying existing contacts, sessions, and message history
 For Grix query actions, always call:
 
 1. Tool: `grix_query`
-2. `action`: one of `contact_search`, `session_search`, or `message_history`
+2. `action`: one of `contact_search`, `session_search`, `message_history`, or `message_search`
 3. `accountId`: required; pass the exact current Grix account ID
 
 Rules:
@@ -32,11 +32,11 @@ Rules:
 2. For `contact_search` and `session_search`, use exactly one of these modes:
    exact lookup with `id`, keyword search with `keyword`, or list-all with neither.
 3. If both `id` and `keyword` are present, the backend will prioritize `id`; avoid sending both unless you explicitly want exact-match behavior.
-4. Use `sessionId`, `beforeId`, and `limit` explicitly for message history.
+4. Use `sessionId`, `beforeId`, and `limit` explicitly for message reads; `message_search` also requires `keyword`.
 5. Never invent a `sessionId`. Resolve it from context, from a previous tool result, or ask the user.
 6. Use one tool call per page. Repeated calls are allowed only for pagination or for resolving an ambiguous target.
 7. When paging `contact_search` or `session_search`, keep the same filter and advance `offset`.
-8. When paging `message_history`, reuse the same `sessionId` and set `beforeId` to the oldest message ID from the previous page.
+8. When paging `message_history` or `message_search`, reuse the same `sessionId` and set `beforeId` to the oldest message ID from the previous page.
 
 ## Lookup Usage
 
@@ -199,6 +199,28 @@ Guardrails:
 3. For the next page, set `beforeId` to the oldest message ID returned in the previous page.
 4. If the user asked for more history and `has_more` is `true`, keep paging until enough history is collected or no more pages remain.
 5. Do not claim to have full history if only one page was fetched.
+
+### message_search
+
+Purpose: search messages by keyword inside one known session.
+
+Required input:
+
+1. `sessionId`
+2. `keyword`
+
+Optional input:
+
+1. `beforeId`
+2. `limit`
+
+Guardrails:
+
+1. Only call this after the target session is unambiguous.
+2. `keyword` must be the real search phrase; do not fake an empty keyword just to reuse this action.
+3. For the next page, keep the same `keyword` and `sessionId`, and set `beforeId` to the oldest message ID returned in the previous page.
+4. If the user asked for all matches and `has_more` is `true`, keep paging until enough matches are collected or no more pages remain.
+5. If the user only asked whether a keyword appeared, one sufficient page can stop the search, but state clearly that the result is partial when you did not exhaust all pages.
 
 ## Error Handling Rules
 

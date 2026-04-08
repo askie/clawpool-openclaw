@@ -44,7 +44,7 @@ Ask only for the minimum missing inputs when the user already knows what they wa
 - On a fresh machine or an unclear host, start with [survey_host_readiness.py](scripts/survey_host_readiness.py).
 - If `ollama` is missing, install it first with the official download or install script for that OS.
 - If OpenClaw itself or a usable OpenClaw management entrypoint is missing, install OpenClaw through `ollama launch openclaw` instead of inventing a custom path.
-- Treat Windows as a special case: native Windows can host Ollama, but the generic OpenClaw setup and management flow should run in WSL. macOS and Linux can use the native shell directly.
+- Treat Windows as a special case: native Windows and WSL2 are both supported, but WSL2 remains the more stable and recommended path for the full CLI, Gateway, and tooling flow. If the machine already runs OpenClaw natively and the requested work stays within supported native CLI/Gateway paths, do not force a WSL migration.
 - If the user has nothing set up and wants to save money, prefer local Ollama deployment instead of cloud-first suggestions.
 - On resource-constrained hosts, start with `embeddinggemma:300m-qat-q8_0`, `nomic-embed-text:latest`, and `qwen3-embedding:0.6b`.
 - Treat `qwen3-embedding:latest` as a last resort on slow hardware.
@@ -83,7 +83,7 @@ In this path:
 - recommend local Ollama first if the user wants to save money
 - survey the machine
 - install missing pieces through the official path
-- if the host is native Windows, move the OpenClaw steps into WSL after the survey
+- if the host is native Windows, prefer WSL for the full setup and heavier automation/tooling path, but do not falsely claim native Windows is unsupported when the requested steps already fit supported native CLI/Gateway flows
 - then benchmark and configure memory
 
 ### Provider-specific shortcut

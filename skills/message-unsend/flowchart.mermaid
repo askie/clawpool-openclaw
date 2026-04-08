@@ -1,7 +1,7 @@
 ```mermaid
 flowchart TD
-    Start([收到撤回请求]) --> CheckSender{sender_id = 2030840865701756928?}
-    CheckSender -->|否| End1[直接 NO_REPLY]
+    Start([收到撤回请求]) --> CheckSender{请求者是当前 agent 的 owner / 已授权操作者?}
+    CheckSender -->|否或不明确| End1[直接 NO_REPLY]
     CheckSender -->|是| ResolveTarget{能定位目标消息?}
 
     ResolveTarget -->|否| End2[直接 NO_REPLY]

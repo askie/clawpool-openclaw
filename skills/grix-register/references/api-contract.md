@@ -66,10 +66,11 @@ The bundled script lifts these fields to the top level:
 
 ## Handoff
 
-成功后输出这些字段，直接交给 `grix-admin`：
+成功后不要把结构化字段直接当成 `grix_admin` 的 typed params，而是组装成一条 `grix_admin.task`：
 
-1. `mode=bind-local`
-2. `agent_id`
+1. 第一行写 `bind-local`
+2. 后续带上 `agent_id`
 3. `agent_name`
 4. `api_endpoint`
 5. `api_key`
+6. 补一行 `do_not_create_remote_agent=true`

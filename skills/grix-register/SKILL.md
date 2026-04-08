@@ -6,7 +6,7 @@ description: 仅用于初次安装阶段，完成 Grix 环境的账号注册/登
 # Grix Register
 
 这个技能只负责“初次安装”的云端准备：账号注册/登录 + 生成首个 `provider_type=3` Agent 参数。  
-你（AI）在终端里全自动操作，**不需要用户打开浏览器**。拿到参数后，必须移交给 `grix-admin` 做本地配置。
+你（AI）在终端里全自动操作，**不需要用户打开浏览器**。拿到参数后，必须通过 `grix_admin` 的 `task` 入口移交给 `grix-admin` 做本地配置。
 
 ## Workflow
 
@@ -34,7 +34,9 @@ description: 仅用于初次安装阶段，完成 Grix 环境的账号注册/登
    ```
 3. 这个命令成功后会返回用户的 `access_token`。请在回复中安全地**将生成的密码告知用户**，建议他们妥善保存。
 
-注：如果注册提示邮箱已注册，可切换 `scripts/grix_auth.py login` 路径继续获取 `access_token`。
+注：如果注册提示邮箱已注册：
+1. 只有用户明确提供现有密码时，才切换 `scripts/grix_auth.py login` 路径继续获取 `access_token`
+2. 如果用户没有现有密码，不要硬猜，也不要假装已经完成找回；明确告诉用户先补现有密码，或先走独立的重置密码流程，再继续本技能
 
 ### 3. 创建首个云端 Agent 参数
 
@@ -46,7 +48,7 @@ scripts/grix_auth.py create-api-agent --access-token "<token>" --agent-name "<ag
 
 这一步会按后端真实接口创建首个 `provider_type=3` 的主 API agent（`is_main=true`），让它拿到完整初始 scopes。若同名 `provider_type=3` Agent 已存在，脚本会自动轮换 API Key 后复用。
 
-### 4. 强制移交给 grix-admin
+### 4. 通过 `grix_admin.task` 强制移交给 grix-admin
 
 第三步执行成功后，脚本会返回一些关键设定：
 - `agent_id`
@@ -54,17 +56,20 @@ scripts/grix_auth.py create-api-agent --access-token "<token>" --agent-name "<ag
 - `api_endpoint`
 - `api_key`
 
-然后立刻交给 `grix-admin`，并传递如下 payload：
+然后立刻调用 `grix_admin`，但**不要**把这组字段直接当成 `grix_admin` 的 typed params。正确做法是把它们写进 `task` 文本里，让 `grix-admin` 进入 `bind-local` 流程。
 
-```json
-{
-  "mode": "bind-local",
-  "agent_name": "<agent_name>",
-  "agent_id": "<agent_id>",
-  "api_endpoint": "<api_endpoint>",
-  "api_key": "<api_key>"
-}
+推荐 `task` 形态：
+
+```text
+bind-local
+agent_name=<agent_name>
+agent_id=<agent_id>
+api_endpoint=<api_endpoint>
+api_key=<api_key>
+do_not_create_remote_agent=true
 ```
+
+如果脚本输出里已经带了 `handoff.task`，优先直接复用那条 `task`。
 
 ## Guardrails
 

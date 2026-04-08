@@ -77,8 +77,8 @@ Required input:
 
 Guardrails:
 
-1. Only the current Agent owner can request this action.
-2. If the requester is not the current Agent owner, reject the request directly and do not call `grix_group`.
+1. Only execute this when the requester is clearly the current Agent owner, or an already-established authorized operator in the current context.
+2. If the requester identity is unclear, ask for confirmation first; if it is clearly unauthorized, reject directly and do not call `grix_group`.
 3. This action is only for the current Agent leaving its own group membership.
 4. Never translate a request to remove other members into `leave`; use `remove_members` for that.
 5. Do not send `memberId`, `memberIds`, or `memberTypes` with this action.

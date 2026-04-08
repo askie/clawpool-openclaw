@@ -102,6 +102,12 @@ openclaw health
 
 默认值：`failure`
 
+补充说明：
+
+1. `main_agent` 主要用于选择哪个本地 agent 负责执行维护任务，例如 cron 里的 `--agent <main_agent>`。
+2. `main_agent` 本身不是可直接发送 Grix 消息的目标；如果没有明确的通知会话，就只返回结果，由上层任务或 cron 记录处理通知。
+3. cron 默认用 `notify_on=never`，不要在技能内部再猜一条通知路径。
+
 建议通知文案保持一句话：
 
 1. 成功：`grix 插件已升级完成，当前检查正常。`

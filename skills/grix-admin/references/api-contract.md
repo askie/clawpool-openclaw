@@ -34,7 +34,8 @@ After remote agent parameters are ready, continue with local OpenClaw binding th
    - `agents.list`
    - `openclaw agents bind --agent <agent_name> --bind grix:<agent_name>`
    - `tools.profile`
-   - `tools.alsoAllow` (keep `grix_admin` available for later create-and-bind runs)
+   - `tools.alsoAllow` (global defaults only: `message`, `grix_query`, `grix_group`, `grix_register`, `grix_message_send`, `grix_message_unsend`)
+   - if this target is the main agent, merge `grix_admin` / `grix_egg` / `grix_update` / `openclaw_memory_setup` into that agent's own `tools.alsoAllow` inside `agents.list`; do not place them in global `tools.alsoAllow`
    - `tools.sessions.visibility`
    - if `channels.grix.enabled=false`, set it back to `true`
 5. validate after write:
@@ -46,15 +47,11 @@ After remote agent parameters are ready, continue with local OpenClaw binding th
 
 ## bind-local Input Contract
 
-When called from `grix-register`, `grix-admin` should accept:
+When called from `grix-register`, `grix-admin` should usually be entered through `grix_admin.task`:
 
 ```json
 {
-  "mode": "bind-local",
-  "agent_name": "grix-main",
-  "agent_id": "2029786829095440384",
-  "api_endpoint": "wss://grix.dhf.pub/v1/agent-api/ws?agent_id=2029786829095440384",
-  "api_key": "ak_xxx"
+  "task": "bind-local\nagent_name=grix-main\nagent_id=2029786829095440384\napi_endpoint=wss://grix.dhf.pub/v1/agent-api/ws?agent_id=2029786829095440384\napi_key=ak_xxx\ndo_not_create_remote_agent=true"
 }
 ```
 
@@ -62,21 +59,17 @@ In this mode, execute local bind directly.
 
 ## create-and-bind Input Contract
 
-When the main agent already has a working Grix account plus `agent.api.create` scope, `grix-admin` can first create the remote API agent through `grix_admin`, then continue the local bind:
+When the main agent already has a working Grix account plus `agent.api.create` scope, `grix-admin` can be entered through `grix_admin.task`, then create the remote API agent through one direct `grix_admin` call, then continue the local bind:
 
 ```json
 {
-  "mode": "create-and-bind",
-  "accountId": "grix-main",
-  "agentName": "ops helper",
-  "introduction": "负责发布和值班协作",
-  "isMain": false
+  "task": "create-and-bind\naccountId=grix-main\nagentName=ops helper\nintroduction=负责发布和值班协作\nisMain=false"
 }
 ```
 
 In this mode:
 
 1. call `grix_admin` exactly once without `task`
-2. expect `id`, `agent_name`, `api_endpoint`, `api_key`
+2. expect `createdAgent.id`, `createdAgent.agent_name`, `createdAgent.api_endpoint`, `createdAgent.api_key`
 3. continue with the same local bind steps as `bind-local`
 4. if the WS call fails with missing `agent.api.create`, ask owner to grant the scope before retrying

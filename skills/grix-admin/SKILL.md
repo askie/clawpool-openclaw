@@ -10,11 +10,16 @@ description: 负责 OpenClaw 本地配置与绑定；可接收已有远端 agent
 1. 把已有远端 agent 参数落到本地 OpenClaw。
 2. 当当前主 agent 已经在线、并且具备 `agent.api.create` 权限时，通过 `grix_admin` 的远端创建参数走 WS 创建新的远端 API agent，再继续本地落地。
 
+## 进入方式
+
+1. 大多数情况下，从 `grix_admin` 的 `task` 入口进入本技能；`task` 里要明确写出 `bind-local` 或 `create-and-bind`，以及对应字段。
+2. 只有在本技能内部执行“远端 API agent 创建”这一步时，才直接调用一次 `grix_admin`，并且只传 `accountId`、`agentName`、可选 `introduction`、可选 `isMain`；不要混入 `task`。
+
 ## Mode A: bind-local（来自 grix-register 的首次交接）
 
-输入参数（全必填）：
+输入字段（写在 `grix_admin.task` 里，且全必填）：
 
-1. `mode=bind-local`
+1. 第一行固定写 `bind-local`
 2. `agent_name`
 3. `agent_id`
 4. `api_endpoint`
@@ -41,7 +46,8 @@ description: 负责 OpenClaw 本地配置与绑定；可接收已有远端 agent
    - `agents.list`：确保存在 `id=<agent_name>`、`name=<agent_name>`、`workspace`、`agentDir`、`model`
    - Grix 绑定：确保目标 agent 最终绑定到 `grix:<agent_name>`
    - `tools.profile`：设为 `"coding"`
-   - `tools.alsoAllow`：至少包含 `message`、`grix_query`、`grix_group`、`grix_register`、`grix_admin`
+   - `tools.alsoAllow`：至少包含 `message`、`grix_query`、`grix_group`、`grix_register`、`grix_message_send`、`grix_message_unsend`
+   - 如果当前绑定目标就是主 agent，还要确保该 agent 自己的 `tools.alsoAllow` 保留 `grix_admin`、`grix_egg`、`grix_update`、`openclaw_memory_setup`；这组只放 agent 级别，不要写进全局 `tools.alsoAllow`
    - `tools.sessions.visibility`：设为 `"agent"`
    - 如果 `channels.grix.enabled=false`，改回 `true`
 5. `model` 的确定规则：
@@ -53,7 +59,8 @@ description: 负责 OpenClaw 本地配置与绑定；可接收已有远端 agent
    - `openclaw config set agents.list '<NEXT_AGENTS_LIST_JSON>' --strict-json`
    - `openclaw agents bind --agent <agent_name> --bind grix:<agent_name>`
    - `openclaw config set tools.profile '"coding"' --strict-json`
-   - `openclaw config set tools.alsoAllow '["message","grix_query","grix_group","grix_register","grix_admin"]' --strict-json`
+   - `openclaw config set tools.alsoAllow '["message","grix_query","grix_group","grix_register","grix_message_send","grix_message_unsend"]' --strict-json`
+   - 如果当前绑定目标就是主 agent，还要把 `grix_admin`、`grix_egg`、`grix_update`、`openclaw_memory_setup` 合并进该 agent 自己那条 `agents.list` 记录里的 `tools.alsoAllow`；不要把这组写进全局 `tools.alsoAllow`
    - `openclaw config set tools.sessions.visibility '"agent"' --strict-json`
    - 仅当当前配置明确把 `channels.grix.enabled` 关掉时，再执行 `openclaw config set channels.grix.enabled true --strict-json`
 7. 写完后必须执行校验：
@@ -66,9 +73,9 @@ description: 负责 OpenClaw 本地配置与绑定；可接收已有远端 agent
 
 ## Mode B: create-and-bind（已有主通道与 scope 时的后续管理）
 
-输入参数：
+写在 `grix_admin.task` 里的字段：
 
-1. `mode=create-and-bind`
+1. 第一行固定写 `create-and-bind`
 2. `accountId`（必填）：当前会话对应的确切 Grix 账号 ID
 3. `agentName`（必填）
 4. `introduction`（可选）
@@ -78,7 +85,7 @@ description: 负责 OpenClaw 本地配置与绑定；可接收已有远端 agent
 
 1. 先确认本地已经存在可用的 `channels.grix.accounts.<accountId>`，而且当前会话实际绑定的也是这个账号；禁止跨账号执行。
 2. 通过 `grix_admin` 只调用一次远端创建，调用时只传 `accountId`、`agentName`、可选 `introduction`、可选 `isMain`，不要传 `task`，禁止手写 HTTP / 临时脚本。
-3. 远端创建成功后，读取返回的 `id`、`agent_name`、`api_endpoint`、`api_key`，然后立刻转入 `bind-local` 的本地绑定步骤。
+3. 远端创建成功后，读取返回结果里的 `createdAgent.id`、`createdAgent.agent_name`、`createdAgent.api_endpoint`、`createdAgent.api_key`，然后立刻转入 `bind-local` 的本地绑定步骤。
 4. `isMain=true` 只在确实要创建新的主 API agent 时使用；一般后续新增 agent 默认不打开。
 5. 整个 `create-and-bind` 流程里不要主动执行 `openclaw gateway restart`；只有本地配置、校验都成功，但运行态仍明显是旧结果时，才把重启当成定向补救。
 

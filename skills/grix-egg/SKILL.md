@@ -19,7 +19,7 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 - `install.target_client_type` — 本次目标类型，通常为 `openclaw` 或 `claude`
 - `install.artifact_package` — 本次应安装的包类型，通常为 `persona_zip` 或 `skill_zip`
 - `install.suggested_agent_name` — `openclaw_create_new` 时优先使用的默认短名字；若缺失，再按 egg 标题或 egg ID 自行取一个简短名字继续，不要回头追问用户命名和用途
-- `main_agent` — 发起安装的主 OpenClaw agent ID，安装完成后如需通知或回调，使用该 ID
+- `main_agent` — 发起安装的主 OpenClaw agent ID；它可直接用于 `openclaw cron --agent` 这类本地 CLI 参数，但**不是** `grix_group.memberIds` 可直接复用的 Grix 成员 ID
 
 你的职责不是返回隐藏协议结果，而是直接在当前私聊里把安装流程做完。
 
@@ -128,6 +128,7 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 2. 不写临时通讯脚本，不走隐藏协议。
 3. 每次 typed tool 调用都要带上准确的当前 `accountId`。
 4. `grix_query` 遇到分页结果时，若当前页不足以完成安装判断，继续按分页规则取后续页。
+5. `grix_group.create` 的 `memberIds` 只能传 Grix 侧可识别的数字成员 ID；混合拉人时要配套传 `memberTypes`，并且不要把本地 `main_agent`、本地 agent 名或 OpenClaw `agents.list` 里的 `id` 直接塞进 `memberIds`。
 
 ## 推荐流程
 
@@ -136,7 +137,10 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 1. 读取上下文，确认 route 是 `openclaw_create_new` 还是 `openclaw_existing`。
 2. 如果 route=`openclaw_create_new`，直接使用 `install.suggested_agent_name` 作为默认短名字；若缺失，再按 egg 标题或 egg ID 自行取一个简短名字继续。只有名字或目标信息真的缺失、冲突或执行被阻塞时，才向用户确认；**用户主动取消时发 `failed/user_cancelled` 结构化状态消息后结束**。
 3. 如果 route=`openclaw_existing`，直接使用 `install.target_agent_id` 指定的目标 agent 继续，不要重复确认目标。
-4. 如果 route=`openclaw_create_new`，先确认上下文已经给出远端 agent 的 `agent_id`、`api_endpoint`、`api_key`；缺任一项就停止，并提示用户先完成 backend admin 创建。
+4. 如果 route=`openclaw_create_new`，先检查上下文是否已经给出远端 agent 的 `agent_id`、`api_endpoint`、`api_key`。
+   - 已给出：直接继续，不要重复创建。
+   - 未给出：如果当前主 agent 有可用主通道和 `agent.api.create` 权限，先通过 `grix_admin` 做一次远端创建，再把返回结果里的 `createdAgent.id`、`createdAgent.agent_name`、`createdAgent.api_endpoint`、`createdAgent.api_key` 接到后续本地安装。
+   - 只有当前执行器没有权限，或当前上下文无法安全调用 `grix_admin` 时，才退回 backend admin 创建路径。
    - persona 文件只安装到 `workspace` 根目录，不要装到 `agentDir`。
 5. 如果 route=`openclaw_create_new` 且远端 agent 已创建成功，立即发送 `status=running`、`step=agent_created` 结构化状态消息。
 6. 用 OpenClaw 正规步骤准备本地目标目录和配置。
@@ -154,7 +158,7 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
     - `openclaw config set agents.list '<NEXT_AGENTS_LIST_JSON>' --strict-json`
     - `openclaw agents bind --agent <agent_name> --bind grix:<agent_name>`
     - `openclaw config set tools.profile '"coding"' --strict-json`
-    - `openclaw config set tools.alsoAllow '["message","grix_query","grix_group","grix_register"]' --strict-json`
+    - `openclaw config set tools.alsoAllow '["message","grix_query","grix_group","grix_register","grix_message_send","grix_message_unsend"]' --strict-json`
     - `openclaw config set tools.sessions.visibility '"agent"' --strict-json`
     - 不要调用 `grix_agent_bind.py`，也不要直接编辑 `~/.openclaw/openclaw.json`
 13. 执行 `openclaw config validate`，再用 `openclaw config get --json` 检查刚写入的 account / agent / tools 都已存在且值正确，并用 `openclaw agents bindings --agent <agent_name> --json` 确认目标绑定已经存在。
@@ -165,10 +169,10 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 16. 单独发送目标 agent 的结构化资料卡消息。
 17. 再发一条普通文字，告诉用户可以点开资料卡查看 agent 资料，并从资料页继续与它对话。
 18. 如果 route=`openclaw_create_new`，紧接着主动问用户是否需要现在就拉一个测试群，帮他当场验收这个新 agent；用户明确拒绝则结束。
-19. 用户同意后，用 `grix_group` 创建测试群，并确保群成员至少包含：当前主 agent、当前私聊里的主人、步骤15里的目标 agent。
+19. 用户同意后，用 `grix_group` 创建测试群。构造 `memberIds` / `memberTypes` 时，只传已经确认好的 Grix 成员：当前私聊里的主人用 `memberType=1`，步骤15里的目标 agent 用 `memberType=2`。不要把本地 `main_agent` 值直接塞进 `memberIds`；当前主 agent 作为建群执行器本身应通过当前账号上下文参与，若 API 侧还要求额外显式传入，也必须先拿到它对应的 Grix 数字成员 ID 后再传。
 20. 创建成功后，先保存 `grix_group` 返回的准确 `session_id`，后续所有发往测试群的消息都必须使用这个 `session_id` 作为消息目标，不要继续使用当前私聊的会话目标；如果没有拿到准确 `session_id`，先不要继续群测。
 21. 在当前私聊里同步一次测试群已建好；如果已经拿到准确 `session_id`，可额外发送会话卡片帮助用户进入测试群。会话卡片一律按 `message-send` 里的 `conversation-card` 协议发送：默认单独一条最稳，也允许和一句简短说明同发，但一条消息只放一张会话卡片。
-22. 主 agent 进入测试群后，先主动 `@` 目标 agent，发送一条明确的身份确认消息，例如“@xxx 你是谁？请介绍一下你自己。”这条测试消息的 `target` 必须使用步骤20保存的测试群 `session_id`。
+22. 主 agent 进入测试群后，先主动 `@` 目标 agent，发送一条明确的身份确认消息，例如“@xxx 你是谁？请介绍一下你自己。”这条测试消息的 `to` 必须使用步骤20保存的测试群 `session_id`。
 23. 判断这次回答是否通过：
     - 通过：回答内容与 egg 的人设、名字、定位、说话风格基本一致，没有明显串成其他 agent、默认助手或空白身份。
     - 不通过：回答成了别的人设、通用助手、自我介绍缺失，或明显还是旧配置。
@@ -254,8 +258,8 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 
 ### 验收动作
 
-1. 由主 agent 创建测试群，并把主 agent、主人、目标 agent 拉进去。
-2. 创建成功后，立即保存测试群返回的准确 `session_id`；后续所有发往测试群的消息都必须使用这个 `session_id` 作为 `target`，不要继续使用当前私聊的会话目标；如果没有拿到准确 `session_id`，先不要继续群测。
+1. 由主 agent 创建测试群。`grix_group.create` 里的 `memberIds` / `memberTypes` 只传已经确认好的 Grix 成员：主人用 `memberType=1`，目标 agent 用 `memberType=2`；不要把本地 `main_agent` 或本地 agent 名直接当成 `memberId`。
+2. 创建成功后，立即保存测试群返回的准确 `session_id`；后续所有发往测试群的消息都必须使用这个 `session_id` 作为 `to`，不要继续使用当前私聊的会话目标；如果没有拿到准确 `session_id`，先不要继续群测。
 3. 主 agent 在群里先发起第一问，不要把第一轮验证交给用户。
 4. 第一问必须是直接验证身份的话术，例如：
    - `@目标agent 你是谁？请介绍一下你自己。`

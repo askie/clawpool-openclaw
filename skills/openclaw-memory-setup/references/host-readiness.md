@@ -4,7 +4,7 @@ Use this page when the target machine is not already prepared.
 
 ## Official Current Install Path
 
-As of April 5, 2026:
+As of April 8, 2026:
 
 - Ollama is available on macOS, Windows, and Linux.
 - The Ollama quickstart exposes `ollama launch openclaw` as the official way to start OpenClaw from Ollama.
@@ -12,8 +12,9 @@ As of April 5, 2026:
 - The current Ollama tutorial for OpenClaw says you need:
   - Ollama 0.17 or later
   - Node.js
-  - Mac or Linux for direct setup
-  - Windows should use WSL for current OpenClaw setup through Ollama
+  - Mac or Linux for the smoothest direct setup
+  - Windows users can use WSL for the OpenClaw setup path
+- The current OpenClaw Windows docs say native Windows and WSL2 are both supported; WSL2 is the more stable and recommended path for the full experience.
 
 ## OS Split
 
@@ -25,8 +26,9 @@ As of April 5, 2026:
   - install and run OpenClaw natively
 - Windows:
   - native Ollama installation is fine
-  - run the generic OpenClaw setup and management flow in WSL
-  - do not write the skill as if native Windows OpenClaw management were the default path
+  - native OpenClaw CLI/Gateway flows can work
+  - WSL2 is still the recommended path for the full CLI, Gateway, and tooling experience
+  - do not write the skill as if WSL were mandatory for every Windows task, but also do not present native Windows as the preferred path for shell-heavy automation and repo work
 
 ## Readiness Checklist
 
@@ -67,8 +69,8 @@ macOS:
 Windows:
 
 - install Ollama from the official Windows download
-- if the goal is OpenClaw, plan to run the OpenClaw setup flow inside WSL
-- when documenting commands in the skill, prefer WSL shell commands rather than guessing a native Windows OpenClaw management path
+- if the goal is a fresh full OpenClaw rollout, prefer WSL2 for the setup flow
+- when documenting commands in the skill, prefer the path that matches the current machine: WSL shell commands for WSL setups, native CLI commands only when the host already uses a supported native Windows flow
 
 ### Install or configure OpenClaw through Ollama
 
@@ -138,7 +140,7 @@ This is a heuristic for the first pass only. The final choice must come from a b
 - If `ollama` will not install cleanly through the official method, stop and resolve that first.
 - If `node` or `npm` is missing and the machine needs OpenClaw installation, install Node.js before retrying OpenClaw setup.
 - If local embedding models are too slow, keep the smaller local memory model and move only the main assistant model to cloud if needed.
-- If the machine is Windows without WSL, do not fake a native OpenClaw install path. Set up WSL or use a Mac/Linux host.
+- If the machine is Windows without WSL, do not invent a Linux-only path. If the requested work already fits supported native Windows CLI/Gateway flows, continue there; otherwise set up WSL2 or use a Mac/Linux host.
 
 ## Optional Example
 

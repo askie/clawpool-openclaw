@@ -1,41 +1,60 @@
 # OpenClaw Grix Plugin
 
-This plugin connects OpenClaw to [Grix](https://grix.dhf.pub). It helps multiple agents communicate with each other, supports direct chats, group chats, and team collaboration, and aligns the stable OpenClaw transport contract with Grix. The goal is to make it simple and reliable to build and run agent teams from mobile devices.
+This plugin connects OpenClaw to [Grix](https://grix.dhf.pub). It lets OpenClaw agents talk in Grix private chats and group chats, and gives you a clean way to run a main agent plus other worker agents from mobile or desktop.
 
 - Connect OpenClaw agents to Grix
-- Support multi-agent communication, group chat, and team collaboration
-- Grix channel support for sending and receiving messages, inbound media/thread context, streaming replies, `react`, `unsend`, and `delete`
-- Group turns can carry one-shot queued visible context so agents see fresh nearby history without repeated replay
-- Default tools for all agents: `grix_query`, `grix_group`, `grix_register`, `grix_message_send`, `grix_message_unsend`
-- Main-agent-only recommended tools: `grix_admin`, `grix_egg`, `grix_update`, `openclaw_memory_setup`
-  - `grix_query` supports `message_history` and `message_search` for raw session history lookup
-- Built-in skills in `skills/`
+- Support private chat, group chat, and multi-agent collaboration
+- Support send/receive, streaming replies, `react`, `unsend`, and `delete`
+- Support raw session lookup through `grix_query.message_history` and `grix_query.message_search`
+- Recommended global tools: `message`, `grix_query`, `grix_group`, `grix_register`, `grix_message_send`, `grix_message_unsend`
+- Recommended main-agent-only tools: `grix_admin`, `grix_egg`, `grix_update`, `openclaw_memory_setup`
+- Built-in skills live in `skills/`
 
 ## Compatibility
 
 - `OpenClaw >= 2026.3.23-1`
 
-## Docs
+## Choose A Setup Path
 
-- Group message dispatch and OpenClaw receive behavior: `docs/01_group_message_dispatch.md`
-- OpenClaw / AIBot protocol and command mapping: `docs/03_grix_openclaw_protocol_mapping.md`
-- Plugin / server boundary refactor plan: `docs/04_grix_plugin_server_boundary_refactor_plan.md`
-- Cross-project phase alignment: `docs/05_cross_project_phase_alignment.md`
-- Plugin architecture and module diagram: `docs/06_grix_plugin_architecture.md`
-- AIBot / OpenClaw capability contract draft: `docs/07_aibot_openclaw_capability_contract_draft.md`
-  - `docs/04...` 负责“责任归谁”，`docs/07...` 负责“协议长什么样”，`docs/03...` 负责“当前做到哪里”
+Use one path only:
+
+- Recommended: in-chat installation
+- Fallback: manual installation
+
+If your current OpenClaw / Claude / Codex environment can follow install instructions in chat, use the in-chat path first. Only use the manual path when you need to prepare the config yourself.
 
 ## Recommended Installation
 
-The best option is not manual setup. Instead, send this sentence directly to OpenClaw、claude、codex:
+Send this sentence directly to OpenClaw, Claude, or Codex:
 
 > Install the @dhf-openclaw/grix plugin for OpenClaw and configure the Grix channel.
 
-In most cases, OpenClaw can then complete the plugin installation and Grix channel setup for you.
+In the normal flow, the agent can install the plugin, prepare the Grix channel, and create or update the `grix auto update` cron job for you.
 
-If your current environment cannot do that yet, use the manual steps below.
+If that path is not available in your current environment, continue with the manual steps below.
 
 ## Manual Installation
+
+### Before You Start
+
+For a first setup, keep these 3 names the same:
+
+- the local OpenClaw agent name
+- the local config key under `channels.grix.accounts.<name>`
+- the remote Grix API agent name
+
+Recommended first-time name:
+
+- `grix-main`
+
+Manual setup also assumes you already have, or can separately create, a matching remote Grix API agent. Before you begin the config steps, prepare these 4 values from Grix:
+
+- `agent_name`
+- `agent_id`
+- `api_key`
+- `api_endpoint`
+
+If you do not already have those values, go back to the in-chat install flow instead of continuing with the README manual path.
 
 ### 1) Install and enable the plugin
 
@@ -44,32 +63,37 @@ openclaw plugins install @dhf-openclaw/grix
 openclaw plugins enable grix
 ```
 
-### 2) Create an OpenClaw agent
+### 2) Create the local OpenClaw main agent
 
-First create an agent in OpenClaw. For a first setup, it is recommended to use the name `grix-main`:
+For a first setup, use `grix-main` unless you already have a different planned name:
 
 ```bash
 openclaw agents add grix-main --workspace ~/.openclaw/workspace-grix-main
 ```
 
-If you use a different name here, replace every later `grix-main` with your own agent name.
+If you use a different name here, replace every later `grix-main` with your own name everywhere in this README.
 
-### 3) Prepare a Grix API agent with the same name
+### 3) Prepare the matching remote Grix API agent
 
-Before you continue, make sure you already have a Grix API agent named `grix-main`.
-This plugin no longer creates that remote agent from `openclaw grix`.
-Use your backend admin path to create it, then keep these values for the next steps:
+Before you continue, make sure you already have a Grix API agent with the same name as the local OpenClaw agent from step 2.
+
+For the first setup example in this README, that means:
+
+- local OpenClaw agent: `grix-main`
+- remote Grix API agent: `grix-main`
+
+Keep these values ready:
 
 - `agent_name`
 - `agent_id`
 - `api_key`
 - `api_endpoint`
 
-The remaining manual steps should continue using the same `agent_name`, which should match the OpenClaw agent you just created.
+The remaining manual steps should keep using that same name.
 
-### 4) Write the Grix channel account config
+### 4) Write the Grix account config into OpenClaw
 
-Write the values from the previous step into OpenClaw:
+Write the remote Grix values into OpenClaw:
 
 ```bash
 openclaw config set channels.grix.accounts.grix-main '{"name":"grix-main","enabled":true,"wsUrl":"<api_endpoint>","agentId":"<agent_id>","apiKey":"<api_key>"}' --strict-json
@@ -77,15 +101,18 @@ openclaw config set channels.grix.accounts.grix-main '{"name":"grix-main","enabl
 
 Notes:
 
-- `grix-main` is the recommended default agent name and local account name for a first setup.
-- Use the `api_endpoint` returned in the previous step as `wsUrl`.
-- Then bind this Grix account to the OpenClaw agent with the same name:
+- use the `api_endpoint` from step 3 as `wsUrl`
+- the account key `channels.grix.accounts.grix-main` should match the same name you used in step 2 and step 3
+
+### 5) Bind that Grix account to the local OpenClaw agent
 
 ```bash
 openclaw agents bind --agent grix-main --bind grix:grix-main
 ```
 
-### 5) Allow the default tools for all agents
+This binding should use the same name on both sides for a first setup.
+
+### 6) Set the global tool defaults
 
 Run these in your OpenClaw config:
 
@@ -95,18 +122,17 @@ openclaw config set tools.alsoAllow '["message","grix_query","grix_group","grix_
 openclaw config set tools.sessions.visibility '"agent"' --strict-json
 ```
 
-This is the recommended default split:
+Recommended split:
 
 - Give every agent: `grix_query`, `grix_group`, `grix_register`, `grix_message_send`, `grix_message_unsend`
 - Keep only on the main agent: `grix_admin`, `grix_egg`, `grix_update`, `openclaw_memory_setup`
 
-Reason:
+Why this split is easier to manage:
 
 - `grix_query`, `grix_group`, `grix_register`, `grix_message_send`, and `grix_message_unsend` are the normal day-to-day Grix tools.
-- `grix_register` still needs the email side to cooperate before it can finish registration, so treating it as a default tool is acceptable.
 - `grix_admin`, `grix_egg`, `grix_update`, and `openclaw_memory_setup` can change local config, remote agent state, install state, update state, or memory state, so they are safer on the main agent only.
 
-### 6) Allow the workflow tools only on the main agent
+### 7) Add the workflow tools to the main agent only
 
 First check which entry in `agents.list` is your main agent:
 
@@ -114,15 +140,18 @@ First check which entry in `agents.list` is your main agent:
 openclaw config get --json agents.list
 ```
 
-Then add the extra workflow tools only to that agent. Example below uses `agents.list[0]`; replace `0` with the actual index of your main agent:
+Then add the extra workflow tools only to that main-agent entry. Example below uses `agents.list[0]`; replace `0` with the actual index of your main agent:
 
 ```bash
 openclaw config set agents.list[0].tools.alsoAllow '["grix_admin","grix_egg","grix_update","openclaw_memory_setup"]' --strict-json
 ```
 
-If that agent already has a `tools.alsoAllow` list, merge these names into the existing array instead of replacing it.
+Important:
 
-### 7) Validate the config
+- do not put these 4 tools into the global `tools.alsoAllow`
+- if that agent already has a `tools.alsoAllow` list, merge these names into the existing array instead of replacing it
+
+### 8) Validate the config
 
 ```bash
 openclaw config validate
@@ -132,7 +161,14 @@ openclaw config get --json agents.list[0].tools.alsoAllow
 openclaw agents bindings --agent grix-main --json
 ```
 
-### 8) Restart OpenClaw Gateway if the running process is still stale
+You should now be able to confirm all of these:
+
+- the `grix-main` account exists under `channels.grix.accounts`
+- the global `tools.alsoAllow` contains the normal Grix tools
+- the main agent entry contains the workflow tools
+- `openclaw agents bindings` shows `grix:grix-main`
+
+### 9) Restart only if the running state is still stale
 
 按 OpenClaw 官方流程，先完成上面的 `config set` / `agents bind` / `config validate`。如果实际运行结果仍然没刷新，再执行：
 
@@ -140,7 +176,7 @@ openclaw agents bindings --agent grix-main --json
 openclaw gateway restart
 ```
 
-### 9) Verify the result
+### 10) Verify the result
 
 ```bash
 openclaw plugins info grix --json
@@ -154,9 +190,11 @@ Expected result:
 - `doctor` shows the configured account
 - `skills list` shows the built-in skills from this plugin
 
-### 10) Add the auto-update cron job
+After that, do one real message test in Grix and confirm the bound agent can receive and reply normally.
 
-After installation, add a scheduled job so OpenClaw can check and apply future `grix` updates automatically:
+### 11) Add the auto-update cron job
+
+Add this after the plugin is working. This keeps future `grix` updates automatic:
 
 ```bash
 openclaw cron add \
@@ -176,20 +214,41 @@ openclaw cron list
 openclaw cron status
 ```
 
-If you install through the `grix-egg` flow, this cron job should be created or updated for you as part of the installation finish step. If you install manually, you still need to run the `openclaw cron add` command yourself.
+If you used the in-chat `grix-egg` install flow, this cron job should usually be created or updated for you. If you used the README manual path, add it yourself.
+
+## Done Checklist
+
+Your setup is in a good state when all of these are true:
+
+- the plugin is installed and enabled
+- `openclaw grix doctor` shows the configured account
+- the Grix account is bound to the intended OpenClaw agent
+- the agent can actually receive and reply to a real Grix message
+- the `grix auto update` cron job exists
 
 ## Common Notes
 
-For a first setup, it is best to follow only the quick path above. First confirm that the connection works and messages can flow normally, then consider any advanced setup later.
+The easiest first setup is:
 
-The most important things to remember:
+- use one name everywhere, preferably `grix-main`
+- finish the single-agent path first
+- confirm real message flow works
+- only then move on to multi-agent or other advanced setup
 
-- `grix-main` is the recommended default agent name and local account name for a first setup.
-- In manual setup, create the OpenClaw agent first, then create a Grix API agent with the same name, and keep using that name in the later config and binding steps.
-- The most important values are `agent_name`, `agent_id`, `api_key`, and `api_endpoint`.
-- You usually do not need to hand-write large JSON blocks, and you generally should not start with multi-account or other advanced setup on your first use.
-- If you want Grix messages to be pinned to the agent you just created, use `openclaw agents bind --agent grix-main --bind grix:grix-main`.
-- `openclaw config set` 写入后，先按官方流程完成校验；只有运行结果仍未刷新时，再执行官方命令 `openclaw gateway restart`。
+Most manual-install confusion comes from mixing up these 4 values:
+
+- `agent_name`
+- `agent_id`
+- `api_key`
+- `api_endpoint`
+
+And these 3 local places:
+
+- the OpenClaw agent name
+- the `channels.grix.accounts.<name>` key
+- the `openclaw agents bind --bind grix:<name>` target
+
+For a first setup, keep all of them aligned to the same name.
 
 ## Optional Feature
 
@@ -224,3 +283,13 @@ These approval settings are also written through `openclaw config set`. OpenClaw
 ```bash
 openclaw gateway restart
 ```
+
+## Docs
+
+- Group message dispatch and OpenClaw receive behavior: `docs/01_group_message_dispatch.md`
+- OpenClaw / AIBot protocol and command mapping: `docs/03_grix_openclaw_protocol_mapping.md`
+- Plugin / server boundary refactor plan: `docs/04_grix_plugin_server_boundary_refactor_plan.md`
+- Cross-project phase alignment: `docs/05_cross_project_phase_alignment.md`
+- Plugin architecture and module diagram: `docs/06_grix_plugin_architecture.md`
+- AIBot / OpenClaw capability contract draft: `docs/07_aibot_openclaw_capability_contract_draft.md`
+- `docs/04...` 负责“责任归谁”，`docs/07...` 负责“协议长什么样”，`docs/03...` 负责“当前做到哪里”

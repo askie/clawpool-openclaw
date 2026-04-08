@@ -150,27 +150,39 @@ def build_agent_result(action: str, result: dict):
     agent_id = str(data.get("id", "")).strip()
     api_endpoint = str(data.get("api_endpoint", "")).strip()
     api_key = str(data.get("api_key", "")).strip()
+    agent_name = str(data.get("agent_name", "")).strip()
+    bind_local_payload = {
+        "agent_name": agent_name,
+        "agent_id": agent_id,
+        "api_endpoint": api_endpoint,
+        "api_key": api_key,
+    }
+    handoff_task = "\n".join(
+        [
+            "bind-local",
+            f"agent_name={agent_name}",
+            f"agent_id={agent_id}",
+            f"api_endpoint={api_endpoint}",
+            f"api_key={api_key}",
+            "do_not_create_remote_agent=true",
+        ]
+    )
 
     return {
         "ok": True,
         "action": action,
         "api_base_url": result["api_base_url"],
         "agent_id": agent_id,
-        "agent_name": data.get("agent_name", ""),
+        "agent_name": agent_name,
         "provider_type": data.get("provider_type", 0),
         "api_endpoint": api_endpoint,
         "api_key": api_key,
         "api_key_hint": data.get("api_key_hint", ""),
         "session_id": data.get("session_id", ""),
         "handoff": {
-            "target_skill": "grix-admin",
-            "payload": {
-                "mode": "bind-local",
-                "agent_id": agent_id,
-                "agent_name": data.get("agent_name", ""),
-                "api_endpoint": api_endpoint,
-                "api_key": api_key,
-            },
+            "target_tool": "grix_admin",
+            "task": handoff_task,
+            "bind_local": bind_local_payload,
         },
         "data": data,
     }
