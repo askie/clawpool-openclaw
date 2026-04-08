@@ -7,6 +7,7 @@ test("isAgentHTTPActionName recognizes supported actions", () => {
   assert.equal(isAgentHTTPActionName("session_search"), true);
   assert.equal(isAgentHTTPActionName("message_history"), true);
   assert.equal(isAgentHTTPActionName("message_search"), true);
+  assert.equal(isAgentHTTPActionName("agent_api_create"), true);
   assert.equal(isAgentHTTPActionName("group_create"), true);
   assert.equal(isAgentHTTPActionName("group_leave_self"), true);
   assert.equal(isAgentHTTPActionName("group_member_speaking_update"), true);
@@ -243,6 +244,21 @@ test("buildAgentHTTPRequest builds group_dissolve payload from explicit sessionI
   });
 });
 
+test("buildAgentHTTPRequest builds agent_api_create payload", () => {
+  const req = buildAgentHTTPRequest("agent_api_create", {
+    agentName: "ops helper",
+    introduction: "created from ws route",
+    isMain: true,
+  });
+  assert.equal(req.method, "POST");
+  assert.equal(req.path, "/agents/create");
+  assert.deepEqual(req.body, {
+    agent_name: "ops helper",
+    introduction: "created from ws route",
+    is_main: true,
+  });
+});
+
 // ---------- buildAgentInvokeParams ----------
 
 test("buildAgentInvokeParams contact_search keeps limit as number", () => {
@@ -278,6 +294,20 @@ test("buildAgentInvokeParams message_search requires keyword", () => {
     () => buildAgentInvokeParams("message_search", { sessionId: "s_001" }),
     /keyword/,
   );
+});
+
+test("buildAgentInvokeParams agent_api_create produces correct body params", () => {
+  const req = buildAgentInvokeParams("agent_api_create", {
+    agentName: "ops helper",
+    introduction: "created from ws route",
+    isMain: true,
+  });
+  assert.equal(req.action, "agent_api_create");
+  assert.deepEqual(req.params, {
+    agent_name: "ops helper",
+    introduction: "created from ws route",
+    is_main: true,
+  });
 });
 
 test("buildAgentInvokeParams group_create produces correct body params", () => {

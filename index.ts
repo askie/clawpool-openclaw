@@ -8,6 +8,7 @@ import type {
 } from "openclaw/plugin-sdk/core";
 import { aibotPlugin } from "./src/channel.ts";
 import { setAibotRuntime } from "./src/runtime.ts";
+import { createGrixAgentAdminTool } from "./src/admin/agent-admin-tool.ts";
 import { createGrixGroupTool } from "./src/admin/group-tool.ts";
 import { createGrixQueryTool } from "./src/admin/query-tool.ts";
 import { registerGrixAdminCli } from "./src/admin/cli.ts";
@@ -33,6 +34,7 @@ const plugin = {
     api.registerChannel({ plugin: aibotPlugin as ChannelPlugin });
     api.registerTool((ctx) => createGrixQueryTool(api, ctx), { optional: true });
     api.registerTool((ctx) => createGrixGroupTool(api, ctx), { optional: true });
+    api.registerTool((ctx) => createGrixAgentAdminTool(api, ctx), { optional: true });
     api.registerTool((ctx) => createGrixAdminTool(api, ctx), { optional: true });
     api.registerTool((ctx) => createGrixEggTool(api, ctx), { optional: true });
     api.registerTool((ctx) => createGrixRegisterTool(api, ctx), { optional: true });

@@ -2,13 +2,13 @@
 
 ## Purpose
 
-`grix-admin` 只负责本地绑定。
+`grix-admin` 负责本地绑定，并在当前 agent 已具备 `agent.api.create` scope 时支持通过 `grix_agent_admin` 走 WS 创建新的远端 API agent。
 
 ## Base Rules
 
 1. Do not ask users to provide website account/password for this flow.
-2. Remote API agent creation is no longer provided by this plugin.
-3. If `agent_name` / `agent_id` / `api_endpoint` / `api_key` is incomplete, stop and ask for backend admin completion first.
+2. Remote create, when used, must go through `grix_agent_admin` on the current account's authenticated WS channel.
+3. If `agent_name` / `agent_id` / `api_endpoint` / `api_key` is incomplete and the current account cannot create, stop and ask for backend admin completion first.
 
 ## Local Bind Steps
 
@@ -34,7 +34,7 @@ After remote agent parameters are ready, continue with local OpenClaw binding th
    - `agents.list`
    - `openclaw agents bind --agent <agent_name> --bind grix:<agent_name>`
    - `tools.profile`
-   - `tools.alsoAllow`
+   - `tools.alsoAllow` (keep `grix_agent_admin` available for later create-and-bind runs)
    - `tools.sessions.visibility`
    - if `channels.grix.enabled=false`, set it back to `true`
 5. validate after write:
@@ -59,3 +59,24 @@ When called from `grix-register`, `grix-admin` should accept:
 ```
 
 In this mode, execute local bind directly.
+
+## create-and-bind Input Contract
+
+When the main agent already has a working Grix account plus `agent.api.create` scope, `grix-admin` can first create the remote API agent through `grix_agent_admin`, then continue the local bind:
+
+```json
+{
+  "mode": "create-and-bind",
+  "accountId": "grix-main",
+  "agentName": "ops helper",
+  "introduction": "负责发布和值班协作",
+  "isMain": false
+}
+```
+
+In this mode:
+
+1. call `grix_agent_admin` exactly once
+2. expect `id`, `agent_name`, `api_endpoint`, `api_key`
+3. continue with the same local bind steps as `bind-local`
+4. if the WS call fails with missing `agent.api.create`, ask owner to grant the scope before retrying

@@ -8,6 +8,7 @@ export const AGENT_HTTP_ACTION_NAMES = [
   "session_search",
   "message_history",
   "message_search",
+  "agent_api_create",
   "group_create",
   "group_leave_self",
   "group_member_add",
@@ -481,6 +482,29 @@ function buildMessageSearchRequest(params: Record<string, unknown>): AgentHTTPRe
   };
 }
 
+function buildAgentAPICreateRequest(params: Record<string, unknown>): AgentHTTPRequest {
+  const agentName = readRequiredStringParam(params, "agentName");
+  const introduction = readStringParam(params, "introduction");
+  const isMain = readOptionalBool(params, "isMain");
+
+  const body: Record<string, unknown> = {
+    agent_name: agentName,
+  };
+  if (introduction) {
+    body.introduction = introduction;
+  }
+  if (isMain != null) {
+    body.is_main = isMain;
+  }
+
+  return {
+    actionName: "agent_api_create",
+    method: "POST",
+    path: "/agents/create",
+    body,
+  };
+}
+
 // ---------- WS agentInvoke param builders ----------
 // Unlike HTTP builders, numeric params (limit, offset) keep their original types.
 // POST-based actions reuse the existing body directly.
@@ -550,6 +574,8 @@ export function buildAgentInvokeParams(
       return { action, params: buildMessageHistoryInvokeParams(rawParams) };
     case "message_search":
       return { action, params: buildMessageSearchInvokeParams(rawParams) };
+    case "agent_api_create":
+      return { action, params: buildAgentAPICreateRequest(rawParams).body ?? {} };
     // POST actions: body already has correct types — reuse existing builders
     case "group_create":
       return { action, params: buildGroupCreateRequest(rawParams).body ?? {} };
@@ -591,6 +617,8 @@ export function buildAgentHTTPRequest(
       return buildMessageHistoryRequest(params);
     case "message_search":
       return buildMessageSearchRequest(params);
+    case "agent_api_create":
+      return buildAgentAPICreateRequest(params);
     case "group_create":
       return buildGroupCreateRequest(params);
     case "group_leave_self":

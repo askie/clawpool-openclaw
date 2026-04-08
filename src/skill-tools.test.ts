@@ -57,6 +57,7 @@ test("plugin registers all grix tools as optional plugin tools", () => {
   assert.deepEqual(registered, [
     { name: "grix_query", optional: true },
     { name: "grix_group", optional: true },
+    { name: "grix_agent_admin", optional: true },
     { name: "grix_admin", optional: true },
     { name: "grix_egg", optional: true },
     { name: "grix_register", optional: true },
