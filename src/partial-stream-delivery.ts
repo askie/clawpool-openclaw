@@ -12,6 +12,7 @@ type PartialStreamClient = {
     opts: {
       eventId?: string;
       clientMsgId: string;
+      chunkSeq: number;
       quotedMessageId?: string;
       threadId?: string | number;
       isFinish?: boolean;
@@ -142,6 +143,7 @@ export function createAppendOnlyReplyStream(params: {
   let sourceText = "";
   let visibleText = false;
   let finished = false;
+  let nextChunkSeq = 1;
 
   const sendDelta = async (delta: string): Promise<boolean> => {
     const chunks = splitTextForAibotProtocol(delta, params.chunkChars);
@@ -160,10 +162,12 @@ export function createAppendOnlyReplyStream(params: {
       await params.client.sendStreamChunk(params.sessionId, chunk, {
         eventId: params.eventId,
         clientMsgId: params.clientMsgId,
+        chunkSeq: nextChunkSeq,
         quotedMessageId: params.quotedMessageId,
         threadId: params.threadId,
         isFinish: false,
       });
+      nextChunkSeq += 1;
       visibleText = true;
       sent = true;
       params.onSent?.();
@@ -227,10 +231,12 @@ export function createAppendOnlyReplyStream(params: {
         await params.client.sendStreamChunk(params.sessionId, "", {
           eventId: params.eventId,
           clientMsgId: params.clientMsgId,
+          chunkSeq: nextChunkSeq,
           quotedMessageId: params.quotedMessageId,
           threadId: params.threadId,
           isFinish: true,
         });
+        nextChunkSeq += 1;
         params.onSent?.();
       } catch (error) {
         params.onFinishError?.(error);

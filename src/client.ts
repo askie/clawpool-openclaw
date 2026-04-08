@@ -80,6 +80,7 @@ type SendMediaOptions = SendMessageOptions & {
 type SendStreamChunkOptions = {
   eventId?: string;
   clientMsgId: string;
+  chunkSeq: number;
   quotedMessageId?: string;
   threadId?: string | number;
   isFinish?: boolean;
@@ -642,6 +643,7 @@ export class AibotWsClient {
     const payload: Record<string, unknown> = {
       session_id: sessionId,
       client_msg_id: opts.clientMsgId,
+      chunk_seq: opts.chunkSeq,
       delta_content: normalizedDeltaContent,
       is_finish: opts.isFinish ?? false,
     };
