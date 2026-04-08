@@ -154,7 +154,7 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
     - `openclaw config set agents.list '<NEXT_AGENTS_LIST_JSON>' --strict-json`
     - `openclaw agents bind --agent <agent_name> --bind grix:<agent_name>`
     - `openclaw config set tools.profile '"coding"' --strict-json`
-    - `openclaw config set tools.alsoAllow '["message","grix_query","grix_group"]' --strict-json`
+    - `openclaw config set tools.alsoAllow '["message","grix_query","grix_group","grix_register"]' --strict-json`
     - `openclaw config set tools.sessions.visibility '"agent"' --strict-json`
     - 不要调用 `grix_agent_bind.py`，也不要直接编辑 `~/.openclaw/openclaw.json`
 13. 执行 `openclaw config validate`，再用 `openclaw config get --json` 检查刚写入的 account / agent / tools 都已存在且值正确，并用 `openclaw agents bindings --agent <agent_name> --json` 确认目标绑定已经存在。
