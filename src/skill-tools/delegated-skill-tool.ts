@@ -10,6 +10,10 @@ type DelegatedSkillToolSpec = {
   label: string;
   description: string;
   skillName: string;
+  buildTaskMessage?: (params: {
+    spec: Omit<DelegatedSkillToolSpec, "buildTaskMessage">;
+    task: string;
+  }) => string;
 };
 
 export const DelegatedSkillToolSchema = {
@@ -95,7 +99,17 @@ export function createDelegatedSkillTool(params: {
         const timeoutMs = clampInt(rawParams.timeoutMs, 120_000, 10_000, 900_000);
         const resultLimit = clampInt(rawParams.resultLimit, 8, 1, 20);
         const deliver = rawParams.deliver === true;
-        const runMessage = buildSkillTaskMessage({ spec, task });
+        const runMessage = spec.buildTaskMessage
+          ? spec.buildTaskMessage({
+            spec: {
+              name: spec.name,
+              label: spec.label,
+              description: spec.description,
+              skillName: spec.skillName,
+            },
+            task,
+          })
+          : buildSkillTaskMessage({ spec, task });
 
         const runResult = await api.runtime.subagent.run({
           sessionKey: subagentSessionKey,

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { runGrixAgentAdminAction } from "./agent-admin-service.ts";
+import { runGrixAdminCreateAgentAction } from "./agent-admin-service.ts";
 import type { OpenClawCoreConfig } from "./types.ts";
 
 function buildCfg(): OpenClawCoreConfig {
@@ -26,11 +26,11 @@ function mockClient(fn: (action: string, params: Record<string, unknown>) => Pro
   return { agentInvoke: fn };
 }
 
-test("runGrixAgentAdminAction sends agent_api_create over agentInvoke", async () => {
+test("runGrixAdminCreateAgentAction sends agent_api_create over agentInvoke", async () => {
   let capturedAction = "";
   let capturedParams: Record<string, unknown> = {};
 
-  const result = await runGrixAgentAdminAction({
+  const result = await runGrixAdminCreateAgentAction({
     cfg: buildCfg(),
     toolParams: {
       accountId: "default",
@@ -66,9 +66,9 @@ test("runGrixAgentAdminAction sends agent_api_create over agentInvoke", async ()
   assert.equal((result.data as Record<string, unknown>).api_key, "<redacted>");
 });
 
-test("runGrixAgentAdminAction propagates ws permission failures", async () => {
+test("runGrixAdminCreateAgentAction propagates ws permission failures", async () => {
   await assert.rejects(
-    runGrixAgentAdminAction({
+    runGrixAdminCreateAgentAction({
       cfg: buildCfg(),
       toolParams: {
         accountId: "default",

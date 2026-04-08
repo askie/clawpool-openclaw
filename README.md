@@ -7,7 +7,7 @@ This plugin connects OpenClaw to [Grix](https://grix.dhf.pub). It helps multiple
 - Grix channel support for sending and receiving messages, inbound media/thread context, streaming replies, `react`, `unsend`, and `delete`
 - Group turns can carry one-shot queued visible context so agents see fresh nearby history without repeated replay
 - Default tools for all agents: `grix_query`, `grix_group`, `grix_register`, `grix_message_send`, `grix_message_unsend`
-- Main-agent-only recommended tools: `grix_admin`, `grix_agent_admin`, `grix_egg`, `grix_update`, `openclaw_memory_setup`
+- Main-agent-only recommended tools: `grix_admin`, `grix_egg`, `grix_update`, `openclaw_memory_setup`
   - `grix_query` supports `message_history` and `message_search` for raw session history lookup
 - Built-in skills in `skills/`
 
@@ -98,13 +98,13 @@ openclaw config set tools.sessions.visibility '"agent"' --strict-json
 This is the recommended default split:
 
 - Give every agent: `grix_query`, `grix_group`, `grix_register`, `grix_message_send`, `grix_message_unsend`
-- Keep only on the main agent: `grix_admin`, `grix_agent_admin`, `grix_egg`, `grix_update`, `openclaw_memory_setup`
+- Keep only on the main agent: `grix_admin`, `grix_egg`, `grix_update`, `openclaw_memory_setup`
 
 Reason:
 
 - `grix_query`, `grix_group`, `grix_register`, `grix_message_send`, and `grix_message_unsend` are the normal day-to-day Grix tools.
 - `grix_register` still needs the email side to cooperate before it can finish registration, so treating it as a default tool is acceptable.
-- `grix_admin`, `grix_agent_admin`, `grix_egg`, `grix_update`, and `openclaw_memory_setup` can change local config, remote agent state, install state, update state, or memory state, so they are safer on the main agent only.
+- `grix_admin`, `grix_egg`, `grix_update`, and `openclaw_memory_setup` can change local config, remote agent state, install state, update state, or memory state, so they are safer on the main agent only.
 
 ### 6) Allow the workflow tools only on the main agent
 
@@ -117,7 +117,7 @@ openclaw config get --json agents.list
 Then add the extra workflow tools only to that agent. Example below uses `agents.list[0]`; replace `0` with the actual index of your main agent:
 
 ```bash
-openclaw config set agents.list[0].tools.alsoAllow '["grix_admin","grix_agent_admin","grix_egg","grix_update","openclaw_memory_setup"]' --strict-json
+openclaw config set agents.list[0].tools.alsoAllow '["grix_admin","grix_egg","grix_update","openclaw_memory_setup"]' --strict-json
 ```
 
 If that agent already has a `tools.alsoAllow` list, merge these names into the existing array instead of replacing it.

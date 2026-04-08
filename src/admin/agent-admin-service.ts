@@ -9,7 +9,7 @@ import { resolveGrixAccount } from "./accounts.ts";
 import { requireActiveAibotClient } from "../client.ts";
 import type { OpenClawCoreConfig } from "./types.ts";
 
-export type GrixAgentAdminToolParams = {
+export type GrixAdminCreateAgentParams = {
   accountId: string;
   agentName: string;
   introduction?: string;
@@ -40,14 +40,14 @@ function sanitizeCreatedAgentData(data: Record<string, unknown>): Record<string,
   return payload;
 }
 
-export async function runGrixAgentAdminAction(params: {
+export async function runGrixAdminCreateAgentAction(params: {
   cfg: OpenClawCoreConfig;
-  toolParams: GrixAgentAdminToolParams;
+  toolParams: GrixAdminCreateAgentParams;
   contextAccountId?: string;
   _client?: AgentInvoker;
 }) {
   const accountId = resolveStrictToolAccountId({
-    toolName: "grix_agent_admin",
+    toolName: "grix_admin",
     toolAccountId: params.toolParams.accountId,
     contextAccountId: params.contextAccountId,
   });

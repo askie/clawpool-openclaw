@@ -8,7 +8,7 @@ description: 负责 OpenClaw 本地配置与绑定；可接收已有远端 agent
 `grix-admin` 负责两件事：
 
 1. 把已有远端 agent 参数落到本地 OpenClaw。
-2. 当当前主 agent 已经在线、并且具备 `agent.api.create` 权限时，通过 `grix_agent_admin` 走 WS 创建新的远端 API agent，再继续本地落地。
+2. 当当前主 agent 已经在线、并且具备 `agent.api.create` 权限时，通过 `grix_admin` 的远端创建参数走 WS 创建新的远端 API agent，再继续本地落地。
 
 ## Mode A: bind-local（来自 grix-register 的首次交接）
 
@@ -41,7 +41,7 @@ description: 负责 OpenClaw 本地配置与绑定；可接收已有远端 agent
    - `agents.list`：确保存在 `id=<agent_name>`、`name=<agent_name>`、`workspace`、`agentDir`、`model`
    - Grix 绑定：确保目标 agent 最终绑定到 `grix:<agent_name>`
    - `tools.profile`：设为 `"coding"`
-   - `tools.alsoAllow`：至少包含 `message`、`grix_query`、`grix_group`、`grix_register`、`grix_agent_admin`
+   - `tools.alsoAllow`：至少包含 `message`、`grix_query`、`grix_group`、`grix_register`、`grix_admin`
    - `tools.sessions.visibility`：设为 `"agent"`
    - 如果 `channels.grix.enabled=false`，改回 `true`
 5. `model` 的确定规则：
@@ -53,7 +53,7 @@ description: 负责 OpenClaw 本地配置与绑定；可接收已有远端 agent
    - `openclaw config set agents.list '<NEXT_AGENTS_LIST_JSON>' --strict-json`
    - `openclaw agents bind --agent <agent_name> --bind grix:<agent_name>`
    - `openclaw config set tools.profile '"coding"' --strict-json`
-   - `openclaw config set tools.alsoAllow '["message","grix_query","grix_group","grix_register","grix_agent_admin"]' --strict-json`
+   - `openclaw config set tools.alsoAllow '["message","grix_query","grix_group","grix_register","grix_admin"]' --strict-json`
    - `openclaw config set tools.sessions.visibility '"agent"' --strict-json`
    - 仅当当前配置明确把 `channels.grix.enabled` 关掉时，再执行 `openclaw config set channels.grix.enabled true --strict-json`
 7. 写完后必须执行校验：
@@ -77,7 +77,7 @@ description: 负责 OpenClaw 本地配置与绑定；可接收已有远端 agent
 执行规则：
 
 1. 先确认本地已经存在可用的 `channels.grix.accounts.<accountId>`，而且当前会话实际绑定的也是这个账号；禁止跨账号执行。
-2. 通过 `grix_agent_admin` 只调用一次远端创建，禁止手写 HTTP / 临时脚本。
+2. 通过 `grix_admin` 只调用一次远端创建，调用时只传 `accountId`、`agentName`、可选 `introduction`、可选 `isMain`，不要传 `task`，禁止手写 HTTP / 临时脚本。
 3. 远端创建成功后，读取返回的 `id`、`agent_name`、`api_endpoint`、`api_key`，然后立刻转入 `bind-local` 的本地绑定步骤。
 4. `isMain=true` 只在确实要创建新的主 API agent 时使用；一般后续新增 agent 默认不打开。
 5. 整个 `create-and-bind` 流程里不要主动执行 `openclaw gateway restart`；只有本地配置、校验都成功，但运行态仍明显是旧结果时，才把重启当成定向补救。
@@ -90,7 +90,7 @@ description: 负责 OpenClaw 本地配置与绑定；可接收已有远端 agent
 
 1. Never ask user for website account/password.
 2. `bind-local` 模式禁止再次回调 `grix-register`，避免循环路由。
-3. `create-and-bind` 只允许通过 `grix_agent_admin` 走当前账号的 WS 通道创建；不要手写 HTTP，不要回退到旧脚本。
+3. `create-and-bind` 只允许通过 `grix_admin` 走当前账号的 WS 通道创建；不要手写 HTTP，不要回退到旧脚本。
 4. 完整 `api_key` 仅一次性回传，不要重复明文回显。
 5. 本地 `openclaw config set` / `validate` 没成功前，不得宣称配置完成。
 6. 安装私聊进行中时，禁止手工修改 `openclaw.json` 后再执行 `openclaw gateway restart`。

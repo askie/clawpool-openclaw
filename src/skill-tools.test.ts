@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import plugin from "../index.ts";
+import { createGrixAdminTool } from "./skill-tools/grix-admin-tool.ts";
 import { createGrixUpdateTool } from "./skill-tools/grix-update-tool.ts";
 
 test("plugin registers all grix tools as optional plugin tools", () => {
@@ -57,7 +58,6 @@ test("plugin registers all grix tools as optional plugin tools", () => {
   assert.deepEqual(registered, [
     { name: "grix_query", optional: true },
     { name: "grix_group", optional: true },
-    { name: "grix_agent_admin", optional: true },
     { name: "grix_admin", optional: true },
     { name: "grix_egg", optional: true },
     { name: "grix_register", optional: true },
@@ -115,6 +115,73 @@ test("grix_update delegated tool runs corresponding skill through subagent runti
   assert.equal(details.ok, true);
   assert.equal(details.status, "ok");
   assert.equal(details.runId, "run_001");
+});
+
+test("grix_admin delegated tool uses the single tool name and direct-create guidance", async () => {
+  let runArgs: Record<string, unknown> | null = null;
+
+  const api = {
+    runtime: {
+      subagent: {
+        async run(args: Record<string, unknown>) {
+          runArgs = args;
+          return { runId: "run_admin_001" };
+        },
+        async waitForRun() {
+          return { status: "ok" as const };
+        },
+        async getSessionMessages() {
+          return { messages: [] as unknown[] };
+        },
+        async deleteSession() {
+          return;
+        },
+      },
+    },
+    config: {},
+  } as never;
+
+  const tool = createGrixAdminTool(api, { sessionKey: "agent:main:chat" } as never);
+  await tool.execute("tool_call_admin_1", {
+    task: "create and bind a new helper agent",
+  });
+
+  assert.equal(runArgs?.sessionKey, "agent:main:chat:skill:grix-admin");
+  assert.match(String(runArgs?.message), /Do not call the grix_admin tool again with a task/i);
+  assert.match(String(runArgs?.message), /call grix_admin once with accountId, agentName/i);
+});
+
+test("grix_admin rejects mixing task mode with direct create params", async () => {
+  const api = {
+    runtime: {
+      subagent: {
+        async run() {
+          return { runId: "unused" };
+        },
+        async waitForRun() {
+          return { status: "ok" as const };
+        },
+        async getSessionMessages() {
+          return { messages: [] as unknown[] };
+        },
+        async deleteSession() {
+          return;
+        },
+      },
+    },
+    config: {},
+  } as never;
+
+  const tool = createGrixAdminTool(api, { sessionKey: "agent:main:chat" } as never);
+  const result = await tool.execute("tool_call_admin_2", {
+    task: "should fail",
+    accountId: "default",
+    agentName: "helper",
+  });
+  const details = result.details as Record<string, unknown>;
+
+  assert.equal(details.ok, false);
+  assert.match(String(details.error), /cannot be combined/i);
 });
 
 test("delegated skill tool requires session context when no sessionKey is provided", async () => {

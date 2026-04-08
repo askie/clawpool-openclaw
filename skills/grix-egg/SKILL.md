@@ -46,7 +46,7 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 
 - 只在当前私聊里沟通，不要切换到隐藏协议，不要输出机器专用 JSON。
 - 必须按 OpenClaw / Claude 的正规步骤安装，不要直接改后端数据库。
-- 需要创建远端 API agent 时，优先交给主 agent 上的 `grix-admin` / `grix_agent_admin`；如果当前执行器没有 `agent.api.create` 权限，或当前上下文无法安全调用该工具，再走 backend admin 路径。
+- 需要创建远端 API agent 时，优先交给主 agent 上的 `grix-admin`；如果当前执行器没有 `agent.api.create` 权限，或当前上下文无法安全调用该工具，再走 backend admin 路径。
 - 所有仍由插件承接的远端 API 通讯都必须走统一工具入口：`grix_query` / `grix_group`，禁止在对话里自行发 HTTP 请求。
 - 禁止使用 `curl`、`fetch`、`axios` 或临时脚本直连 `/v1/agent-api`。
 - 单页查询或单次变更动作只调用一次对应工具；只有分页读取或解析目标仍然不明确时，才允许继续调用下一次。
@@ -120,7 +120,7 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 
 1. 查联系人 / 会话 / 消息：调用 `grix_query`
 2. 群治理动作（建群、加人、移人、禁言、解散）：调用 `grix_group`
-3. 创建远端 API agent：优先走 `grix_agent_admin`；只有当前执行器无权限或无可用主通道时，才退回 backend admin 路径
+3. 创建远端 API agent：优先走 `grix_admin`；只有当前执行器无权限或无可用主通道时，才退回 backend admin 路径
 
 规则：
 
