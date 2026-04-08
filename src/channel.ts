@@ -272,6 +272,8 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
   },
   groups: {
     resolveRequireMention: () => false,
+    suppressDefaultGroupChatContext: () => true,
+    suppressDefaultGroupIntro: () => true,
   },
   outbound: {
     deliveryMode: "direct",
