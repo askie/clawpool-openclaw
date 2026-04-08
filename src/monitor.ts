@@ -19,13 +19,13 @@ import { isRetryableGuardedReply, resolveUpstreamRetryDelayMs, resolveUpstreamRe
 import { getAibotRuntime } from "./runtime.js";
 import { buildBodyWithQuotedReplyId } from "./quoted-reply-body.js";
 import { claimInboundEvent, confirmInboundEvent, releaseInboundEvent } from "./inbound-event-dedupe.js";
-import { buildAibotOutboundEnvelope } from "./outbound-envelope.ts";
 import { handleStableLocalAction } from "./local-actions.ts";
 import { enqueueRevokeSystemEvent } from "./revoke-event.js";
 import { shouldTreatDispatchAsRespondedWithoutVisibleOutput } from "./reply-dispatch-outcome.js";
 import { consumeSilentUnsendCompleted } from "./silent-unsend-completion.js";
 import { shouldSkipFinalReplyAfterStreamedBlock } from "./final-streamed-reply-policy.ts";
 import { deliverAibotPayload } from "./aibot-payload-delivery.ts";
+import { buildAibotOutboundExtra, detectAibotStructuredCardKind } from "./outbound-structured-card.ts";
 import {
   deletePendingInboundEvent,
   loadRecoverablePendingInboundEvents,
@@ -182,17 +182,17 @@ async function deliverAibotMessage(params: {
   stableClientMsgId?: string;
 }): Promise<boolean> {
   const { payload, client, account, sessionId, quotedMessageId, runtime, statusSink, stableClientMsgId } = params;
-  const outboundEnvelope = buildAibotOutboundEnvelope(payload);
-  const execApprovalDiagnostic = outboundEnvelope.execApprovalDiagnostic;
-  if (execApprovalDiagnostic.isCandidate) {
+  const structuredCardKind = detectAibotStructuredCardKind(payload);
+  const outboundExtra = buildAibotOutboundExtra(payload);
+  if (structuredCardKind) {
     runtime.log(
-      `[grix:${account.accountId}] exec approval outbound diagnostic eventId=${params.eventId || "-"} sessionId=${sessionId} clientMsgId=${stableClientMsgId || "-"} matched=${execApprovalDiagnostic.matched ? "true" : "false"} reason=${execApprovalDiagnostic.reason} hasChannelData=${execApprovalDiagnostic.hasChannelData ? "true" : "false"} hasExecApprovalField=${execApprovalDiagnostic.hasExecApprovalField ? "true" : "false"} approvalId=${execApprovalDiagnostic.approvalId || "-"} approvalSlug=${execApprovalDiagnostic.approvalSlug || "-"} approvalCommandId=${execApprovalDiagnostic.approvalCommandId || "-"} commandDetected=${execApprovalDiagnostic.commandDetected ? "true" : "false"} host=${execApprovalDiagnostic.host || "-"} nodeId=${execApprovalDiagnostic.nodeId || "-"} cwd=${execApprovalDiagnostic.cwd || "-"} expiresInSeconds=${execApprovalDiagnostic.expiresInSeconds ?? "-"} allowedDecisionCount=${execApprovalDiagnostic.allowedDecisionCount} textPrefix=${JSON.stringify(execApprovalDiagnostic.textPrefix)} bizCard=${outboundEnvelope.cardKind ?? "none"}`,
+      `[grix:${account.accountId}] outbound structured card eventId=${params.eventId || "-"} sessionId=${sessionId} clientMsgId=${stableClientMsgId || "-"} kind=${structuredCardKind}`,
     );
   }
   const delivery = await deliverAibotPayload({
     payload,
-    text: outboundEnvelope.text,
-    extra: outboundEnvelope.extra,
+    text: String(payload.text ?? ""),
+    extra: outboundExtra,
     client,
     account,
     sessionId,
@@ -726,10 +726,9 @@ async function processEvent(params: {
                 clientMsgId: `reply_${messageSid}_${outboundCounter}`,
                 outboundCounter,
               });
-              const finalOutboundEnvelope =
-                info.kind === "final" || info.kind === "tool"
-                  ? buildAibotOutboundEnvelope(decoratedPayload)
-                  : undefined;
+              const hasStructuredCard =
+                (info.kind === "final" || info.kind === "tool") &&
+                Boolean(detectAibotStructuredCardKind(decoratedPayload));
               runtime.log(
                 `[grix:${account.accountId}] deliver ${deliverContext} kind=${info.kind} textLen=${text.length} hasMedia=${hasMedia} streamedBefore=${streamedTextAlreadyVisible}`,
               );
@@ -772,7 +771,7 @@ async function processEvent(params: {
                   streamedTextAlreadyVisible,
                   hasMedia,
                   text,
-                  hasStructuredCard: Boolean(finalOutboundEnvelope?.cardKind),
+                  hasStructuredCard,
                 })
               ) {
                 runtime.log(

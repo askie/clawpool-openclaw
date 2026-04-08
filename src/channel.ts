@@ -14,7 +14,7 @@ import { resolveAibotAccount, listAibotAccountIds, resolveDefaultAibotAccountId,
 import { grixExecApprovalAdapter } from "./channel-exec-approvals.js";
 import { getActiveAibotClient, requireActiveAibotClient } from "./client.js";
 import { monitorAibotProvider } from "./monitor.js";
-import { buildAibotOutboundEnvelope, buildAibotOutboundTextEnvelope } from "./outbound-envelope.ts";
+import { buildAibotOutboundExtra, detectAibotStructuredCardKind } from "./outbound-structured-card.ts";
 import { DEFAULT_OUTBOUND_TEXT_CHUNK_LIMIT } from "./protocol-text.js";
 import { applySetupAccountConfig, resolveSetupValues } from "./setup-config.js";
 import {
@@ -310,16 +310,14 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
       }
       const sessionId = resolvedTarget.sessionId;
       const quotedMessageId = normalizeQuotedMessageId(replyToId);
-      const envelope = buildAibotOutboundTextEnvelope(text);
       logAibotOutboundAdapter(
-        `sendText accountId=${account.accountId} rawTarget=${rawTarget} normalizedTarget=${resolvedTarget.normalizedTarget} resolvedSessionId=${sessionId} resolveSource=${resolvedTarget.resolveSource} textLen=${envelope.text.length} quotedMessageId=${quotedMessageId ?? "-"} cardKind=${envelope.cardKind ?? "none"}`,
+        `sendText accountId=${account.accountId} rawTarget=${rawTarget} normalizedTarget=${resolvedTarget.normalizedTarget} resolvedSessionId=${sessionId} resolveSource=${resolvedTarget.resolveSource} textLen=${String(text ?? "").length} quotedMessageId=${quotedMessageId ?? "-"}`,
       );
-      const ack = await client.sendText(sessionId, envelope.text, {
+      const ack = await client.sendText(sessionId, String(text ?? ""), {
         quotedMessageId,
-        extra: envelope.extra,
       });
       logAibotOutboundAdapter(
-        `sendText ack accountId=${account.accountId} resolvedSessionId=${sessionId} messageId=${String(ack.msg_id ?? ack.client_msg_id ?? "-")} cardKind=${envelope.cardKind ?? "none"}`,
+        `sendText ack accountId=${account.accountId} resolvedSessionId=${sessionId} messageId=${String(ack.msg_id ?? ack.client_msg_id ?? "-")}`,
       );
       return {
         channel: "grix",
@@ -387,14 +385,16 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
       }
       const sessionId = resolvedTarget.sessionId;
       const quotedMessageId = normalizeQuotedMessageId(replyToId);
-      const envelope = buildAibotOutboundEnvelope(payload);
+      const structuredCardKind = detectAibotStructuredCardKind(payload);
+      const outboundExtra = buildAibotOutboundExtra(payload);
+      const text = String(payload.text ?? "");
       logAibotOutboundAdapter(
-        `sendPayload accountId=${account.accountId} rawTarget=${rawTarget} normalizedTarget=${resolvedTarget.normalizedTarget} resolvedSessionId=${sessionId} resolveSource=${resolvedTarget.resolveSource} textLen=${envelope.text.length} quotedMessageId=${quotedMessageId ?? "-"} cardKind=${envelope.cardKind ?? "none"}`,
+        `sendPayload accountId=${account.accountId} rawTarget=${rawTarget} normalizedTarget=${resolvedTarget.normalizedTarget} resolvedSessionId=${sessionId} resolveSource=${resolvedTarget.resolveSource} textLen=${text.length} quotedMessageId=${quotedMessageId ?? "-"} structuredCard=${structuredCardKind ?? "none"}`,
       );
       const delivery = await deliverAibotPayload({
         payload,
-        text: envelope.text,
-        extra: envelope.extra,
+        text,
+        extra: outboundExtra,
         client,
         account,
         sessionId,
@@ -405,7 +405,7 @@ export const aibotPlugin: ChannelPlugin<ResolvedAibotAccount, Record<string, unk
       }
       const messageId = delivery.firstMessageId ?? `grix_payload_${Date.now()}`;
       logAibotOutboundAdapter(
-        `sendPayload ack accountId=${account.accountId} resolvedSessionId=${sessionId} messageId=${messageId} cardKind=${envelope.cardKind ?? "none"}`,
+        `sendPayload ack accountId=${account.accountId} resolvedSessionId=${sessionId} messageId=${messageId} structuredCard=${structuredCardKind ?? "none"}`,
       );
       return {
         channel: "grix",
