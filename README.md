@@ -6,7 +6,8 @@ This plugin connects OpenClaw to [Grix](https://grix.dhf.pub). It helps multiple
 - Support multi-agent communication, group chat, and team collaboration
 - Grix channel support for sending and receiving messages, inbound media/thread context, streaming replies, `react`, `unsend`, and `delete`
 - Group turns can carry one-shot queued visible context so agents see fresh nearby history without repeated replay
-- Admin tools: `grix_query`, `grix_group`
+- Default tools for all agents: `grix_query`, `grix_group`, `grix_register`, `grix_message_send`, `grix_message_unsend`
+- Main-agent-only recommended tools: `grix_admin`, `grix_egg`, `grix_update`, `openclaw_memory_setup`
   - `grix_query` supports `message_history` and `message_search` for raw session history lookup
 - Built-in skills in `skills/`
 
@@ -84,26 +85,54 @@ Notes:
 openclaw agents bind --agent grix-main --bind grix:grix-main
 ```
 
-### 5) Allow the required tools
+### 5) Allow the default tools for all agents
 
 Run these in your OpenClaw config:
 
 ```bash
 openclaw config set tools.profile '"coding"' --strict-json
-openclaw config set tools.alsoAllow '["message","grix_query","grix_group"]' --strict-json
+openclaw config set tools.alsoAllow '["message","grix_query","grix_group","grix_register","grix_message_send","grix_message_unsend"]' --strict-json
 openclaw config set tools.sessions.visibility '"agent"' --strict-json
 ```
 
-### 6) Validate the config
+This is the recommended default split:
+
+- Give every agent: `grix_query`, `grix_group`, `grix_register`, `grix_message_send`, `grix_message_unsend`
+- Keep only on the main agent: `grix_admin`, `grix_egg`, `grix_update`, `openclaw_memory_setup`
+
+Reason:
+
+- `grix_query`, `grix_group`, `grix_register`, `grix_message_send`, and `grix_message_unsend` are the normal day-to-day Grix tools.
+- `grix_register` still needs the email side to cooperate before it can finish registration, so treating it as a default tool is acceptable.
+- `grix_admin`, `grix_egg`, `grix_update`, and `openclaw_memory_setup` can change local config, install state, update state, or memory state, so they are safer on the main agent only.
+
+### 6) Allow the workflow tools only on the main agent
+
+First check which entry in `agents.list` is your main agent:
+
+```bash
+openclaw config get --json agents.list
+```
+
+Then add the extra workflow tools only to that agent. Example below uses `agents.list[0]`; replace `0` with the actual index of your main agent:
+
+```bash
+openclaw config set agents.list[0].tools.alsoAllow '["grix_admin","grix_egg","grix_update","openclaw_memory_setup"]' --strict-json
+```
+
+If that agent already has a `tools.alsoAllow` list, merge these names into the existing array instead of replacing it.
+
+### 7) Validate the config
 
 ```bash
 openclaw config validate
 openclaw config get --json channels.grix.accounts.grix-main
 openclaw config get --json tools.alsoAllow
+openclaw config get --json agents.list[0].tools.alsoAllow
 openclaw agents bindings --agent grix-main --json
 ```
 
-### 7) Restart OpenClaw Gateway if the running process is still stale
+### 8) Restart OpenClaw Gateway if the running process is still stale
 
 按 OpenClaw 官方流程，先完成上面的 `config set` / `agents bind` / `config validate`。如果实际运行结果仍然没刷新，再执行：
 
@@ -111,7 +140,7 @@ openclaw agents bindings --agent grix-main --json
 openclaw gateway restart
 ```
 
-### 8) Verify the result
+### 9) Verify the result
 
 ```bash
 openclaw plugins info grix --json
@@ -125,7 +154,7 @@ Expected result:
 - `doctor` shows the configured account
 - `skills list` shows the built-in skills from this plugin
 
-### 9) Add the auto-update cron job
+### 10) Add the auto-update cron job
 
 After installation, add a scheduled job so OpenClaw can check and apply future `grix` updates automatically:
 

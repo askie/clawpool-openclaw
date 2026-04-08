@@ -65,6 +65,16 @@ test("message actions expose react alongside delete and unsend", () => {
   });
 });
 
+test("message actions are discoverable even without configured grix accounts", () => {
+  const discovery = aibotMessageActions.describeMessageTool({
+    cfg: {},
+  } as never);
+
+  assert.deepEqual(discovery, {
+    actions: ["react", "unsend", "delete"],
+  });
+});
+
 test("react action sends react_msg through active client", async () => {
   const client = makeClient();
   const internal = markClientReady(client);

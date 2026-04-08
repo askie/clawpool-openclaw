@@ -1,5 +1,5 @@
 import type { ChannelMessageActionAdapter } from "openclaw/plugin-sdk";
-import { listAibotAccountIds, resolveAibotAccount } from "./accounts.ts";
+import { resolveAibotAccount } from "./accounts.ts";
 import { requireActiveAibotClient } from "./client.ts";
 import { markSilentUnsendCompleted } from "./silent-unsend-completion.ts";
 import { resolveSilentUnsendPlan } from "./silent-unsend-plan.ts";
@@ -7,14 +7,6 @@ import { jsonResult, readStringParam } from "./openclaw-compat.ts";
 
 const WS_ACTIONS = new Set<string>(["unsend", "delete", "react"]);
 const DISCOVERABLE_ACTIONS = ["react", "unsend", "delete"];
-type MessageToolDiscoveryCfg =
-  Parameters<ChannelMessageActionAdapter["describeMessageTool"]>[0]["cfg"];
-
-function hasConfiguredEnabledAccount(cfg: MessageToolDiscoveryCfg): boolean {
-  return listAibotAccountIds(cfg)
-    .map((accountId) => resolveAibotAccount({ cfg, accountId }))
-    .some((account) => account.enabled && account.configured);
-}
 
 function toSnakeCaseKey(key: string): string {
   return key
@@ -60,10 +52,7 @@ function readBooleanishParam(params: Record<string, unknown>, key: string): bool
 }
 
 export const aibotMessageActions: ChannelMessageActionAdapter = {
-  describeMessageTool: ({ cfg }) => {
-    if (!hasConfiguredEnabledAccount(cfg)) {
-      return null;
-    }
+  describeMessageTool: () => {
     return { actions: DISCOVERABLE_ACTIONS as unknown as string[] };
   },
   supportsAction: ({ action }) => {
