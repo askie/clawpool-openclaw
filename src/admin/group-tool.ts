@@ -4,8 +4,8 @@
  */
 
 import type { AnyAgentTool, OpenClawPluginApi, OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import { jsonToolResult } from "./json-result.js";
-import { runGrixGroupAction } from "./group-service.js";
+import { jsonToolResult } from "./json-result.ts";
+import { runGrixGroupAction } from "./group-service.ts";
 
 const numericIdSchema = {
   type: "string",

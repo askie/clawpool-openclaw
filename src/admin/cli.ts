@@ -5,7 +5,7 @@
 
 import type { Command } from "commander";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
-import { inspectGrixAdminConfig } from "./accounts.js";
+import { inspectGrixAdminConfig } from "./accounts.ts";
 
 export function registerGrixAdminCli(params: {
   api: OpenClawPluginApi;

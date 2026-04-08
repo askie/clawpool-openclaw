@@ -4,8 +4,8 @@
  */
 
 import type { AnyAgentTool, OpenClawPluginApi, OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import { jsonToolResult } from "./json-result.js";
-import { runGrixQueryAction } from "./query-service.js";
+import { jsonToolResult } from "./json-result.ts";
+import { runGrixQueryAction } from "./query-service.ts";
 
 export const GrixQueryToolSchema = {
   oneOf: [

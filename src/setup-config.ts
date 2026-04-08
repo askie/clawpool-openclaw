@@ -3,7 +3,7 @@ import { DEFAULT_ACCOUNT_ID } from "./account-id.ts";
 import {
   applyAccountNameToChannelSection,
   migrateBaseNameToDefaultAccount,
-} from "./openclaw-compat.js";
+} from "./openclaw-compat.ts";
 
 export type AibotSetupInput = {
   name?: string;

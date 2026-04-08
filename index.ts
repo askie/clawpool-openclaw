@@ -6,14 +6,14 @@ import type {
   ChannelPlugin,
   OpenClawPluginApi,
 } from "openclaw/plugin-sdk/core";
-import { aibotPlugin } from "./src/channel.js";
-import { setAibotRuntime } from "./src/runtime.js";
-import { createGrixGroupTool } from "./src/admin/group-tool.js";
-import { createGrixQueryTool } from "./src/admin/query-tool.js";
-import { registerGrixAdminCli } from "./src/admin/cli.js";
+import { aibotPlugin } from "./src/channel.ts";
+import { setAibotRuntime } from "./src/runtime.ts";
+import { createGrixGroupTool } from "./src/admin/group-tool.ts";
+import { createGrixQueryTool } from "./src/admin/query-tool.ts";
+import { registerGrixAdminCli } from "./src/admin/cli.ts";
 import {
   createGrixPluginConfigSchema,
-} from "./src/plugin-config.js";
+} from "./src/plugin-config.ts";
 
 const plugin = {
   id: "grix",

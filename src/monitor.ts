@@ -6,22 +6,22 @@
 import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 import type { ReplyPayload as OutboundReplyPayload, RuntimeEnv } from "openclaw/plugin-sdk";
 import type { ResolvedAibotAccount, AibotEventMsgPayload, AibotEventStopPayload } from "./types.js";
-import { AibotWsClient, clearActiveAibotClient, setActiveAibotClient } from "./client.js";
+import { AibotWsClient, clearActiveAibotClient, setActiveAibotClient } from "./client.ts";
 import type { GuardedReplyText } from "./reply-text-guard.js";
-import { resolveStreamTextChunkLimit } from "./protocol-text.js";
+import { resolveStreamTextChunkLimit } from "./protocol-text.ts";
 import {
   clearActiveReplyRun,
   registerActiveReplyRun,
   resolveActiveReplyRun,
-} from "./active-reply-runs.js";
-import { guardInternalReplyText } from "./reply-text-guard.js";
-import { isRetryableGuardedReply, resolveUpstreamRetryDelayMs, resolveUpstreamRetryPolicy } from "./upstream-retry.js";
-import { getAibotRuntime } from "./runtime.js";
-import { claimInboundEvent, confirmInboundEvent, releaseInboundEvent } from "./inbound-event-dedupe.js";
+} from "./active-reply-runs.ts";
+import { guardInternalReplyText } from "./reply-text-guard.ts";
+import { isRetryableGuardedReply, resolveUpstreamRetryDelayMs, resolveUpstreamRetryPolicy } from "./upstream-retry.ts";
+import { getAibotRuntime } from "./runtime.ts";
+import { claimInboundEvent, confirmInboundEvent, releaseInboundEvent } from "./inbound-event-dedupe.ts";
 import { handleStableLocalActionWithCoreRuntime } from "./local-actions.ts";
-import { enqueueRevokeSystemEvent } from "./revoke-event.js";
-import { shouldTreatDispatchAsRespondedWithoutVisibleOutput } from "./reply-dispatch-outcome.js";
-import { consumeSilentUnsendCompleted } from "./silent-unsend-completion.js";
+import { enqueueRevokeSystemEvent } from "./revoke-event.ts";
+import { shouldTreatDispatchAsRespondedWithoutVisibleOutput } from "./reply-dispatch-outcome.ts";
+import { consumeSilentUnsendCompleted } from "./silent-unsend-completion.ts";
 import { shouldSkipFinalReplyAfterStreamedBlock } from "./final-streamed-reply-policy.ts";
 import { deliverAibotPayload } from "./aibot-payload-delivery.ts";
 import { buildAibotOutboundExtra, detectAibotStructuredCardKind } from "./outbound-structured-card.ts";
@@ -32,9 +32,9 @@ import {
   persistPendingInboundEvent,
   type PendingInboundEventHandle,
 } from "./inbound-event-recovery.ts";
-import { resolveGrixInboundSemantics } from "./group-semantics.js";
+import { resolveGrixInboundSemantics } from "./group-semantics.ts";
 import { buildGrixInboundHistory } from "./inbound-history.ts";
-import { buildInboundMediaFields, buildInboundThreadFields } from "./inbound-openclaw-fields.js";
+import { buildInboundMediaFields, buildInboundThreadFields } from "./inbound-openclaw-fields.ts";
 import {
   type AppendOnlyReplyStream,
   buildPartialReplyClientMsgId,

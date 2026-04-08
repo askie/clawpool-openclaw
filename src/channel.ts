@@ -9,20 +9,20 @@ import type {
   OpenClawConfig,
 } from "openclaw/plugin-sdk/core";
 import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "./account-id.ts";
-import { aibotMessageActions } from "./actions.js";
-import { resolveAibotAccount, listAibotAccountIds, resolveDefaultAibotAccountId, normalizeAibotSessionTarget, redactAibotWsUrl } from "./accounts.js";
-import { grixExecApprovalAdapter } from "./channel-exec-approvals.js";
-import { getActiveAibotClient, requireActiveAibotClient } from "./client.js";
-import { monitorAibotProvider } from "./monitor.js";
+import { aibotMessageActions } from "./actions.ts";
+import { resolveAibotAccount, listAibotAccountIds, resolveDefaultAibotAccountId, normalizeAibotSessionTarget, redactAibotWsUrl } from "./accounts.ts";
+import { grixExecApprovalAdapter } from "./channel-exec-approvals.ts";
+import { getActiveAibotClient, requireActiveAibotClient } from "./client.ts";
+import { monitorAibotProvider } from "./monitor.ts";
 import { buildAibotOutboundExtra, detectAibotStructuredCardKind } from "./outbound-structured-card.ts";
-import { DEFAULT_OUTBOUND_TEXT_CHUNK_LIMIT } from "./protocol-text.js";
-import { applySetupAccountConfig, resolveSetupValues } from "./setup-config.js";
+import { DEFAULT_OUTBOUND_TEXT_CHUNK_LIMIT } from "./protocol-text.ts";
+import { applySetupAccountConfig, resolveSetupValues } from "./setup-config.ts";
 import {
   applyAccountNameToChannelSection,
   deleteAccountFromConfigSection,
   setAccountEnabledInConfigSection,
-} from "./openclaw-compat.js";
-import { resolveAibotOutboundTarget } from "./target-resolver.js";
+} from "./openclaw-compat.ts";
+import { resolveAibotOutboundTarget } from "./target-resolver.ts";
 import { deliverAibotPayload } from "./aibot-payload-delivery.ts";
 import type { AibotConfig, ResolvedAibotAccount } from "./types.js";
 

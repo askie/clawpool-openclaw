@@ -4,7 +4,7 @@ import { buildAibotTextSendPlan } from "./outbound-text-delivery-plan.ts";
 import {
   resolveOutboundTextChunkLimit,
   splitTextForAibotProtocol,
-} from "./protocol-text.js";
+} from "./protocol-text.ts";
 import type { AibotSendAckPayload, ResolvedAibotAccount } from "./types.js";
 
 type StatusSink = (patch: { lastOutboundAt?: number; lastError?: string | null }) => void;
