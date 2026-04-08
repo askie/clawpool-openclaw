@@ -1084,9 +1084,15 @@ export async function monitorAibotProvider(options: AibotMonitorOptions): Promis
           account,
           config,
         });
-        runtime.log(
-          `[grix:${account.accountId}] inbound revoke sessionId=${revokeEvent.sessionId} messageSid=${revokeEvent.messageId} routeSessionKey=${revokeEvent.sessionKey}`,
-        );
+        if (revokeEvent.enqueued) {
+          runtime.log(
+            `[grix:${account.accountId}] inbound revoke sessionId=${revokeEvent.sessionId} messageSid=${revokeEvent.messageId} routeSessionKey=${revokeEvent.sessionKey}`,
+          );
+        } else {
+          runtime.log(
+            `[grix:${account.accountId}] inbound revoke skipped sessionId=${revokeEvent.sessionId} messageSid=${revokeEvent.messageId} reason=missing_system_event`,
+          );
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         runtime.error(`[grix:${account.accountId}] process revoke event failed: ${msg}`);

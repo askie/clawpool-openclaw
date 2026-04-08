@@ -55,6 +55,10 @@ test("enqueueRevokeSystemEvent routes revoke to the matched OpenClaw session", (
       msg_id: "18889990099",
       sender_id: "9001",
       is_revoked: true,
+      system_event: {
+        text: "Grix direct message deleted [session_id=u_1001_u_2001 msg_id=18889990099 sender_id=9001]",
+        context_key: "grix:revoke:u_1001_u_2001:18889990099",
+      },
     },
   });
 
@@ -63,6 +67,7 @@ test("enqueueRevokeSystemEvent routes revoke to the matched OpenClaw session", (
     sessionId: "u_1001_u_2001",
     sessionKey: "agent:main:grix:direct:u_1001_u_2001",
     text: "Grix direct message deleted [session_id=u_1001_u_2001 msg_id=18889990099 sender_id=9001]",
+    enqueued: true,
   });
   assert.deepEqual(received, {
     text: "Grix direct message deleted [session_id=u_1001_u_2001 msg_id=18889990099 sender_id=9001]",
@@ -73,7 +78,41 @@ test("enqueueRevokeSystemEvent routes revoke to the matched OpenClaw session", (
   });
 });
 
-test("enqueueRevokeSystemEvent rejects revoke payloads without session_type", () => {
+test("enqueueRevokeSystemEvent skips when backend did not provide a system event", () => {
+  const core = {
+    channel: {
+      routing: {
+        resolveAgentRoute: () => {
+          throw new Error("should not reach routing");
+        },
+      },
+    },
+    system: {
+      enqueueSystemEvent: () => true,
+    },
+  } as unknown as PluginRuntime;
+
+  assert.deepEqual(
+    enqueueRevokeSystemEvent({
+      core,
+      account: makeAccount(),
+      config: {} as OpenClawConfig,
+      event: {
+        session_id: "u_1001_u_2001",
+        session_type: Number.NaN,
+        msg_id: "18889990099",
+      },
+    }),
+    {
+      messageId: "18889990099",
+      sessionId: "u_1001_u_2001",
+      text: "",
+      enqueued: false,
+    },
+  );
+});
+
+test("enqueueRevokeSystemEvent still validates session_type when a system event is present", () => {
   const core = {
     channel: {
       routing: {
@@ -97,6 +136,9 @@ test("enqueueRevokeSystemEvent rejects revoke payloads without session_type", ()
           session_id: "u_1001_u_2001",
           session_type: Number.NaN,
           msg_id: "18889990099",
+          system_event: {
+            text: "Grix direct message deleted [session_id=u_1001_u_2001 msg_id=18889990099]",
+          },
         },
       }),
     /unsupported session_type/,

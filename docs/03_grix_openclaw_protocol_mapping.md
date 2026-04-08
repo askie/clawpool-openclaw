@@ -83,7 +83,7 @@
 |---|---|---|---|
 | `event_msg` | `src/monitor.ts` `processEvent(...)` | 组装 `ctxPayload`，写入会话上下文，调用 OpenClaw 回复分发 | 先 `event_ack`，结束后 `event_result` |
 | `event_stop` | `src/monitor.ts` `handleEventStop(...)` | 中止当前 reply run | 先 `event_stop_ack`，结束后 `event_stop_result` |
-| `event_revoke` | `src/monitor.ts` `onEventRevoke` | 转成 OpenClaw 侧撤回系统事件 | `event_ack` |
+| `event_revoke` | `src/monitor.ts` `onEventRevoke` | 若 payload 附带 `system_event`，则按后端给定文本写入 OpenClaw 侧系统事件 | `event_ack` |
 | `event_react` | `src/client.ts` 回调透出 | 目前只保留入口，没有继续翻成插件业务动作 | 无专门回包 |
 | `local_action` | `src/monitor.ts` `handleStableLocalAction(...)` | 执行 backend 下发的稳定本地动作（如审批） | `local_action_result` |
 

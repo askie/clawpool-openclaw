@@ -18,8 +18,9 @@ function resolveChatType(sessionType: number): "direct" | "group" {
 export type RevokeSystemEventResult = {
   messageId: string;
   sessionId: string;
-  sessionKey: string;
+  sessionKey?: string;
   text: string;
+  enqueued: boolean;
 };
 
 export function enqueueRevokeSystemEvent(params: {
@@ -30,15 +31,24 @@ export function enqueueRevokeSystemEvent(params: {
 }): RevokeSystemEventResult {
   const sessionId = toStringId(params.event.session_id);
   const messageId = toStringId(params.event.msg_id);
-  const senderId = toStringId(params.event.sender_id);
-  const sessionType = Number(params.event.session_type);
+  const systemEventText = toStringId(params.event.system_event?.text);
+  const systemEventContextKey = toStringId(params.event.system_event?.context_key);
 
   if (!sessionId || !messageId) {
     throw new Error(
       `invalid event_revoke payload: session_id=${sessionId || "<empty>"} msg_id=${messageId || "<empty>"}`,
     );
   }
+  if (!systemEventText) {
+    return {
+      messageId,
+      sessionId,
+      text: "",
+      enqueued: false,
+    };
+  }
 
+  const sessionType = Number(params.event.session_type);
   const chatType = resolveChatType(sessionType);
   const route = params.core.channel.routing.resolveAgentRoute({
     cfg: params.config,
@@ -49,21 +59,17 @@ export function enqueueRevokeSystemEvent(params: {
       id: sessionId,
     },
   });
-  const metadataParts = [`session_id=${sessionId}`, `msg_id=${messageId}`];
-  if (senderId) {
-    metadataParts.push(`sender_id=${senderId}`);
-  }
-  const text = `Grix ${chatType} message deleted [${metadataParts.join(" ")}]`;
 
-  params.core.system.enqueueSystemEvent(text, {
+  params.core.system.enqueueSystemEvent(systemEventText, {
     sessionKey: route.sessionKey,
-    contextKey: `grix:revoke:${sessionId}:${messageId}`,
+    contextKey: systemEventContextKey || undefined,
   });
 
   return {
     messageId,
     sessionId,
     sessionKey: route.sessionKey,
-    text,
+    text: systemEventText,
+    enqueued: true,
   };
 }

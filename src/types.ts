@@ -51,6 +51,10 @@ export type AibotEventRevokePayload = {
   msg_id: string | number;
   sender_id?: string | number;
   is_revoked?: boolean;
+  system_event?: {
+    text?: string;
+    context_key?: string;
+  };
   created_at?: number;
 };
 
