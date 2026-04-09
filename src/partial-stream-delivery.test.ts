@@ -107,3 +107,73 @@ test("createAppendOnlyReplyStream streams snapshot deltas into one client messag
     },
   ]);
 });
+
+test("createAppendOnlyReplyStream serializes concurrent snapshots to keep chunk order append-only", async () => {
+  const calls: Array<{
+    delta: string;
+    isFinish: boolean;
+    clientMsgId: string;
+    chunkSeq: number;
+  }> = [];
+  let sendCount = 0;
+  const stream = createAppendOnlyReplyStream({
+    client: {
+      sendStreamChunk: async (_sessionId, deltaContent, opts) => {
+        sendCount += 1;
+        calls.push({
+          delta: deltaContent,
+          isFinish: opts.isFinish === true,
+          clientMsgId: opts.clientMsgId,
+          chunkSeq: opts.chunkSeq,
+        });
+        if (sendCount === 1) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+      },
+    },
+    sessionId: "sess-concurrent",
+    eventId: "evt-concurrent",
+    clientMsgId: "reply_concurrent_stream",
+    chunkChars: 4,
+    chunkDelayMs: 0,
+    finishDelayMs: 0,
+  });
+
+  const first = stream.pushSnapshot("abcdefghijk");
+  const second = stream.pushSnapshot("abcdefghijkXYZ");
+  await Promise.all([first, second]);
+  await stream.finish();
+
+  assert.deepEqual(calls, [
+    {
+      delta: "abcd",
+      isFinish: false,
+      clientMsgId: "reply_concurrent_stream",
+      chunkSeq: 1,
+    },
+    {
+      delta: "efgh",
+      isFinish: false,
+      clientMsgId: "reply_concurrent_stream",
+      chunkSeq: 2,
+    },
+    {
+      delta: "ijk",
+      isFinish: false,
+      clientMsgId: "reply_concurrent_stream",
+      chunkSeq: 3,
+    },
+    {
+      delta: "XYZ",
+      isFinish: false,
+      clientMsgId: "reply_concurrent_stream",
+      chunkSeq: 4,
+    },
+    {
+      delta: "",
+      isFinish: true,
+      clientMsgId: "reply_concurrent_stream",
+      chunkSeq: 5,
+    },
+  ]);
+});

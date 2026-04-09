@@ -661,6 +661,10 @@ export class AibotWsClient {
       }
     }
 
+    this.logInfo(
+      `stream chunk outbound sessionId=${sessionId} clientMsgId=${opts.clientMsgId} chunkSeq=${opts.chunkSeq} deltaLen=${normalizedDeltaContent.length} isFinish=${opts.isFinish === true}`,
+    );
+
     if (opts.isFinish) {
       const packet = await this.request("client_stream_chunk", payload, {
         expected: ["send_ack", "send_nack", "error"],

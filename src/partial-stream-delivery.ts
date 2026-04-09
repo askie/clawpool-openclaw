@@ -144,6 +144,13 @@ export function createAppendOnlyReplyStream(params: {
   let visibleText = false;
   let finished = false;
   let nextChunkSeq = 1;
+  let operationQueue: Promise<void> = Promise.resolve();
+
+  const runSerialized = <T>(operation: () => Promise<T>): Promise<T> => {
+    const task = operationQueue.then(operation, operation);
+    operationQueue = task.then(() => undefined, () => undefined);
+    return task;
+  };
 
   const sendDelta = async (delta: string): Promise<boolean> => {
     const chunks = splitTextForAibotProtocol(delta, params.chunkChars);
@@ -159,15 +166,16 @@ export function createAppendOnlyReplyStream(params: {
         continue;
       }
 
+      const chunkSeq = nextChunkSeq;
+      nextChunkSeq += 1;
       await params.client.sendStreamChunk(params.sessionId, chunk, {
         eventId: params.eventId,
         clientMsgId: params.clientMsgId,
-        chunkSeq: nextChunkSeq,
+        chunkSeq,
         quotedMessageId: params.quotedMessageId,
         threadId: params.threadId,
         isFinish: false,
       });
-      nextChunkSeq += 1;
       visibleText = true;
       sent = true;
       params.onSent?.();
@@ -180,7 +188,7 @@ export function createAppendOnlyReplyStream(params: {
     return sent;
   };
 
-  const pushSnapshot = async (text: string): Promise<boolean> => {
+  const pushSnapshotInternal = async (text: string): Promise<boolean> => {
     if (finished) {
       return false;
     }
@@ -208,41 +216,46 @@ export function createAppendOnlyReplyStream(params: {
     isFinished(): boolean {
       return finished;
     },
-    pushSnapshot,
+    pushSnapshot(text: string): Promise<boolean> {
+      return runSerialized(() => pushSnapshotInternal(text));
+    },
     async finish(finalText = ""): Promise<boolean> {
-      if (finished) {
-        return visibleText;
-      }
-
-      if (finalText) {
-        await pushSnapshot(finalText);
-      }
-
-      if (!visibleText) {
-        return false;
-      }
-
-      finished = true;
-
-      try {
-        if (params.finishDelayMs > 0 && !params.abortSignal?.aborted) {
-          await sleep(params.finishDelayMs);
+      return runSerialized(async () => {
+        if (finished) {
+          return visibleText;
         }
-        await params.client.sendStreamChunk(params.sessionId, "", {
-          eventId: params.eventId,
-          clientMsgId: params.clientMsgId,
-          chunkSeq: nextChunkSeq,
-          quotedMessageId: params.quotedMessageId,
-          threadId: params.threadId,
-          isFinish: true,
-        });
-        nextChunkSeq += 1;
-        params.onSent?.();
-      } catch (error) {
-        params.onFinishError?.(error);
-      }
 
-      return visibleText;
+        if (finalText) {
+          await pushSnapshotInternal(finalText);
+        }
+
+        if (!visibleText) {
+          return false;
+        }
+
+        finished = true;
+
+        try {
+          if (params.finishDelayMs > 0 && !params.abortSignal?.aborted) {
+            await sleep(params.finishDelayMs);
+          }
+          const chunkSeq = nextChunkSeq;
+          nextChunkSeq += 1;
+          await params.client.sendStreamChunk(params.sessionId, "", {
+            eventId: params.eventId,
+            clientMsgId: params.clientMsgId,
+            chunkSeq,
+            quotedMessageId: params.quotedMessageId,
+            threadId: params.threadId,
+            isFinish: true,
+          });
+          params.onSent?.();
+        } catch (error) {
+          params.onFinishError?.(error);
+        }
+
+        return visibleText;
+      });
     },
   };
 }
