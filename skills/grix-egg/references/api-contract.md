@@ -46,5 +46,5 @@ Local OpenClaw binding remains a local CLI operation via the official `openclaw`
 1. Scope/auth/parameter errors: no automatic retry.
 2. Transient network failure: at most one retry, and only after explicit confirmation.
 3. Pagination is not a retry: `grix_query` can continue with additional pages when the current page is insufficient.
-4. Installation status payloads (`channelData.grix.eggInstall`) must still be emitted on terminal success/failure.
-5. On terminal success, emit one additional agent profile payload (`channelData.grix.userProfile`) for the final target agent before sending the plain-language next-step guidance.
+4. Installation status cards must be emitted as standalone `grix://card/egg_install_status` links on terminal success/failure.
+5. On terminal success, emit one additional standalone `grix://card/user_profile` link for the final target agent before sending the plain-language next-step guidance.

@@ -112,20 +112,20 @@ to=e72ce987-2d2e-40ed-bcc9-b336b4974512
 
 ## 会话卡片消息协议
 
-当消息内容是在**提醒用户打开某个群聊**、**打开某个私聊对话**、**引用某个具体对话记录入口**时，如果已经拿到了准确的 `session_id`，不要发送自然语言链接，也不要发送前端内部 JSON；必须发送显式的 `conversation-card` 指令文本，由前端统一解析并渲染为可点击的会话卡片。
+当消息内容是在**提醒用户打开某个群聊**、**打开某个私聊对话**、**引用某个具体对话记录入口**时，如果已经拿到了准确的 `session_id`，不要发送自然语言链接，也不要发送前端内部 JSON；必须发送独立的 `grix://card/conversation` Markdown 链接，由前端统一解析并渲染为可点击的会话卡片。
 
 ### 标准格式
 
 群聊：
 
 ```text
-[[conversation-card|session_id=<SESSION_ID>|session_type=group|title=<GROUP_TITLE>]]
+[打开群聊](grix://card/conversation?session_id=<SESSION_ID>&session_type=group&title=<URI_ENCODED_GROUP_TITLE>)
 ```
 
 私聊：
 
 ```text
-[[conversation-card|session_id=<SESSION_ID>|session_type=private|title=<CHAT_TITLE>|peer_id=<PEER_ID>]]
+[打开对话](grix://card/conversation?session_id=<SESSION_ID>&session_type=private&title=<URI_ENCODED_CHAT_TITLE>&peer_id=<URI_ENCODED_PEER_ID>)
 ```
 
 ### 字段规则
@@ -137,48 +137,48 @@ to=e72ce987-2d2e-40ed-bcc9-b336b4974512
 
 ### 编码规则
 
-为了避免标题里出现 `|`、`=`、`]`、空格、换行或其他保留字符导致前端解析失败，`conversation-card` 的字段值应按 URI component 规则编码后再写入指令。
+为了避免标题、昵称、URL 等字段里的空格、换行或保留字符破坏链接，query 参数值应按 URI component 规则编码后再写入 `grix://card` 链接。
 
 - 推荐：对 `title`、`peer_id`、以及未来可能扩展的文本字段统一做 URI component 编码
 - `session_id` 和 `session_type` 如果本身只包含安全字符，可以直接原样输出
-- 前端会按 URI component 解码后再渲染
+- 链接文本是给用户看的普通文案，不需要做 URI 编码
 
 示例：
 
 ```text
-[[conversation-card|session_id=session-9|session_type=group|title=%E4%BA%A7%E5%93%81%E8%AE%A8%E8%AE%BA%E7%BE%A4%20A]]
+[打开群聊](grix://card/conversation?session_id=session-9&session_type=group&title=%E4%BA%A7%E5%93%81%E8%AE%A8%E8%AE%BA%E7%BE%A4%20A)
 ```
 
 ### 使用要求
 
-1. 只有在**已知准确 `session_id`** 时，才允许输出 `conversation-card`
+1. 只有在**已知准确 `session_id`** 时，才允许输出会话卡片
 2. 如果没有 `session_id`，只能发送普通文本说明，不能伪造会话卡片
 3. 不要输出 `chat://...`、网页链接、或“点这里打开会话”之类的自然语言链接替代方案
 4. 不要构造前端内部 `biz_card` JSON，也不要尝试发送 Flutter/前端私有协议结构
-5. `conversation-card` 指令本体必须单行，不要在指令内部换行
-6. 默认建议把会话卡片单独作为一条消息发送，最稳也最容易复用
-7. 如果确实需要把说明和卡片放在同一条消息里，可以在卡片前后加少量普通文字；前端会保留普通文字并渲染其中**第一张**会话卡片
-8. 同一条消息里不要放多张 `conversation-card`；需要多个跳转入口时，分多条消息发送
-9. 如果字段值包含特殊字符，先做 URI component 编码，再拼进指令文本
+5. `grix://card/conversation` 链接必须单行，且必须单独作为一条消息发送
+6. 如果还要补说明，说明文字和卡片分两条消息发送；不要把说明和卡片混在同一条里
+7. 同一条消息里不要放多张卡片；需要多个跳转入口时，分多条消息发送
+8. 如果字段值包含特殊字符，先做 URI component 编码，再拼进链接
 
 ### 示例
 
 示例 1：提醒用户进入群聊
 
 ```text
-[[conversation-card|session_id=9d6a4b1d-5d37-4e38-ae6a-0c12a2c4c901|session_type=group|title=产品群]]
+[打开产品群](grix://card/conversation?session_id=9d6a4b1d-5d37-4e38-ae6a-0c12a2c4c901&session_type=group&title=%E4%BA%A7%E5%93%81%E7%BE%A4)
 ```
 
 示例 2：提醒用户进入某个私聊
 
 ```text
-[[conversation-card|session_id=e72ce987-2d2e-40ed-bcc9-b336b4974512|session_type=private|title=Alice|peer_id=1001]]
+[打开 Alice 对话](grix://card/conversation?session_id=e72ce987-2d2e-40ed-bcc9-b336b4974512&session_type=private&title=Alice&peer_id=1001)
 ```
 
-示例 3：同一条消息里带一句说明文字再附会话卡片
+示例 3：带说明时分两条发送
 
 ```text
-测试群已经建好，你点下面这张卡片就能直接进去。[[conversation-card|session_id=0fa947bd-bb4e-46ad-8308-5526bc98e002|session_type=group|title=%E6%B5%8B%E8%AF%95%E7%BE%A4]]
+消息 1：测试群已经建好，你看下一条卡片就能直接进去。
+消息 2：[打开测试群](grix://card/conversation?session_id=0fa947bd-bb4e-46ad-8308-5526bc98e002&session_type=group&title=%E6%B5%8B%E8%AF%95%E7%BE%A4)
 ```
 
 ## 错误处理

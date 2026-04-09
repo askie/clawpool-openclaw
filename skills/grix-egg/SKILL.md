@@ -30,10 +30,10 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 3. `openclaw_create_new` 时，优先使用 `install.suggested_agent_name` 作为新 OpenClaw agent 的默认短名字；若缺失，再按 egg 标题或 egg ID 自行取一个简短名字继续创建，不要回头追问用户命名和用途。
 4. `openclaw_existing` / `claude_existing` 时，只能操作上下文里指定的目标 agent，不要私自换目标；如果目标已经明确，就直接继续，不要重复确认。
 5. 安装过程中，每完成一个关键动作就用自然语言回报一次进度。
-6. `openclaw_create_new` 路线在"远端 agent 创建完成"后，必须额外发送一条 `status=running`、`step=agent_created` 的**独立结构化安装状态消息**。
-7. 在"包下载完成"和"安装内容落位完成待校验"两个节点，各额外发送一条 `status=running` 的**独立结构化安装状态消息**。
-8. 最终成功或失败时，必须发送一条 `status=success` 或 `status=failed` 的**独立结构化安装状态消息**。
-9. 安装成功后，必须再单独发送一条目标 agent 的**结构化资料卡消息**，并且 `peer_type=2`。
+6. `openclaw_create_new` 路线在"远端 agent 创建完成"后，必须额外发送一条 `status=running`、`step=agent_created` 的**独立安装状态卡链接**。
+7. 在"包下载完成"和"安装内容落位完成待校验"两个节点，各额外发送一条 `status=running` 的**独立安装状态卡链接**。
+8. 最终成功或失败时，必须发送一条 `status=success` 或 `status=failed` 的**独立安装状态卡链接**。
+9. 安装成功后，必须再单独发送一条目标 agent 的**资料卡链接**，并且 `peer_type=2`。
 10. 发送完资料卡后，再发一条普通文字，明确告诉用户可以点开资料卡查看 agent 资料，并从资料页继续与它对话。
 11. 如果本次安装产出了新的目标 agent，资料卡和基础指引发完后，要主动询问用户是否需要立刻拉一个测试群做身份验收。
 12. 用户同意拉群测试时，必须由当前主 agent 新建测试群，并把主 agent、当前私聊里的主人、刚安装出的目标 agent 一起拉进群。
@@ -60,25 +60,25 @@ description: 在虾塘触发的安装私聊中处理 egg 安装。适用于主 O
 - 安装私聊进行中时，禁止主动执行 `openclaw gateway restart`；本流程涉及的本地 OpenClaw 配置必须通过官方 CLI 写入：`channels.grix.accounts.<agent_name>`、`agents.list`、`tools.*` 继续使用 `openclaw config set`，Grix 绑定使用 `openclaw agents bind`；禁止调用会直接改 `openclaw.json` 的脚本，也不要手工编辑 JSON。先写配置并完成校验；只有在安装已经成功、流程进入拉群验收、并且确认配置正确但运行态仍然是旧结果时，才允许用官方命令 `openclaw gateway restart` 做一次定向补救。
 - 对 `@dhf-openclaw/grix` 的安装，安装成功后还必须确保存在一个自动更新 cron 任务，定期执行 `grix-update`；优先复用同名任务 `grix auto update`，避免重复创建。
 - 对 `@dhf-openclaw/grix` 的安装，自动更新 cron 不是“提醒项”，而是安装完成条件的一部分；在实际执行 `openclaw cron add` 或 `openclaw cron edit` 并确认任务存在之前，不得宣称安装完成。
-- 最终成功或失败时，必须发送一条独立的结构化安装状态消息。
-- 安装成功后，必须按顺序继续发送：目标 agent 的结构化资料卡消息，然后再发一条普通文字的下一步指引。
+- 最终成功或失败时，必须发送一条独立的 `grix://card` 安装状态卡链接。
+- 安装成功后，必须按顺序继续发送：目标 agent 的 `grix://card` 资料卡链接，然后再发一条普通文字的下一步指引。
 - 如果本次安装产出了新的目标 agent，发完资料卡和基础指引后，要继续询问用户是否需要拉群测试；用户同意才执行，拒绝则结束，不要强行建群。
 - 拉群测试由主 agent 主持，不能让用户自己去设计测试话术；主 agent 必须亲自 `@` 新 agent 发起第一轮身份确认。
 - 测试群至少包含 3 个成员：主 agent、当前私聊里的主人、目标 agent；缺任何一个都不算完成验收。
 - 只要测试回答明显偏离 egg 人设，就视为安装验收未通过；不要把“渠道刚同步”“再聊聊看”当成最终结果。
 - 发现回答异常时，优先检查并修复目标 agent 对应的渠道账号、绑定关系、agent 列表和安装内容；确认本地配置已正确但运行态仍然是旧结果时，才可以把“重启 gateway”当成定向补救手段，并且补救后必须重新进群验证。
-- 结构化安装状态消息必须单独发送，不要和自然语言解释混在同一条里。
-- 用户拒绝确认或主动取消时，必须发送 `status=failed`、`error_code=user_cancelled` 的结构化状态消息后再结束。
+- 安装状态卡链接必须单独发送，不要和自然语言解释混在同一条里。
+- 用户拒绝确认或主动取消时，必须发送 `status=failed`、`error_code=user_cancelled` 的安装状态卡链接后再结束。
 
-## 安装状态消息（OpenClaw ReplyPayload 风格）
+## 安装状态卡链接（grix://card 协议）
 
-server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败"，你必须单独发送一条**单行 JSON**，格式参考 OpenClaw 的 ReplyPayload：
+server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败"，你必须单独发送一条**单行 Markdown 链接**，href 使用 `grix://card/egg_install_status`：
 
-```json
-{"text":"<给用户看的摘要>","channelData":{"grix":{"eggInstall":{"install_id":"<INSTALL_ID>","status":"<running|success|failed>","step":"<STEP>","summary":"<与 text 一致或更精确的摘要>"}}}}
+```text
+[<给用户看的摘要>](grix://card/egg_install_status?install_id=<INSTALL_ID>&status=<running|success|failed>&step=<STEP>&summary=<URI_ENCODED_SUMMARY>)
 ```
 
-常用可选字段：
+常用可选 query 参数：
 
 - `target_agent_id`：成功时尽量带上，尤其是 `create_new`。
 - `detail_text`：补充更长说明。
@@ -89,29 +89,29 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 
 1. `install_id` 必须使用上下文里的原值。
 2. `status` 只能是 `running`、`success`、`failed`。
-3. `text` 必须是给用户看的简短摘要；`summary` 应与 `text` 一致，或在不冲突的前提下更精确。
-4. 不要做 URI 编码；直接输出合法 JSON 字符串。
+3. 链接文本必须是给用户看的简短摘要；`summary` 应与链接文本一致，或在不冲突的前提下更精确。
+4. `summary`、`detail_text`、`error_msg` 等文本型 query 参数必须按 URI component 规则编码后再写进链接。
 5. 这条消息只负责状态收口；如果要跟用户解释原因，另发一条正常文字消息。
-6. 顶层只放 `text` 和 `channelData`，不要自己拼前端内部 `biz_card`。
-7. 这条 JSON 必须单独发送，不要前后夹带自然语言。
+6. 只发送这条 `grix://card` 链接，不要自己拼 JSON、`channelData`、`biz_card` 或其他私有结构。
+7. 这条链接必须单独发送，不要前后夹带自然语言。
 8. `openclaw_create_new` 成功时，必须尽量带 `target_agent_id`，否则 server 可能无法通过最终校验。
 9. 如果上下文缺少 `install.route` 但仍有 `install.mode` 和目标 agent 信息，先按上下文能明确推出的路线执行；若仍有歧义，先在当前私聊里确认，再继续。
 
-## Agent 资料卡消息（OpenClaw ReplyPayload 风格）
+## Agent 资料卡链接（grix://card 协议）
 
-安装成功后，必须再单独发送一条 agent 资料卡消息，格式如下：
+安装成功后，必须再单独发送一条 agent 资料卡链接，格式如下：
 
-```json
-{"text":"查看 Agent 资料","channelData":{"grix":{"userProfile":{"user_id":"<TARGET_AGENT_ID>","peer_type":2,"nickname":"<AGENT_NAME>","avatar_url":"<可选>"}}}}
+```text
+[查看 Agent 资料](grix://card/user_profile?user_id=<TARGET_AGENT_ID>&peer_type=2&nickname=<URI_ENCODED_AGENT_NAME>&avatar_url=<URI_ENCODED_AVATAR_URL>)
 ```
 
 规则：
 
 1. `user_id` 必须使用最终目标 agent 的 ID。
 2. `peer_type` 必须固定为 `2`。
-3. `nickname` 必须使用目标 agent 的显示名称。
-4. `avatar_url` 有就带，没有可以省略。
-5. 这条 JSON 也必须单独发送，不要和解释文字混在一起。
+3. `nickname` 必须使用目标 agent 的显示名称，并按 URI component 规则编码后再写进链接。
+4. `avatar_url` 有就带，没有就直接省略整个 query 参数；如果带上，也要先做 URI component 编码。
+5. 这条链接也必须单独发送，不要和解释文字混在一起。
 6. 发完资料卡后，再补一条普通文字，告诉用户可以点开资料卡查看资料，并从资料页继续与该 agent 对话。
 
 ## 统一 API 请求机制
@@ -135,23 +135,23 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 ### `openclaw_create_new` / `openclaw_existing`
 
 1. 读取上下文，确认 route 是 `openclaw_create_new` 还是 `openclaw_existing`。
-2. 如果 route=`openclaw_create_new`，直接使用 `install.suggested_agent_name` 作为默认短名字；若缺失，再按 egg 标题或 egg ID 自行取一个简短名字继续。只有名字或目标信息真的缺失、冲突或执行被阻塞时，才向用户确认；**用户主动取消时发 `failed/user_cancelled` 结构化状态消息后结束**。
+2. 如果 route=`openclaw_create_new`，直接使用 `install.suggested_agent_name` 作为默认短名字；若缺失，再按 egg 标题或 egg ID 自行取一个简短名字继续。只有名字或目标信息真的缺失、冲突或执行被阻塞时，才向用户确认；**用户主动取消时发 `failed/user_cancelled` 安装状态卡链接后结束**。
 3. 如果 route=`openclaw_existing`，直接使用 `install.target_agent_id` 指定的目标 agent 继续，不要重复确认目标。
 4. 如果 route=`openclaw_create_new`，先检查上下文是否已经给出远端 agent 的 `agent_id`、`api_endpoint`、`api_key`。
    - 已给出：直接继续，不要重复创建。
    - 未给出：如果当前主 agent 有可用主通道和 `agent.api.create` 权限，先通过 `grix_admin` 做一次远端创建，再把返回结果里的 `createdAgent.id`、`createdAgent.agent_name`、`createdAgent.api_endpoint`、`createdAgent.api_key` 接到后续本地安装。
    - 只有当前执行器没有权限，或当前上下文无法安全调用 `grix_admin` 时，才退回 backend admin 创建路径。
    - persona 文件只安装到 `workspace` 根目录，不要装到 `agentDir`。
-5. 如果 route=`openclaw_create_new` 且远端 agent 已创建成功，立即发送 `status=running`、`step=agent_created` 结构化状态消息。
+5. 如果 route=`openclaw_create_new` 且远端 agent 已创建成功，立即发送 `status=running`、`step=agent_created` 安装状态卡链接。
 6. 用 OpenClaw 正规步骤准备本地目标目录和配置。
 7. 下载 persona/openclaw 包，并校验 hash / manifest（如果上下文提供）。
-8. 发送 `status=running`、`step=downloaded` 结构化状态消息。
+8. 发送 `status=running`、`step=downloaded` 安装状态卡链接。
 9. 安装 persona/openclaw 内容到 `workspace` 根目录。
    - 把 persona 包内容解压或写入 `<workspace>/`，例如 `~/.openclaw/workspace-<agent_name>/`
    - `IDENTITY.md`、`SOUL.md`、`AGENTS.md` 必须落在这个 `workspace` 根目录
    - `USER.md` / `MEMORY.md` 如包内提供，也放在这个 `workspace` 根目录
    - 不要解压到 `agentDir`；`agentDir` 由 OpenClaw 自动管理运行状态
-10. 发送 `status=running`、`step=installed` 结构化状态消息。
+10. 发送 `status=running`、`step=installed` 安装状态卡链接。
 11. 先用 `openclaw config get --json` 读取当前 `channels.grix.accounts`、`agents.list`、`tools.profile`、`tools.alsoAllow`、`tools.sessions.visibility`；若个别路径不存在，按空对象 / 空数组处理，在现有值基础上合并本次目标项，不要覆盖掉其他已有配置；如果需要确认已有 Grix 绑定，额外用 `openclaw agents bindings --agent <agent_name> --json` 查看当前绑定列表。
 12. 用官方 CLI 逐项写入本地变更，推荐顺序如下：
     - `openclaw config set channels.grix.accounts.<agent_name> '<ACCOUNT_JSON>' --strict-json`
@@ -163,15 +163,15 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
     - 不要调用 `grix_agent_bind.py`，也不要直接编辑 `~/.openclaw/openclaw.json`
 13. 执行 `openclaw config validate`，再用 `openclaw config get --json` 检查刚写入的 account / agent / tools 都已存在且值正确，并用 `openclaw agents bindings --agent <agent_name> --json` 确认目标绑定已经存在。
 14. 校验目标 agent 仍然可用。
-    - 任一 `openclaw config get` / `set` / `validate` 失败 → 尝试回滚（含步骤4新建的远端 agent），无法回滚则如实告知残留状态 → 发 `failed` 结构化状态消息后结束。
-    - 其他校验失败 → 尝试回滚（含步骤4新建的远端 agent），无法回滚则如实告知残留状态 → 发 `failed` 结构化状态消息后结束。
-15. 发送 `status=success` 结构化状态消息（带 `target_agent_id`）。
-16. 单独发送目标 agent 的结构化资料卡消息。
+    - 任一 `openclaw config get` / `set` / `validate` 失败 → 尝试回滚（含步骤4新建的远端 agent），无法回滚则如实告知残留状态 → 发 `failed` 安装状态卡链接后结束。
+    - 其他校验失败 → 尝试回滚（含步骤4新建的远端 agent），无法回滚则如实告知残留状态 → 发 `failed` 安装状态卡链接后结束。
+15. 发送 `status=success` 安装状态卡链接（带 `target_agent_id`）。
+16. 单独发送目标 agent 的资料卡链接。
 17. 再发一条普通文字，告诉用户可以点开资料卡查看 agent 资料，并从资料页继续与它对话。
 18. 如果 route=`openclaw_create_new`，紧接着主动问用户是否需要现在就拉一个测试群，帮他当场验收这个新 agent；用户明确拒绝则结束。
 19. 用户同意后，用 `grix_group` 创建测试群。构造 `memberIds` / `memberTypes` 时，只传已经确认好的 Grix 成员：当前私聊里的主人用 `memberType=1`，步骤15里的目标 agent 用 `memberType=2`。不要把本地 `main_agent` 值直接塞进 `memberIds`；当前主 agent 作为建群执行器本身应通过当前账号上下文参与，若 API 侧还要求额外显式传入，也必须先拿到它对应的 Grix 数字成员 ID 后再传。
 20. 创建成功后，先保存 `grix_group` 返回的准确 `session_id`，后续所有发往测试群的消息都必须使用这个 `session_id` 作为消息目标，不要继续使用当前私聊的会话目标；如果没有拿到准确 `session_id`，先不要继续群测。
-21. 在当前私聊里同步一次测试群已建好；如果已经拿到准确 `session_id`，可额外发送会话卡片帮助用户进入测试群。会话卡片一律按 `message-send` 里的 `conversation-card` 协议发送：默认单独一条最稳，也允许和一句简短说明同发，但一条消息只放一张会话卡片。
+21. 在当前私聊里同步一次测试群已建好；如果已经拿到准确 `session_id`，可额外发送会话卡片帮助用户进入测试群。会话卡片一律按 `message-send` 里的 `grix://card/conversation` 协议发送，并且必须单独一条发送；如果还要补说明，另发普通文字。
 22. 主 agent 进入测试群后，先主动 `@` 目标 agent，发送一条明确的身份确认消息，例如“@xxx 你是谁？请介绍一下你自己。”这条测试消息的 `to` 必须使用步骤20保存的测试群 `session_id`。
 23. 判断这次回答是否通过：
     - 通过：回答内容与 egg 的人设、名字、定位、说话风格基本一致，没有明显串成其他 agent、默认助手或空白身份。
@@ -226,24 +226,24 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 
 ### `claude_existing`
 
-1. 确认上下文 route 为 `claude_existing`，且指定的 Claude 目标 agent 存在；**不存在则发 `failed/target_not_found` 结构化状态消息后结束**。
-2. 直接使用 `install.target_agent_id` 指定的 Claude 目标 agent 继续安装，不要重复确认目标；只有目标信息缺失、冲突或执行被阻塞时，才向用户确认。**用户主动取消时发 `failed/user_cancelled` 结构化状态消息后结束**。
+1. 确认上下文 route 为 `claude_existing`，且指定的 Claude 目标 agent 存在；**不存在则发 `failed/target_not_found` 安装状态卡链接后结束**。
+2. 直接使用 `install.target_agent_id` 指定的 Claude 目标 agent 继续安装，不要重复确认目标；只有目标信息缺失、冲突或执行被阻塞时，才向用户确认。**用户主动取消时发 `failed/user_cancelled` 安装状态卡链接后结束**。
 3. 下载 skill 包，并校验 hash / manifest（如果上下文提供）。
-4. 发送 `status=running`、`step=downloaded` 结构化状态消息。
+4. 发送 `status=running`、`step=downloaded` 安装状态卡链接。
 5. 用 Claude 正规步骤安装 skill 包。
-6. 发送 `status=running`、`step=installed` 结构化状态消息。
+6. 发送 `status=running`、`step=installed` 安装状态卡链接。
 7. 如需写 OpenClaw 配置，先 `openclaw config get --json` 读取当前值，再用 `openclaw config set ... --strict-json` 写回；不要调用 `grix_agent_bind.py`，也不要直接编辑 `~/.openclaw/openclaw.json`。
 8. 如果写了 OpenClaw 配置，执行 `openclaw config validate`，并用 `openclaw config get --json` 检查目标项已存在；若涉及工具权限，同步检查 `tools.profile`、`tools.alsoAllow`、`tools.sessions.visibility`；不要在安装对话中执行 `openclaw gateway restart`。
 9. 校验目标 agent 仍然可用。
-    - 任一配置写入或校验失败 → 如实告知用户 → 发 `failed` 结构化状态消息后结束。
-    - 其他校验失败 → 如实告知用户 → 发 `failed` 结构化状态消息后结束。
-10. 发送 `status=success` 结构化状态消息（带 `target_agent_id`）。
-11. 单独发送目标 agent 的结构化资料卡消息。
+    - 任一配置写入或校验失败 → 如实告知用户 → 发 `failed` 安装状态卡链接后结束。
+    - 其他校验失败 → 如实告知用户 → 发 `failed` 安装状态卡链接后结束。
+10. 发送 `status=success` 安装状态卡链接（带 `target_agent_id`）。
+11. 单独发送目标 agent 的资料卡链接。
 12. 再发一条普通文字，告诉用户可以点开资料卡查看 agent 资料，并从资料页继续与它对话。
 
 ## 安装后的可选拉群验收
 
-这一步是安装成功后的补充验收，不替代前面的安装状态消息、资料卡和基础成功提示。
+这一步是安装成功后的补充验收，不替代前面的安装状态卡、资料卡和基础成功提示。
 
 ### 什么时候要问
 
@@ -288,7 +288,7 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 ### 收口方式
 
 1. 测试通过后，在私聊里明确告诉用户：已经拉群验收通过，现在他也可以自己继续问这个 agent 了。
-2. 如果创建了测试群且拿到了准确 `session_id`，可以补一张测试群会话卡片，方便用户直接点进去继续聊。发送格式沿用 `message-send` 的 `conversation-card` 规则：默认单独一条最稳，也可和一句简短说明同发，但不要在一条消息里塞多张会话卡片。
+2. 如果创建了测试群且拿到了准确 `session_id`，可以补一张测试群会话卡片，方便用户直接点进去继续聊。发送格式沿用 `message-send` 的 `grix://card/conversation` 规则：卡片必须单独一条发送，不要和说明文字混在一起，也不要在一条消息里塞多张卡片。
 3. 如果用户拒绝拉群测试，正常结束安装单，不要把拒绝测试说成失败。
 
 ## 每次安装至少校验这些点
@@ -309,50 +309,50 @@ server 不会猜自然语言。要让安装单进入"进行中 / 成功 / 失败
 
 进行中（远端 agent 创建完成）：
 
-```json
-{"text":"已创建远端 Agent","channelData":{"grix":{"eggInstall":{"install_id":"eggins_20370001","status":"running","step":"agent_created","summary":"已创建远端 Agent"}}}}
+```text
+[已创建远端 Agent](grix://card/egg_install_status?install_id=eggins_20370001&status=running&step=agent_created&summary=%E5%B7%B2%E5%88%9B%E5%BB%BA%E8%BF%9C%E7%AB%AF%20Agent)
 ```
 
 进行中（下载完成）：
 
-```json
-{"text":"已下载并验证安装包","channelData":{"grix":{"eggInstall":{"install_id":"eggins_20370001","status":"running","step":"downloaded","summary":"已下载并验证安装包"}}}}
+```text
+[已下载并验证安装包](grix://card/egg_install_status?install_id=eggins_20370001&status=running&step=downloaded&summary=%E5%B7%B2%E4%B8%8B%E8%BD%BD%E5%B9%B6%E9%AA%8C%E8%AF%81%E5%AE%89%E8%A3%85%E5%8C%85)
 ```
 
 进行中（安装落位完成）：
 
-```json
-{"text":"安装内容已落位，校验中","channelData":{"grix":{"eggInstall":{"install_id":"eggins_20370001","status":"running","step":"installed","summary":"安装内容已落位，校验中"}}}}
+```text
+[安装内容已落位，校验中](grix://card/egg_install_status?install_id=eggins_20370001&status=running&step=installed&summary=%E5%AE%89%E8%A3%85%E5%86%85%E5%AE%B9%E5%B7%B2%E8%90%BD%E4%BD%8D%EF%BC%8C%E6%A0%A1%E9%AA%8C%E4%B8%AD)
 ```
 
 成功：
 
-```json
-{"text":"已完成安装","channelData":{"grix":{"eggInstall":{"install_id":"eggins_20370001","status":"success","step":"completed","target_agent_id":"2035123456789012345","summary":"已完成安装"}}}}
+```text
+[已完成安装](grix://card/egg_install_status?install_id=eggins_20370001&status=success&step=completed&target_agent_id=2035123456789012345&summary=%E5%B7%B2%E5%AE%8C%E6%88%90%E5%AE%89%E8%A3%85)
 ```
 
 成功后的资料卡：
 
-```json
-{"text":"查看 Agent 资料","channelData":{"grix":{"userProfile":{"user_id":"2035123456789012345","peer_type":2,"nickname":"writer-openclaw"}}}}
+```text
+[查看 Agent 资料](grix://card/user_profile?user_id=2035123456789012345&peer_type=2&nickname=writer-openclaw)
 ```
 
 失败（用户取消）：
 
-```json
-{"text":"用户取消安装","channelData":{"grix":{"eggInstall":{"install_id":"eggins_20370001","status":"failed","step":"user_cancelled","error_code":"user_cancelled","summary":"用户取消安装"}}}}
+```text
+[用户取消安装](grix://card/egg_install_status?install_id=eggins_20370001&status=failed&step=user_cancelled&error_code=user_cancelled&summary=%E7%94%A8%E6%88%B7%E5%8F%96%E6%B6%88%E5%AE%89%E8%A3%85)
 ```
 
 失败（目标不存在）：
 
-```json
-{"text":"安装失败","channelData":{"grix":{"eggInstall":{"install_id":"eggins_20370001","status":"failed","step":"target_not_found","error_code":"target_not_found","error_msg":"指定的 Claude agent 不存在","summary":"安装失败"}}}}
+```text
+[安装失败](grix://card/egg_install_status?install_id=eggins_20370001&status=failed&step=target_not_found&error_code=target_not_found&error_msg=%E6%8C%87%E5%AE%9A%E7%9A%84%20Claude%20agent%20%E4%B8%8D%E5%AD%98%E5%9C%A8&summary=%E5%AE%89%E8%A3%85%E5%A4%B1%E8%B4%A5)
 ```
 
 失败（下载失败）：
 
-```json
-{"text":"安装失败","channelData":{"grix":{"eggInstall":{"install_id":"eggins_20370001","status":"failed","step":"download_failed","error_code":"download_failed","error_msg":"下载安装包失败","summary":"安装失败"}}}}
+```text
+[安装失败](grix://card/egg_install_status?install_id=eggins_20370001&status=failed&step=download_failed&error_code=download_failed&error_msg=%E4%B8%8B%E8%BD%BD%E5%AE%89%E8%A3%85%E5%8C%85%E5%A4%B1%E8%B4%A5&summary=%E5%AE%89%E8%A3%85%E5%A4%B1%E8%B4%A5)
 ```
 
 ## 回复风格
