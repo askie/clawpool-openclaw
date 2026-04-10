@@ -45,6 +45,7 @@ export type AibotMediaAttachmentPayload = {
 export type AibotEventMsgPayload = {
   event_id?: string;
   event_type?: AibotEventType;
+  mirror_mode?: "record_only" | "record_and_process" | string;
   agent_id?: string | number;
   owner_id?: string | number;
   session_id: string;

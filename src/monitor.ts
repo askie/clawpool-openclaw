@@ -309,6 +309,14 @@ function handleEventStop(params: {
   );
 }
 
+function resolveMirrorMode(value: unknown): "record_only" | "record_and_process" {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (normalized === "record_only") {
+    return "record_only";
+  }
+  return "record_and_process";
+}
+
 async function processEvent(params: {
   event: AibotEventMsgPayload;
   account: ResolvedAibotAccount;
@@ -340,6 +348,8 @@ async function processEvent(params: {
   const eventId = toStringId(event.event_id);
   const quotedMessageId = normalizeNumericMessageId(event.quoted_message_id);
   const bodyForAgent = rawBody;
+  const mirrorMode = resolveMirrorMode(event.mirror_mode);
+  const recordOnly = mirrorMode === "record_only";
 
   const senderId = toStringId(event.sender_id);
   const semantics = resolveGrixInboundSemantics(event);
@@ -396,7 +406,7 @@ async function processEvent(params: {
     return;
   }
   runtime.log(
-    `[grix:${account.accountId}] inbound event ${baseLogContext} chatType=${chatType} eventType=${semantics.eventType || "-"} wasMentioned=${semantics.wasMentioned ? "true" : "false"} mentionsOther=${semantics.mentionsOther ? "true" : "false"} bodyLen=${rawBody.length} attachmentCount=${inboundMediaFields.attachmentCount} quotedMessageId=${quotedMessageId || "-"} threadId=${inboundThreadFields.MessageThreadId ?? "-"}`,
+    `[grix:${account.accountId}] inbound event ${baseLogContext} chatType=${chatType} eventType=${semantics.eventType || "-"} mirrorMode=${mirrorMode} wasMentioned=${semantics.wasMentioned ? "true" : "false"} mentionsOther=${semantics.mentionsOther ? "true" : "false"} bodyLen=${rawBody.length} attachmentCount=${inboundMediaFields.attachmentCount} quotedMessageId=${quotedMessageId || "-"} threadId=${inboundThreadFields.MessageThreadId ?? "-"}`,
   );
 
   if (!recoveryHandle) {
@@ -543,6 +553,14 @@ async function processEvent(params: {
       statusSink: statusSink ? (patch) => statusSink({ lastError: patch.lastError }) : undefined,
     });
     await acceptInboundEvent();
+    if (recordOnly) {
+      runtime.log(
+        `[grix:${account.accountId}] recorded inbound event without dispatch ${baseLogContext}`,
+      );
+      eventResultDelivered = true;
+      terminalCompletionRecorded = true;
+      return;
+    }
 
     // Outbound replies should anchor to the trigger message itself.
     const outboundQuotedMessageId = normalizeNumericMessageId(event.msg_id);
