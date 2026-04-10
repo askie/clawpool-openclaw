@@ -2,6 +2,7 @@
  * @layer core - Delegates long-form skill workflows through runtime subagent runs.
  */
 
+import { createHash } from "node:crypto";
 import type { AnyAgentTool, OpenClawPluginApi, OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import { jsonToolResult } from "../admin/json-result.ts";
 
@@ -72,6 +73,24 @@ function buildSkillTaskMessage(params: {
   ].join("\n");
 }
 
+function buildInternalIdempotencyKey(params: {
+  spec: DelegatedSkillToolSpec;
+  toolCallId: string;
+  subagentSessionKey: string;
+  task: string;
+}): string {
+  const digest = createHash("sha256")
+    .update(params.spec.name)
+    .update("\n")
+    .update(params.toolCallId)
+    .update("\n")
+    .update(params.subagentSessionKey)
+    .update("\n")
+    .update(params.task)
+    .digest("hex");
+  return `plugin:${params.spec.name}:subagent:${digest}`;
+}
+
 export function createDelegatedSkillTool(params: {
   spec: DelegatedSkillToolSpec;
   api: OpenClawPluginApi;
@@ -84,7 +103,7 @@ export function createDelegatedSkillTool(params: {
     label: spec.label,
     description: spec.description,
     parameters: DelegatedSkillToolSchema,
-    async execute(_toolCallId: string, rawParams: Record<string, unknown>) {
+    async execute(toolCallId: string, rawParams: Record<string, unknown>) {
       try {
         const task = normalizeNonEmptyString(rawParams.task);
         if (!task) {
@@ -110,11 +129,18 @@ export function createDelegatedSkillTool(params: {
             task,
           })
           : buildSkillTaskMessage({ spec, task });
+        const idempotencyKey = buildInternalIdempotencyKey({
+          spec,
+          toolCallId,
+          subagentSessionKey,
+          task,
+        });
 
         const runResult = await api.runtime.subagent.run({
           sessionKey: subagentSessionKey,
           message: runMessage,
           deliver,
+          idempotencyKey,
         });
         const waitResult = await api.runtime.subagent.waitForRun({
           runId: runResult.runId,

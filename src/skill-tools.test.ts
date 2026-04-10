@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import plugin from "../index.ts";
@@ -69,52 +72,170 @@ test("plugin registers all grix tools as optional plugin tools", () => {
 });
 
 test("grix_update delegated tool runs corresponding skill through subagent runtime", async () => {
-  let runArgs: Record<string, unknown> | null = null;
-  let waitArgs: Record<string, unknown> | null = null;
-  let sessionArgs: Record<string, unknown> | null = null;
+  const tempDir = await mkdtemp(join(tmpdir(), "grix-update-lock-"));
+  try {
+    const lockFilePath = join(tempDir, "grix-update.lock");
+    let runArgs: Record<string, unknown> | null = null;
+    let waitArgs: Record<string, unknown> | null = null;
+    let sessionArgs: Record<string, unknown> | null = null;
 
-  const api = {
-    runtime: {
-      subagent: {
-        async run(args: Record<string, unknown>) {
-          runArgs = args;
-          return { runId: "run_001" };
-        },
-        async waitForRun(args: Record<string, unknown>) {
-          waitArgs = args;
-          return { status: "ok" as const };
-        },
-        async getSessionMessages(args: Record<string, unknown>) {
-          sessionArgs = args;
-          return { messages: [{ role: "assistant", content: "done" }] };
-        },
-        async deleteSession() {
-          return;
+    const api = {
+      runtime: {
+        subagent: {
+          async run(args: Record<string, unknown>) {
+            runArgs = args;
+            return { runId: "run_001" };
+          },
+          async waitForRun(args: Record<string, unknown>) {
+            waitArgs = args;
+            return { status: "ok" as const };
+          },
+          async getSessionMessages(args: Record<string, unknown>) {
+            sessionArgs = args;
+            return { messages: [{ role: "assistant", content: "done" }] };
+          },
+          async deleteSession() {
+            return;
+          },
         },
       },
-    },
-    config: {},
-  } as never;
+      config: {},
+    } as never;
 
-  const tool = createGrixUpdateTool(api, { sessionKey: "agent:main:chat" } as never);
-  const result = await tool.execute("tool_call_1", {
-    task: "check and apply grix update",
-    timeoutMs: 30_000,
-    resultLimit: 5,
-  });
+    const tool = createGrixUpdateTool(
+      api,
+      { sessionKey: "agent:main:chat" } as never,
+      { lockFilePath },
+    );
+    const result = await tool.execute("tool_call_1", {
+      task: "check and apply grix update",
+      timeoutMs: 30_000,
+      resultLimit: 5,
+    });
 
-  assert.equal(runArgs?.sessionKey, "agent:main:chat:skill:grix-update");
-  assert.equal(typeof runArgs?.message, "string");
-  assert.match(String(runArgs?.message), /Use the grix-update skill/i);
-  assert.equal(waitArgs?.runId, "run_001");
-  assert.equal(waitArgs?.timeoutMs, 30_000);
-  assert.equal(sessionArgs?.sessionKey, "agent:main:chat:skill:grix-update");
-  assert.equal(sessionArgs?.limit, 5);
+    assert.equal(runArgs?.sessionKey, "agent:main:chat:skill:grix-update");
+    assert.equal(typeof runArgs?.message, "string");
+    assert.match(String(runArgs?.message), /Use the grix-update skill/i);
+    assert.equal(typeof runArgs?.idempotencyKey, "string");
+    assert.match(String(runArgs?.idempotencyKey), /^plugin:grix_update:subagent:/i);
+    assert.equal(waitArgs?.runId, "run_001");
+    assert.equal(waitArgs?.timeoutMs, 30_000);
+    assert.equal(sessionArgs?.sessionKey, "agent:main:chat:skill:grix-update");
+    assert.equal(sessionArgs?.limit, 5);
 
-  const details = result.details as Record<string, unknown>;
-  assert.equal(details.ok, true);
-  assert.equal(details.status, "ok");
-  assert.equal(details.runId, "run_001");
+    const details = result.details as Record<string, unknown>;
+    assert.equal(details.ok, true);
+    assert.equal(details.status, "ok");
+    assert.equal(details.runId, "run_001");
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("grix_update skips delegated run when the temporary lock is still fresh", async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), "grix-update-lock-"));
+  try {
+    const lockFilePath = join(tempDir, "grix-update.lock");
+    await writeFile(
+      lockFilePath,
+      `${JSON.stringify({ createdAt: 10_000, expiresAt: 610_000 })}\n`,
+      "utf8",
+    );
+
+    let runCalled = false;
+    const api = {
+      runtime: {
+        subagent: {
+          async run() {
+            runCalled = true;
+            return { runId: "run_should_not_happen" };
+          },
+          async waitForRun() {
+            return { status: "ok" as const };
+          },
+          async getSessionMessages() {
+            return { messages: [] as unknown[] };
+          },
+          async deleteSession() {
+            return;
+          },
+        },
+      },
+      config: {},
+    } as never;
+
+    const tool = createGrixUpdateTool(
+      api,
+      { sessionKey: "agent:main:chat" } as never,
+      { lockFilePath, now: () => 30_000 },
+    );
+    const result = await tool.execute("tool_call_lock_skip", {
+      task: "check and apply grix update",
+    });
+    const details = result.details as Record<string, unknown>;
+
+    assert.equal(runCalled, false);
+    assert.equal(details.ok, true);
+    assert.equal(details.status, "skipped");
+    assert.equal(details.skipped, true);
+    assert.equal(details.reason, "duplicate_suppressed");
+    assert.match(String(details.message), /recent update request already covered this run/i);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("grix_update replaces an expired temporary lock before delegated run", async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), "grix-update-lock-"));
+  try {
+    const lockFilePath = join(tempDir, "grix-update.lock");
+    await writeFile(
+      lockFilePath,
+      `${JSON.stringify({ createdAt: 1_000, expiresAt: 2_000 })}\n`,
+      "utf8",
+    );
+
+    let runArgs: Record<string, unknown> | null = null;
+    const api = {
+      runtime: {
+        subagent: {
+          async run(args: Record<string, unknown>) {
+            runArgs = args;
+            return { runId: "run_after_expired_lock" };
+          },
+          async waitForRun() {
+            return { status: "ok" as const };
+          },
+          async getSessionMessages() {
+            return { messages: [] as unknown[] };
+          },
+          async deleteSession() {
+            return;
+          },
+        },
+      },
+      config: {},
+    } as never;
+
+    const tool = createGrixUpdateTool(
+      api,
+      { sessionKey: "agent:main:chat" } as never,
+      { lockFilePath, now: () => 10_000 },
+    );
+    const result = await tool.execute("tool_call_lock_refresh", {
+      task: "check and apply grix update",
+    });
+    const details = result.details as Record<string, unknown>;
+    const persistedLock = JSON.parse(await readFile(lockFilePath, "utf8")) as Record<string, number>;
+
+    assert.equal(runArgs?.sessionKey, "agent:main:chat:skill:grix-update");
+    assert.equal(details.ok, true);
+    assert.equal(details.status, "ok");
+    assert.equal(persistedLock.createdAt, 10_000);
+    assert.equal(persistedLock.expiresAt, 610_000);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
 });
 
 test("grix_admin delegated tool uses the single tool name and direct-create guidance", async () => {
