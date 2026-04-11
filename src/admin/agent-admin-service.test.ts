@@ -82,6 +82,269 @@ test("runGrixAdminCreateAgentAction propagates ws permission failures", async ()
   );
 });
 
+test("runGrixAdminCreateAgentAction assigns an existing category id after create", async () => {
+  const calls: Array<{ action: string; params: Record<string, unknown> }> = [];
+
+  const result = await runGrixAdminCreateAgentAction({
+    cfg: buildCfg(),
+    toolParams: {
+      accountId: "default",
+      agentName: "ops helper",
+      categoryId: "20001",
+    },
+    _client: mockClient(async (action, params) => {
+      calls.push({ action, params });
+      if (action === "agent_api_create") {
+        return {
+          id: "2029786829095440384",
+          agent_name: "ops helper",
+          provider_type: 3,
+          api_endpoint: "wss://grix.example.com/v1/agent-api/ws?agent_id=2029786829095440384",
+          api_key: "ak_2029786829095440384_secret",
+        };
+      }
+      if (action === "agent_category_assign") {
+        return { success: true };
+      }
+      throw new Error(`unexpected action: ${action}`);
+    }),
+  });
+
+  assert.deepEqual(calls, [
+    {
+      action: "agent_api_create",
+      params: {
+        agent_name: "ops helper",
+      },
+    },
+    {
+      action: "agent_category_assign",
+      params: {
+        agent_id: "2029786829095440384",
+        category_id: "20001",
+      },
+    },
+  ]);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.categoryBinding, {
+    mode: "existing_id",
+    category: undefined,
+    assignment: {
+      agent_id: "2029786829095440384",
+      category_id: "20001",
+    },
+  });
+});
+
+test("runGrixAdminCreateAgentAction reuses an existing category by name and parent", async () => {
+  const calls: Array<{ action: string; params: Record<string, unknown> }> = [];
+
+  const result = await runGrixAdminCreateAgentAction({
+    cfg: buildCfg(),
+    toolParams: {
+      accountId: "default",
+      agentName: "ops helper",
+      categoryName: "项目助理",
+      parentCategoryId: "0",
+    },
+    _client: mockClient(async (action, params) => {
+      calls.push({ action, params });
+      if (action === "agent_category_list") {
+        return {
+          categories: [
+            { id: "20001", name: "项目助理", parent_id: "0" },
+            { id: "20002", name: "项目助理", parent_id: "9" },
+          ],
+        };
+      }
+      if (action === "agent_api_create") {
+        return {
+          id: "2029786829095440384",
+          agent_name: "ops helper",
+          provider_type: 3,
+          api_endpoint: "wss://grix.example.com/v1/agent-api/ws?agent_id=2029786829095440384",
+          api_key: "ak_2029786829095440384_secret",
+        };
+      }
+      if (action === "agent_category_assign") {
+        return { success: true };
+      }
+      throw new Error(`unexpected action: ${action}`);
+    }),
+  });
+
+  assert.deepEqual(calls, [
+    {
+      action: "agent_category_list",
+      params: {},
+    },
+    {
+      action: "agent_api_create",
+      params: {
+        agent_name: "ops helper",
+      },
+    },
+    {
+      action: "agent_category_assign",
+      params: {
+        agent_id: "2029786829095440384",
+        category_id: "20001",
+      },
+    },
+  ]);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.categoryBinding, {
+    mode: "existing_name",
+    category: {
+      id: "20001",
+      name: "项目助理",
+      parent_id: "0",
+    },
+    assignment: {
+      agent_id: "2029786829095440384",
+      category_id: "20001",
+    },
+  });
+});
+
+test("runGrixAdminCreateAgentAction creates a missing category and assigns it", async () => {
+  const calls: Array<{ action: string; params: Record<string, unknown> }> = [];
+
+  const result = await runGrixAdminCreateAgentAction({
+    cfg: buildCfg(),
+    toolParams: {
+      accountId: "default",
+      agentName: "ops helper",
+      categoryName: "项目助理",
+      parentCategoryId: "0",
+      categorySortOrder: 10,
+    },
+    _client: mockClient(async (action, params) => {
+      calls.push({ action, params });
+      if (action === "agent_category_list") {
+        return { categories: [] };
+      }
+      if (action === "agent_api_create") {
+        return {
+          id: "2029786829095440384",
+          agent_name: "ops helper",
+          provider_type: 3,
+          api_endpoint: "wss://grix.example.com/v1/agent-api/ws?agent_id=2029786829095440384",
+          api_key: "ak_2029786829095440384_secret",
+        };
+      }
+      if (action === "agent_category_create") {
+        return {
+          id: "20003",
+          name: "项目助理",
+          parent_id: "0",
+          sort_order: 10,
+        };
+      }
+      if (action === "agent_category_assign") {
+        return { success: true };
+      }
+      throw new Error(`unexpected action: ${action}`);
+    }),
+  });
+
+  assert.deepEqual(calls, [
+    {
+      action: "agent_category_list",
+      params: {},
+    },
+    {
+      action: "agent_api_create",
+      params: {
+        agent_name: "ops helper",
+      },
+    },
+    {
+      action: "agent_category_create",
+      params: {
+        name: "项目助理",
+        parent_id: "0",
+        sort_order: 10,
+      },
+    },
+    {
+      action: "agent_category_assign",
+      params: {
+        agent_id: "2029786829095440384",
+        category_id: "20003",
+      },
+    },
+  ]);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.categoryBinding, {
+    mode: "created_name",
+    category: {
+      id: "20003",
+      name: "项目助理",
+      parent_id: "0",
+      sort_order: 10,
+    },
+    assignment: {
+      agent_id: "2029786829095440384",
+      category_id: "20003",
+    },
+  });
+});
+
+test("runGrixAdminCreateAgentAction rejects conflicting category selectors", async () => {
+  await assert.rejects(
+    runGrixAdminCreateAgentAction({
+      cfg: buildCfg(),
+      toolParams: {
+        accountId: "default",
+        agentName: "ops helper",
+        categoryId: "20001",
+        categoryName: "项目助理",
+      },
+      _client: mockClient(async () => {
+        throw new Error("should not be called");
+      }),
+    }),
+    /cannot accept both categoryId and categoryName/i,
+  );
+});
+
+test("runGrixAdminCreateAgentAction rejects duplicate category names under the same parent before create", async () => {
+  const calls: Array<{ action: string; params: Record<string, unknown> }> = [];
+
+  await assert.rejects(
+    runGrixAdminCreateAgentAction({
+      cfg: buildCfg(),
+      toolParams: {
+        accountId: "default",
+        agentName: "ops helper",
+        categoryName: "项目助理",
+        parentCategoryId: "0",
+      },
+      _client: mockClient(async (action, params) => {
+        calls.push({ action, params });
+        if (action === "agent_category_list") {
+          return {
+            categories: [
+              { id: "20001", name: "项目助理", parent_id: "0" },
+              { id: "20002", name: "项目助理", parent_id: "0" },
+            ],
+          };
+        }
+        throw new Error(`unexpected action: ${action}`);
+      }),
+    }),
+    /multiple categories named/i,
+  );
+
+  assert.deepEqual(calls, [
+    {
+      action: "agent_category_list",
+      params: {},
+    },
+  ]);
+});
+
 test("runGrixAdminDirectAction lists categories over agentInvoke", async () => {
   let capturedAction = "";
   let capturedParams: Record<string, unknown> = {};

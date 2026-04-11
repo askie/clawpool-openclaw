@@ -27,7 +27,10 @@
   "accountId": "grix-main",
   "agentName": "ops helper",
   "introduction": "负责发布和值班协作",
-  "isMain": false
+  "isMain": false,
+  "categoryName": "项目助理",
+  "parentCategoryId": "0",
+  "categorySortOrder": 10
 }
 ```
 
@@ -41,6 +44,8 @@
 需要的 scope：
 
 1. `agent.api.create`
+2. 如果带 `categoryName`，还可能继续需要 `agent.category.list`、`agent.category.create`、`agent.category.assign`
+3. 如果带 `categoryId`，还需要 `agent.category.assign`
 
 ### 2. List Categories
 
@@ -168,12 +173,14 @@
 
 这个模式里要按顺序做：
 
-1. 直连一次 `action=create_agent`
-2. 如果给了 `categoryId`，直连一次 `action=assign_category`
-3. 如果给了 `categoryName`，先 `action=list_categories`
-4. 没找到就 `action=create_category`
-5. 拿到分类 ID 后再 `action=assign_category`
-6. 最后走和 `bind-local` 相同的本地绑定流程
+1. 优先直连一次 `action=create_agent`，并把可选的 `categoryId` / `categoryName` / `parentCategoryId` / `categorySortOrder` 一并传入
+2. 若当前返回里已经带上分类挂载结果，直接继续
+3. 若调用方走的是旧路径，或当前返回里没有分类挂载结果，再补走：
+   - `categoryId` -> `action=assign_category`
+   - `categoryName` -> `action=list_categories`
+   - 没找到 -> `action=create_category`
+   - 拿到分类 ID 后 -> `action=assign_category`
+4. 最后走和 `bind-local` 相同的本地绑定流程
 
 注意：
 

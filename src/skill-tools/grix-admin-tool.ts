@@ -31,6 +31,10 @@ export const GrixAdminToolSchema = {
         agentName: { type: "string", minLength: 1, maxLength: 100 },
         introduction: { type: "string", maxLength: 300 },
         isMain: { type: "boolean" },
+        categoryId: positiveNumericIdSchema,
+        categoryName: { type: "string", minLength: 1, maxLength: 100 },
+        parentCategoryId: rootableNumericIdSchema,
+        categorySortOrder: { type: "integer" },
       },
       required: ["accountId", "agentName"],
     },
@@ -43,6 +47,10 @@ export const GrixAdminToolSchema = {
         agentName: { type: "string", minLength: 1, maxLength: 100 },
         introduction: { type: "string", maxLength: 300 },
         isMain: { type: "boolean" },
+        categoryId: positiveNumericIdSchema,
+        categoryName: { type: "string", minLength: 1, maxLength: 100 },
+        parentCategoryId: rootableNumericIdSchema,
+        categorySortOrder: { type: "integer" },
       },
       required: ["action", "accountId", "agentName"],
     },
@@ -100,6 +108,10 @@ function hasCreateAgentInput(params: Record<string, unknown>): boolean {
     || Object.hasOwn(params, "agentName")
     || Object.hasOwn(params, "introduction")
     || Object.hasOwn(params, "isMain")
+    || Object.hasOwn(params, "categoryId")
+    || Object.hasOwn(params, "categoryName")
+    || Object.hasOwn(params, "parentCategoryId")
+    || Object.hasOwn(params, "categorySortOrder")
   );
 }
 
@@ -125,7 +137,7 @@ function buildGrixAdminTaskMessage(task: string): string {
     "Use the grix-admin skill to complete the request below.",
     "Do not call the grix_admin tool again with a task from this delegated run.",
     "If the workflow needs remote API agent creation or category management, call grix_admin directly without task for that step.",
-    "Direct actions: create_agent(accountId, agentName, optional introduction/isMain), list_categories(accountId), create_category(accountId, name, parentId, optional sortOrder), update_category(accountId, categoryId, name, parentId, optional sortOrder), assign_category(accountId, agentId, categoryId; use 0 to clear).",
+    "Direct actions: create_agent(accountId, agentName, optional introduction/isMain/categoryId/categoryName/parentCategoryId/categorySortOrder), list_categories(accountId), create_category(accountId, name, parentId, optional sortOrder), update_category(accountId, categoryId, name, parentId, optional sortOrder), assign_category(accountId, agentId, categoryId; use 0 to clear).",
     `Request: ${task}`,
   ].join("\n");
 }

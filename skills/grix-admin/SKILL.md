@@ -27,7 +27,9 @@ description: 负责 OpenClaw 本地配置与绑定；可通过当前 agent 的 W
 
 1. `action=create_agent`
    - 必填：`accountId`、`agentName`
-   - 可选：`introduction`、`isMain`
+   - 可选：`introduction`、`isMain`、`categoryId`、`categoryName`、`parentCategoryId`、`categorySortOrder`
+   - `categoryId` 和 `categoryName` 不能同时提供
+   - 给 `categoryName` 时，会先按 `parentCategoryId` 查重；找不到再创建并挂载
 2. `action=list_categories`
    - 必填：`accountId`
 3. `action=create_category`
@@ -114,19 +116,18 @@ description: 负责 OpenClaw 本地配置与绑定；可通过当前 agent 的 W
 
 1. 先确认本地已经存在可用的 `channels.grix.accounts.<accountId>`，而且当前会话实际绑定的也是这个账号；禁止跨账号执行。
 2. 如果同时给了 `categoryId` 和 `categoryName`，直接报错并停止，避免歧义。
-3. 通过 `grix_admin` 只调用一次远端创建，调用时传：
+3. 通过 `grix_admin` 只调用一次 `action=create_agent`，把远端创建和可选分类都交给它处理；调用时传：
    - `action=create_agent`
    - `accountId`
    - `agentName`
    - 可选 `introduction`
    - 可选 `isMain`
+   - 可选 `categoryId`
+   - 可选 `categoryName`
+   - 可选 `parentCategoryId`
+   - 可选 `categorySortOrder`
 4. 远端创建成功后，读取返回结果里的 `createdAgent.id`、`createdAgent.agent_name`、`createdAgent.api_endpoint`、`createdAgent.api_key`。
-5. 如果请求里带了分类信息，再执行分类阶段：
-   - 已给 `categoryId`：直接调用 `action=assign_category`
-   - 已给 `categoryName`：先调用 `action=list_categories`
-   - 若在同一个 `parentCategoryId` 下找到唯一同名分类，复用它
-   - 若没找到，再调用 `action=create_category`
-   - 得到分类 ID 后，再调用 `action=assign_category`
+5. 如果请求里带了分类信息，检查返回里是否已经带上分类挂载结果；若没有，再按 `categoryId` / `categoryName` 规则继续补做并说明原因。
 6. `categoryName` 流程里，若同一父分类下出现多个完全同名分类，停止并要求 owner 先整理分类或改用明确的 `categoryId`。
 7. 远端创建和可选的分类阶段成功后，再立刻转入 `bind-local` 的本地绑定步骤。
 8. `isMain=true` 只在确实要创建新的主 API agent 时使用；一般后续新增 agent 默认不打开。

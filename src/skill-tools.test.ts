@@ -271,6 +271,7 @@ test("grix_admin delegated tool uses the single tool name and direct-create guid
   assert.match(String(runArgs?.message), /Do not call the grix_admin tool again with a task/i);
   assert.match(String(runArgs?.message), /call grix_admin directly without task/i);
   assert.match(String(runArgs?.message), /create_agent\(accountId, agentName/i);
+  assert.match(String(runArgs?.message), /categoryName\/parentCategoryId\/categorySortOrder/i);
   assert.match(String(runArgs?.message), /create_category\(accountId, name, parentId/i);
   assert.match(String(runArgs?.message), /assign_category\(accountId, agentId, categoryId/i);
 });
