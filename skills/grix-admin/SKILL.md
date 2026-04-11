@@ -1,19 +1,44 @@
 ---
 name: grix-admin
-description: 负责 OpenClaw 本地配置与绑定；可接收已有远端 agent 参数直接落地，也可在已有主通道与权限时通过当前 agent 的 WS 通道创建新的远端 API agent 后继续落地。
+description: 负责 OpenClaw 本地配置与绑定；可通过当前 agent 的 WS 通道创建新的远端 API agent，并支持查询、创建、修改 agent 分类和给 agent 挂分类，供创建和管理 agent 流程复用。
 ---
 
 # Grix Agent Admin
 
-`grix-admin` 负责两件事：
+`grix-admin` 负责三件事：
 
 1. 把已有远端 agent 参数落到本地 OpenClaw。
-2. 当当前主 agent 已经在线、并且具备 `agent.api.create` 权限时，通过 `grix_admin` 的远端创建参数走 WS 创建新的远端 API agent，再继续本地落地。
+2. 当当前主 agent 已经在线、并且具备对应 scope 时，通过 `grix_admin` 的直连动作创建新的远端 API agent，再继续本地落地。
+3. 在创建 agent 或后续管理 agent 时，复用 `grix_admin` 的直连动作查询分类、创建分类、修改分类、给 agent 挂分类。
 
 ## 进入方式
 
-1. 大多数情况下，从 `grix_admin` 的 `task` 入口进入本技能；`task` 里要明确写出 `bind-local` 或 `create-and-bind`，以及对应字段。
-2. 只有在本技能内部执行“远端 API agent 创建”这一步时，才直接调用一次 `grix_admin`，并且只传 `accountId`、`agentName`、可选 `introduction`、可选 `isMain`；不要混入 `task`。
+1. 大多数情况下，从 `grix_admin` 的 `task` 入口进入本技能；`task` 第一行必须明确写出 `bind-local`、`create-and-bind` 或 `category-manage`。
+2. 只有在本技能内部执行“远端 API agent 创建 / 分类查询 / 分类创建 / 分类修改 / 分类挂载”这些远端步骤时，才直接调用一次 `grix_admin`，并且不要再传 `task`。
+3. 新流程里，直接调用 `grix_admin` 时一律显式传 `action`：
+   - `create_agent`
+   - `list_categories`
+   - `create_category`
+   - `update_category`
+   - `assign_category`
+4. `create_agent` 的旧直连写法（只传 `accountId`、`agentName` 等字段，不传 `action`）仍可兼容，但新流程不要再使用。
+
+## 直连动作清单
+
+1. `action=create_agent`
+   - 必填：`accountId`、`agentName`
+   - 可选：`introduction`、`isMain`
+2. `action=list_categories`
+   - 必填：`accountId`
+3. `action=create_category`
+   - 必填：`accountId`、`name`、`parentId`
+   - 可选：`sortOrder`
+4. `action=update_category`
+   - 必填：`accountId`、`categoryId`、`name`、`parentId`
+   - 可选：`sortOrder`
+5. `action=assign_category`
+   - 必填：`accountId`、`agentId`、`categoryId`
+   - `categoryId=0` 表示清空分类
 
 ## Mode A: bind-local（来自 grix-register 的首次交接）
 
@@ -80,24 +105,70 @@ description: 负责 OpenClaw 本地配置与绑定；可接收已有远端 agent
 3. `agentName`（必填）
 4. `introduction`（可选）
 5. `isMain`（可选，默认 `false`）
+6. `categoryId`（可选）：把新 agent 直接挂到现有分类
+7. `categoryName`（可选）：如果不存在就创建后再挂载
+8. `parentCategoryId`（可选）：只在 `categoryName` 方案里使用，默认 `0`
+9. `categorySortOrder`（可选）：只在创建分类时使用
 
 执行规则：
 
 1. 先确认本地已经存在可用的 `channels.grix.accounts.<accountId>`，而且当前会话实际绑定的也是这个账号；禁止跨账号执行。
-2. 通过 `grix_admin` 只调用一次远端创建，调用时只传 `accountId`、`agentName`、可选 `introduction`、可选 `isMain`，不要传 `task`，禁止手写 HTTP / 临时脚本。
-3. 远端创建成功后，读取返回结果里的 `createdAgent.id`、`createdAgent.agent_name`、`createdAgent.api_endpoint`、`createdAgent.api_key`，然后立刻转入 `bind-local` 的本地绑定步骤。
-4. `isMain=true` 只在确实要创建新的主 API agent 时使用；一般后续新增 agent 默认不打开。
-5. 整个 `create-and-bind` 流程里不要主动执行 `openclaw gateway restart`；只有本地配置、校验都成功，但运行态仍明显是旧结果时，才把重启当成定向补救。
+2. 如果同时给了 `categoryId` 和 `categoryName`，直接报错并停止，避免歧义。
+3. 通过 `grix_admin` 只调用一次远端创建，调用时传：
+   - `action=create_agent`
+   - `accountId`
+   - `agentName`
+   - 可选 `introduction`
+   - 可选 `isMain`
+4. 远端创建成功后，读取返回结果里的 `createdAgent.id`、`createdAgent.agent_name`、`createdAgent.api_endpoint`、`createdAgent.api_key`。
+5. 如果请求里带了分类信息，再执行分类阶段：
+   - 已给 `categoryId`：直接调用 `action=assign_category`
+   - 已给 `categoryName`：先调用 `action=list_categories`
+   - 若在同一个 `parentCategoryId` 下找到唯一同名分类，复用它
+   - 若没找到，再调用 `action=create_category`
+   - 得到分类 ID 后，再调用 `action=assign_category`
+6. `categoryName` 流程里，若同一父分类下出现多个完全同名分类，停止并要求 owner 先整理分类或改用明确的 `categoryId`。
+7. 远端创建和可选的分类阶段成功后，再立刻转入 `bind-local` 的本地绑定步骤。
+8. `isMain=true` 只在确实要创建新的主 API agent 时使用；一般后续新增 agent 默认不打开。
+9. 整个 `create-and-bind` 流程里不要主动执行 `openclaw gateway restart`；只有本地配置、校验都成功，但运行态仍明显是旧结果时，才把重启当成定向补救。
+
+## Mode C: category-manage（分类管理）
+
+写在 `grix_admin.task` 里的字段：
+
+1. 第一行固定写 `category-manage`
+2. `accountId`（必填）
+3. `operation`（必填）：只允许 `list`、`create`、`update`、`assign`
+4. `name`（`create` / `update` 必填）
+5. `parentId`（`create` / `update` 必填）
+6. `sortOrder`（`create` / `update` 可选）
+7. `categoryId`（`update` / `assign` 必填；`assign` 时允许 `0` 表示清空）
+8. `agentId`（`assign` 必填）
+
+执行规则：
+
+1. 严格绑定当前会话账号，禁止跨账号执行。
+2. 全部远端步骤只允许通过 `grix_admin` 的直连动作完成，禁止手写 HTTP、禁止临时脚本。
+3. `operation=list`
+   - 调用 `action=list_categories`
+4. `operation=create`
+   - 调用 `action=create_category`
+5. `operation=update`
+   - 调用 `action=update_category`
+6. `operation=assign`
+   - 调用 `action=assign_category`
+   - `categoryId=0` 明确表示清空该 agent 当前分类
+7. 如果当前管理任务同时还包含“创建新 agent”，优先使用 `create-and-bind`，不要把远端创建拆散成别的自定义流程。
 
 ## 远端创建回退条件
 
 如果当前任务既没有现成的 `agent_name`、`agent_id`、`api_endpoint`、`api_key`，又没有可用的在线主通道或 `agent.api.create` 权限，先停止本技能，明确提示用户通过 backend admin 路径创建远端 agent。拿到这些参数后，再按 `bind-local` 执行。
 
-## Guardrails（两种模式都适用）
+## Guardrails（三种模式都适用）
 
 1. Never ask user for website account/password.
 2. `bind-local` 模式禁止再次回调 `grix-register`，避免循环路由。
-3. `create-and-bind` 只允许通过 `grix_admin` 走当前账号的 WS 通道创建；不要手写 HTTP，不要回退到旧脚本。
+3. 所有远端创建 / 分类相关动作都只允许通过 `grix_admin` 直连动作走当前账号的 WS 通道；不要手写 HTTP，不要回退到旧脚本。
 4. 完整 `api_key` 仅一次性回传，不要重复明文回显。
 5. 本地 `openclaw config set` / `validate` 没成功前，不得宣称配置完成。
 6. 安装私聊进行中时，禁止手工修改 `openclaw.json` 后再执行 `openclaw gateway restart`。
@@ -107,15 +178,19 @@ description: 负责 OpenClaw 本地配置与绑定；可接收已有远端 agent
 
 1. `bind-local` 缺少字段：明确指出缺哪个字段并停止。
 2. `create-and-bind` 缺少 `accountId` / `agentName`：明确指出缺哪个字段并停止。
-3. `create-and-bind` 返回 `code=4003` 或报文里明确提到 `agent.api.create`：告诉 owner 去 Agent 权限页授予 `agent.api.create`。
-4. 缺少远端 agent 参数且当前账号也不能创建：明确要求先完成 backend admin 创建。
-5. 本地配置失败：返回失败命令与结果并停止；重点说明是哪一步 `get` / `set` / `validate` 失败。
+3. `create-and-bind` 若同时传了 `categoryId` 和 `categoryName`：明确指出冲突并停止。
+4. `category-manage` 缺少 `operation` 或操作对应字段：明确指出缺哪个字段并停止。
+5. 远端返回 `code=4003` 或报文里明确提到 `agent.api.create`：告诉 owner 去 Agent 权限页授予 `agent.api.create`。
+6. 远端返回 `code=4003` 或报文里明确提到 `agent.category.list` / `agent.category.create` / `agent.category.update` / `agent.category.assign`：告诉 owner 去 Agent 权限页授予对应 scope。
+7. 缺少远端 agent 参数且当前账号也不能创建：明确要求先完成 backend admin 创建。
+8. 本地配置失败：返回失败命令与结果并停止；重点说明是哪一步 `get` / `set` / `validate` 失败。
 
 ## Response Style
 
-1. 明确写出当前执行的是 `bind-local` 还是 `create-and-bind`。
-2. 分阶段汇报：远端创建（如有）+ 本地配置写入 + 校验结果。
-3. 明确说明本地是否已生效，失败则给具体原因。
+1. 明确写出当前执行的是 `bind-local`、`create-and-bind` 还是 `category-manage`。
+2. 分阶段汇报：远端创建 / 分类处理（如有）/ 本地配置写入 / 校验结果。
+3. 明确说明本地是否已生效；如果只是分类步骤成功，也要单独写清楚。
+4. 如果远端创建成功但分类或本地绑定后续失败，要明确说明是“部分完成”，不要笼统写成成功。
 
 ## References
 

@@ -8,6 +8,10 @@ test("isAgentHTTPActionName recognizes supported actions", () => {
   assert.equal(isAgentHTTPActionName("message_history"), true);
   assert.equal(isAgentHTTPActionName("message_search"), true);
   assert.equal(isAgentHTTPActionName("agent_api_create"), true);
+  assert.equal(isAgentHTTPActionName("agent_category_list"), true);
+  assert.equal(isAgentHTTPActionName("agent_category_create"), true);
+  assert.equal(isAgentHTTPActionName("agent_category_update"), true);
+  assert.equal(isAgentHTTPActionName("agent_category_assign"), true);
   assert.equal(isAgentHTTPActionName("group_create"), true);
   assert.equal(isAgentHTTPActionName("group_leave_self"), true);
   assert.equal(isAgentHTTPActionName("group_member_speaking_update"), true);
@@ -259,6 +263,57 @@ test("buildAgentHTTPRequest builds agent_api_create payload", () => {
   });
 });
 
+test("buildAgentHTTPRequest builds agent_category_list request", () => {
+  const req = buildAgentHTTPRequest("agent_category_list", {});
+  assert.equal(req.method, "GET");
+  assert.equal(req.path, "/agents/categories/list");
+  assert.equal(req.query, undefined);
+  assert.equal(req.body, undefined);
+});
+
+test("buildAgentHTTPRequest builds agent_category_create payload", () => {
+  const req = buildAgentHTTPRequest("agent_category_create", {
+    name: "项目助理",
+    parentId: "0",
+    sortOrder: 10,
+  });
+  assert.equal(req.method, "POST");
+  assert.equal(req.path, "/agents/categories/create");
+  assert.deepEqual(req.body, {
+    name: "项目助理",
+    parent_id: "0",
+    sort_order: 10,
+  });
+});
+
+test("buildAgentHTTPRequest builds agent_category_update payload", () => {
+  const req = buildAgentHTTPRequest("agent_category_update", {
+    categoryId: "20001",
+    name: "值班助理",
+    parentId: "0",
+    sortOrder: 20,
+  });
+  assert.equal(req.method, "PUT");
+  assert.equal(req.path, "/agents/categories/20001");
+  assert.deepEqual(req.body, {
+    name: "值班助理",
+    parent_id: "0",
+    sort_order: 20,
+  });
+});
+
+test("buildAgentHTTPRequest builds agent_category_assign payload and supports clearing category", () => {
+  const req = buildAgentHTTPRequest("agent_category_assign", {
+    agentId: "10001",
+    categoryId: "0",
+  });
+  assert.equal(req.method, "PUT");
+  assert.equal(req.path, "/agents/10001/category");
+  assert.deepEqual(req.body, {
+    category_id: "0",
+  });
+});
+
 // ---------- buildAgentInvokeParams ----------
 
 test("buildAgentInvokeParams contact_search keeps limit as number", () => {
@@ -307,6 +362,54 @@ test("buildAgentInvokeParams agent_api_create produces correct body params", () 
     agent_name: "ops helper",
     introduction: "created from ws route",
     is_main: true,
+  });
+});
+
+test("buildAgentInvokeParams agent_category_list returns an empty payload", () => {
+  const req = buildAgentInvokeParams("agent_category_list", {});
+  assert.equal(req.action, "agent_category_list");
+  assert.deepEqual(req.params, {});
+});
+
+test("buildAgentInvokeParams agent_category_create produces correct body params", () => {
+  const req = buildAgentInvokeParams("agent_category_create", {
+    name: "项目助理",
+    parentId: "0",
+    sortOrder: 10,
+  });
+  assert.equal(req.action, "agent_category_create");
+  assert.deepEqual(req.params, {
+    name: "项目助理",
+    parent_id: "0",
+    sort_order: 10,
+  });
+});
+
+test("buildAgentInvokeParams agent_category_update includes category_id", () => {
+  const req = buildAgentInvokeParams("agent_category_update", {
+    categoryId: "20001",
+    name: "值班助理",
+    parentId: "0",
+    sortOrder: 20,
+  });
+  assert.equal(req.action, "agent_category_update");
+  assert.deepEqual(req.params, {
+    category_id: "20001",
+    name: "值班助理",
+    parent_id: "0",
+    sort_order: 20,
+  });
+});
+
+test("buildAgentInvokeParams agent_category_assign includes agent_id and clearable category_id", () => {
+  const req = buildAgentInvokeParams("agent_category_assign", {
+    agentId: "10001",
+    categoryId: "0",
+  });
+  assert.equal(req.action, "agent_category_assign");
+  assert.deepEqual(req.params, {
+    agent_id: "10001",
+    category_id: "0",
   });
 });
 

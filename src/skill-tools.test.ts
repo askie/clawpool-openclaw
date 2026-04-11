@@ -270,10 +270,12 @@ test("grix_admin delegated tool uses the single tool name and direct-create guid
   assert.equal(runArgs?.sessionKey, "agent:main:chat:skill:grix-admin");
   assert.match(String(runArgs?.message), /Do not call the grix_admin tool again with a task/i);
   assert.match(String(runArgs?.message), /call grix_admin directly without task/i);
-  assert.match(String(runArgs?.message), /Pass accountId, agentName/i);
+  assert.match(String(runArgs?.message), /create_agent\(accountId, agentName/i);
+  assert.match(String(runArgs?.message), /create_category\(accountId, name, parentId/i);
+  assert.match(String(runArgs?.message), /assign_category\(accountId, agentId, categoryId/i);
 });
 
-test("grix_admin rejects mixing task mode with direct create params", async () => {
+test("grix_admin rejects mixing task mode with direct action params", async () => {
   const api = {
     runtime: {
       subagent: {
@@ -297,8 +299,8 @@ test("grix_admin rejects mixing task mode with direct create params", async () =
   const tool = createGrixAdminTool(api, { sessionKey: "agent:main:chat" } as never);
   const result = await tool.execute("tool_call_admin_2", {
     task: "should fail",
+    action: "list_categories",
     accountId: "default",
-    agentName: "helper",
   });
   const details = result.details as Record<string, unknown>;
 

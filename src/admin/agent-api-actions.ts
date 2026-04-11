@@ -9,6 +9,10 @@ export const AGENT_HTTP_ACTION_NAMES = [
   "message_history",
   "message_search",
   "agent_api_create",
+  "agent_category_list",
+  "agent_category_create",
+  "agent_category_update",
+  "agent_category_assign",
   "group_create",
   "group_leave_self",
   "group_member_add",
@@ -24,7 +28,7 @@ export type AgentHTTPActionName = (typeof AGENT_HTTP_ACTION_NAMES)[number];
 
 export type AgentHTTPRequest = {
   actionName: AgentHTTPActionName;
-  method: "GET" | "POST";
+  method: "GET" | "POST" | "PUT";
   path: string;
   query?: Record<string, string>;
   body?: Record<string, unknown>;
@@ -50,6 +54,36 @@ function readStringParam(params: Record<string, unknown>, key: string): string {
 
 function readRequiredStringParam(params: Record<string, unknown>, key: string): string {
   const value = readStringParam(params, key);
+  if (!value) {
+    throw new Error(`Grix action requires ${key}.`);
+  }
+  return value;
+}
+
+function readOptionalNumericIdParam(
+  params: Record<string, unknown>,
+  key: string,
+  options?: { allowZero?: boolean },
+): string | undefined {
+  const value = readStringParam(params, key);
+  if (!value) {
+    return undefined;
+  }
+  if (!/^\d+$/.test(value)) {
+    throw new Error(`Grix action ${key} must be a numeric ID.`);
+  }
+  if (options?.allowZero !== true && /^0+$/.test(value)) {
+    throw new Error(`Grix action ${key} must be a non-zero numeric ID.`);
+  }
+  return value;
+}
+
+function readRequiredNumericIdParam(
+  params: Record<string, unknown>,
+  key: string,
+  options?: { allowZero?: boolean },
+): string {
+  const value = readOptionalNumericIdParam(params, key, options);
   if (!value) {
     throw new Error(`Grix action requires ${key}.`);
   }
@@ -505,9 +539,64 @@ function buildAgentAPICreateRequest(params: Record<string, unknown>): AgentHTTPR
   };
 }
 
+function buildAgentCategoryMutationBody(params: Record<string, unknown>): Record<string, unknown> {
+  const name = readRequiredStringParam(params, "name");
+  const parentId = readRequiredNumericIdParam(params, "parentId", { allowZero: true });
+  const sortOrder = readOptionalInt(params, "sortOrder");
+
+  const body: Record<string, unknown> = {
+    name,
+    parent_id: parentId,
+  };
+  if (sortOrder != null) {
+    body.sort_order = sortOrder;
+  }
+  return body;
+}
+
+function buildAgentCategoryListRequest(): AgentHTTPRequest {
+  return {
+    actionName: "agent_category_list",
+    method: "GET",
+    path: "/agents/categories/list",
+  };
+}
+
+function buildAgentCategoryCreateRequest(params: Record<string, unknown>): AgentHTTPRequest {
+  return {
+    actionName: "agent_category_create",
+    method: "POST",
+    path: "/agents/categories/create",
+    body: buildAgentCategoryMutationBody(params),
+  };
+}
+
+function buildAgentCategoryUpdateRequest(params: Record<string, unknown>): AgentHTTPRequest {
+  const categoryId = readRequiredNumericIdParam(params, "categoryId");
+  return {
+    actionName: "agent_category_update",
+    method: "PUT",
+    path: `/agents/categories/${encodeURIComponent(categoryId)}`,
+    body: buildAgentCategoryMutationBody(params),
+  };
+}
+
+function buildAgentCategoryAssignRequest(params: Record<string, unknown>): AgentHTTPRequest {
+  const agentId = readRequiredNumericIdParam(params, "agentId");
+  const categoryId = readRequiredNumericIdParam(params, "categoryId", { allowZero: true });
+  return {
+    actionName: "agent_category_assign",
+    method: "PUT",
+    path: `/agents/${encodeURIComponent(agentId)}/category`,
+    body: {
+      category_id: categoryId,
+    },
+  };
+}
+
 // ---------- WS agentInvoke param builders ----------
 // Unlike HTTP builders, numeric params (limit, offset) keep their original types.
-// POST-based actions reuse the existing body directly.
+// Body-based actions reuse the existing body directly where possible.
 
 export type AgentInvokeRequest = {
   action: string;
@@ -561,6 +650,24 @@ function buildMessageSearchInvokeParams(rawParams: Record<string, unknown>): Rec
   return result;
 }
 
+function buildAgentCategoryUpdateInvokeParams(
+  rawParams: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    category_id: readRequiredNumericIdParam(rawParams, "categoryId"),
+    ...buildAgentCategoryMutationBody(rawParams),
+  };
+}
+
+function buildAgentCategoryAssignInvokeParams(
+  rawParams: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    agent_id: readRequiredNumericIdParam(rawParams, "agentId"),
+    category_id: readRequiredNumericIdParam(rawParams, "categoryId", { allowZero: true }),
+  };
+}
+
 export function buildAgentInvokeParams(
   action: AgentHTTPActionName,
   rawParams: Record<string, unknown>,
@@ -576,6 +683,14 @@ export function buildAgentInvokeParams(
       return { action, params: buildMessageSearchInvokeParams(rawParams) };
     case "agent_api_create":
       return { action, params: buildAgentAPICreateRequest(rawParams).body ?? {} };
+    case "agent_category_list":
+      return { action, params: {} };
+    case "agent_category_create":
+      return { action, params: buildAgentCategoryCreateRequest(rawParams).body ?? {} };
+    case "agent_category_update":
+      return { action, params: buildAgentCategoryUpdateInvokeParams(rawParams) };
+    case "agent_category_assign":
+      return { action, params: buildAgentCategoryAssignInvokeParams(rawParams) };
     // POST actions: body already has correct types — reuse existing builders
     case "group_create":
       return { action, params: buildGroupCreateRequest(rawParams).body ?? {} };
@@ -619,6 +734,14 @@ export function buildAgentHTTPRequest(
       return buildMessageSearchRequest(params);
     case "agent_api_create":
       return buildAgentAPICreateRequest(params);
+    case "agent_category_list":
+      return buildAgentCategoryListRequest();
+    case "agent_category_create":
+      return buildAgentCategoryCreateRequest(params);
+    case "agent_category_update":
+      return buildAgentCategoryUpdateRequest(params);
+    case "agent_category_assign":
+      return buildAgentCategoryAssignRequest(params);
     case "group_create":
       return buildGroupCreateRequest(params);
     case "group_leave_self":

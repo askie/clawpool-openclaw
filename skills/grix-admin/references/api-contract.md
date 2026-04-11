@@ -2,52 +2,151 @@
 
 ## Purpose
 
-`grix-admin` 负责本地绑定，并在当前 agent 已具备 `agent.api.create` scope 时支持通过 `grix_admin` 走 WS 创建新的远端 API agent。
+`grix-admin` 负责本地绑定，并在当前 agent 已具备对应 scope 时，支持通过 `grix_admin` 走 WS 完成：
+
+1. 创建新的远端 API agent
+2. 查询当前账号下的 agent 分类
+3. 创建分类
+4. 修改分类
+5. 给指定 agent 挂分类或清空分类
 
 ## Base Rules
 
 1. Do not ask users to provide website account/password for this flow.
-2. Remote create, when used, must go through `grix_admin` on the current account's authenticated WS channel.
-3. If `agent_name` / `agent_id` / `api_endpoint` / `api_key` is incomplete and the current account cannot create, stop and ask for backend admin completion first.
+2. 所有远端创建和分类动作都必须通过 `grix_admin` 走当前账号已认证的 WS 通道。
+3. 如果 `agent_name` / `agent_id` / `api_endpoint` / `api_key` 不完整，且当前账号也不能远端创建，先停止并要求 backend admin 先补全。
+4. 当前 agent 必须先在前端权限页勾选对应 scope；没有 scope 时，WS 会直接失败。
+
+## Direct `grix_admin` Contract
+
+### 1. Create Remote Agent
+
+```json
+{
+  "action": "create_agent",
+  "accountId": "grix-main",
+  "agentName": "ops helper",
+  "introduction": "负责发布和值班协作",
+  "isMain": false
+}
+```
+
+返回里重点读取：
+
+1. `createdAgent.id`
+2. `createdAgent.agent_name`
+3. `createdAgent.api_endpoint`
+4. `createdAgent.api_key`
+
+需要的 scope：
+
+1. `agent.api.create`
+
+### 2. List Categories
+
+```json
+{
+  "action": "list_categories",
+  "accountId": "grix-main"
+}
+```
+
+需要的 scope：
+
+1. `agent.category.list`
+
+### 3. Create Category
+
+```json
+{
+  "action": "create_category",
+  "accountId": "grix-main",
+  "name": "项目助理",
+  "parentId": "0",
+  "sortOrder": 10
+}
+```
+
+需要的 scope：
+
+1. `agent.category.create`
+
+### 4. Update Category
+
+```json
+{
+  "action": "update_category",
+  "accountId": "grix-main",
+  "categoryId": "20001",
+  "name": "值班助理",
+  "parentId": "0",
+  "sortOrder": 20
+}
+```
+
+需要的 scope：
+
+1. `agent.category.update`
+
+### 5. Assign or Clear Category
+
+```json
+{
+  "action": "assign_category",
+  "accountId": "grix-main",
+  "agentId": "10001",
+  "categoryId": "20001"
+}
+```
+
+清空分类：
+
+```json
+{
+  "action": "assign_category",
+  "accountId": "grix-main",
+  "agentId": "10001",
+  "categoryId": "0"
+}
+```
+
+需要的 scope：
+
+1. `agent.category.assign`
 
 ## Local Bind Steps
 
-After remote agent parameters are ready, continue with local OpenClaw binding through official CLI commands:
+当远端 agent 参数齐全后，继续通过 OpenClaw 官方 CLI 完成本地绑定：
 
-1. prepare local paths first:
+1. 准备本地目录：
    - `workspace=~/.openclaw/workspace-<agent_name>`
    - `agentDir=~/.openclaw/agents/<agent_name>/agent`
-   - create minimal `AGENTS.md` / `MEMORY.md` / `USER.md` when missing
-2. resolve `model` in this order:
-   - existing local agent entry's `model`
+   - 缺必要 persona 文件时补最小 `IDENTITY.md`、`SOUL.md`、`AGENTS.md`
+2. 按以下顺序解析 `model`：
+   - 该本地 agent 现有条目的 `model`
    - `agents.defaults.model.primary`
-   - if still empty, stop and report missing model explicitly
-3. read current values; when a path is absent, treat it as empty object / empty array before merging:
+   - 还拿不到就明确报错并停止
+3. 读取当前配置并合并：
    - `channels.grix.accounts`
    - `agents.list`
    - `tools.profile`
    - `tools.alsoAllow`
    - `tools.sessions.visibility`
-   - if needed, inspect existing bindings with `openclaw agents bindings --agent <agent_name> --json`
-4. write merged config back with official CLI commands:
+4. 用官方 CLI 写回：
    - `channels.grix.accounts.<agent_name>`
    - `agents.list`
    - `openclaw agents bind --agent <agent_name> --bind grix:<agent_name>`
    - `tools.profile`
-   - `tools.alsoAllow` (global defaults only: `message`, `grix_query`, `grix_group`, `grix_register`, `grix_message_send`, `grix_message_unsend`)
-   - if this target is the main agent, merge `grix_admin` / `grix_egg` / `grix_update` / `openclaw_memory_setup` into that agent's own `tools.alsoAllow` inside `agents.list`; do not place them in global `tools.alsoAllow`
+   - `tools.alsoAllow`
    - `tools.sessions.visibility`
-   - if `channels.grix.enabled=false`, set it back to `true`
-5. validate after write:
+   - 如需，恢复 `channels.grix.enabled=true`
+5. 写完后校验：
    - `openclaw config validate`
    - `openclaw config get --json channels.grix.accounts.<agent_name>`
    - `openclaw config get --json agents.list`
    - `openclaw agents bindings --agent <agent_name> --json`
-6. do not run `openclaw gateway restart` inside an active install chat; `openclaw config set` and `openclaw agents bind` should hot-reload the config immediately
 
-## bind-local Input Contract
-
-When called from `grix-register`, `grix-admin` should usually be entered through `grix_admin.task`:
+## `bind-local` Input Contract
 
 ```json
 {
@@ -55,21 +154,52 @@ When called from `grix-register`, `grix-admin` should usually be entered through
 }
 ```
 
-In this mode, execute local bind directly.
+这个模式只做本地绑定。
 
-## create-and-bind Input Contract
+## `create-and-bind` Input Contract
 
-When the main agent already has a working Grix account plus `agent.api.create` scope, `grix-admin` can be entered through `grix_admin.task`, then create the remote API agent through one direct `grix_admin` call, then continue the local bind:
+当主 agent 已具备可用账号和 `agent.api.create` scope 时，可通过 `grix_admin.task` 进入创建流程：
 
 ```json
 {
-  "task": "create-and-bind\naccountId=grix-main\nagentName=ops helper\nintroduction=负责发布和值班协作\nisMain=false"
+  "task": "create-and-bind\naccountId=grix-main\nagentName=ops helper\nintroduction=负责发布和值班协作\nisMain=false\ncategoryName=项目助理\nparentCategoryId=0\ncategorySortOrder=10"
 }
 ```
 
-In this mode:
+这个模式里要按顺序做：
 
-1. call `grix_admin` exactly once without `task`
-2. expect `createdAgent.id`, `createdAgent.agent_name`, `createdAgent.api_endpoint`, `createdAgent.api_key`
-3. continue with the same local bind steps as `bind-local`
-4. if the WS call fails with missing `agent.api.create`, ask owner to grant the scope before retrying
+1. 直连一次 `action=create_agent`
+2. 如果给了 `categoryId`，直连一次 `action=assign_category`
+3. 如果给了 `categoryName`，先 `action=list_categories`
+4. 没找到就 `action=create_category`
+5. 拿到分类 ID 后再 `action=assign_category`
+6. 最后走和 `bind-local` 相同的本地绑定流程
+
+注意：
+
+1. `categoryId` 和 `categoryName` 不能同时提供
+2. `categoryName` 匹配时要同时考虑 `parentCategoryId`
+3. 若远端返回缺少 `agent.api.create` 或某个 `agent.category.*` scope，要明确指出缺的就是哪个 scope
+
+## `category-manage` Input Contract
+
+当只是做后续分类管理时，通过 `grix_admin.task` 进入：
+
+```json
+{
+  "task": "category-manage\naccountId=grix-main\noperation=assign\nagentId=10001\ncategoryId=0"
+}
+```
+
+映射关系：
+
+1. `operation=list` -> `action=list_categories`
+2. `operation=create` -> `action=create_category`
+3. `operation=update` -> `action=update_category`
+4. `operation=assign` -> `action=assign_category`
+
+其中：
+
+1. `operation=assign` 时 `categoryId=0` 表示清空分类
+2. 任何一步都不能跨账号执行
+3. 禁止自己手写 HTTP 或回退到旧脚本
