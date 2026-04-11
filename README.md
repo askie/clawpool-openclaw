@@ -284,12 +284,3 @@ These approval settings are also written through `openclaw config set`. OpenClaw
 openclaw gateway restart
 ```
 
-## Docs
-
-- Group message dispatch and OpenClaw receive behavior: `docs/01_group_message_dispatch.md`
-- OpenClaw / AIBot protocol and command mapping: `docs/03_grix_openclaw_protocol_mapping.md`
-- Plugin / server boundary refactor plan: `docs/04_grix_plugin_server_boundary_refactor_plan.md`
-- Cross-project phase alignment: `docs/05_cross_project_phase_alignment.md`
-- Plugin architecture and module diagram: `docs/06_grix_plugin_architecture.md`
-- AIBot / OpenClaw capability contract draft: `docs/07_aibot_openclaw_capability_contract_draft.md`
-- `docs/04...` 负责“责任归谁”，`docs/07...` 负责“协议长什么样”，`docs/03...` 负责“当前做到哪里”
