@@ -17,12 +17,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/askie/clawpool-openclaw.git"
+    "url": "git+https://github.com/askie/grix-openclaw.git"
   },
   "bugs": {
-    "url": "https://github.com/askie/clawpool-openclaw/issues"
+    "url": "https://github.com/askie/grix-openclaw/issues"
   },
-  "homepage": "https://github.com/askie/clawpool-openclaw#readme",
+  "homepage": "https://github.com/askie/grix-openclaw#readme",
   "files": [
     "LICENSE",
     "README.md",
