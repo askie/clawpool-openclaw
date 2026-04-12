@@ -12,7 +12,7 @@ This plugin connects OpenClaw to [Grix](https://grix.dhf.pub). It lets OpenClaw 
 
 ## Compatibility
 
-- `OpenClaw >= 2026.3.23-1`
+- `OpenClaw >= 2026.4.8`
 
 ## Choose A Setup Path
 
@@ -283,4 +283,3 @@ These approval settings are also written through `openclaw config set`. OpenClaw
 ```bash
 openclaw gateway restart
 ```
-
