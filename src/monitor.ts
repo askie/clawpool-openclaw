@@ -34,6 +34,7 @@ import {
 } from "./inbound-event-recovery.ts";
 import { resolveGrixInboundSemantics } from "./group-semantics.ts";
 import { buildGrixInboundHistory } from "./inbound-history.ts";
+import { parseInboundInteractionMessage } from "./inbound-interaction.ts";
 import { buildInboundMediaFields, buildInboundThreadFields } from "./inbound-openclaw-fields.ts";
 import {
   type AppendOnlyReplyStream,
@@ -347,7 +348,22 @@ async function processEvent(params: {
   }
   const eventId = toStringId(event.event_id);
   const quotedMessageId = normalizeNumericMessageId(event.quoted_message_id);
-  const bodyForAgent = rawBody;
+  const interaction = parseInboundInteractionMessage(rawBody);
+  const interactionTypes = interaction.submissions.map((submission) => submission.type);
+  const interactionResultsJson =
+    interaction.submissions.length > 0
+      ? JSON.stringify(
+          interaction.submissions.map((submission) => ({
+            type: submission.type,
+            status: submission.status,
+            payload: submission.payload,
+            error: submission.error,
+            commandText: submission.commandText,
+          })),
+        )
+      : undefined;
+  const normalizedCommandBody = interaction.commandText ?? rawBody;
+  const bodyForAgent = normalizedCommandBody;
   const mirrorMode = resolveMirrorMode(event.mirror_mode);
   const recordOnly = mirrorMode === "record_only";
 
@@ -406,7 +422,7 @@ async function processEvent(params: {
     return;
   }
   runtime.log(
-    `[grix:${account.accountId}] inbound event ${baseLogContext} chatType=${chatType} eventType=${semantics.eventType || "-"} mirrorMode=${mirrorMode} wasMentioned=${semantics.wasMentioned ? "true" : "false"} mentionsOther=${semantics.mentionsOther ? "true" : "false"} bodyLen=${rawBody.length} attachmentCount=${inboundMediaFields.attachmentCount} quotedMessageId=${quotedMessageId || "-"} threadId=${inboundThreadFields.MessageThreadId ?? "-"}`,
+    `[grix:${account.accountId}] inbound event ${baseLogContext} chatType=${chatType} eventType=${semantics.eventType || "-"} mirrorMode=${mirrorMode} wasMentioned=${semantics.wasMentioned ? "true" : "false"} mentionsOther=${semantics.mentionsOther ? "true" : "false"} bodyLen=${rawBody.length} interactionCount=${interaction.submissions.length} interactionTypes=${interactionTypes.join(",") || "-"} attachmentCount=${inboundMediaFields.attachmentCount} quotedMessageId=${quotedMessageId || "-"} threadId=${inboundThreadFields.MessageThreadId ?? "-"}`,
   );
 
   if (!recoveryHandle) {
@@ -513,7 +529,7 @@ async function processEvent(params: {
       BodyForAgent: bodyForAgent,
       InboundHistory: inboundHistory,
       RawBody: rawBody,
-      CommandBody: rawBody,
+      CommandBody: normalizedCommandBody,
       // Grix inbound text is end-user chat content; do not parse it as OpenClaw slash/bang commands.
       BodyForCommands: "",
       From: from,
@@ -532,6 +548,9 @@ async function processEvent(params: {
       ReplyToIdFull: quotedMessageId,
       ...inboundMediaFields,
       ...inboundThreadFields,
+      InteractionResultCount: interaction.submissions.length || undefined,
+      InteractionResultTypes: interactionTypes.length > 0 ? interactionTypes : undefined,
+      InteractionResultsJson: interactionResultsJson,
       WasMentioned: isGroup ? semantics.wasMentioned : undefined,
       OriginatingChannel: "grix",
       OriginatingTo: to,
